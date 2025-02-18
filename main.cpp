@@ -2,6 +2,9 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
+#include <random>
 #include "setup.h"
 #include "keygen.h"
 #include "DIDgen.h"
@@ -9,21 +12,36 @@
 int main() {
     using Clock = std::chrono::steady_clock;
     
-    // 1. Kullanıcıdan EA otoritesi sayısı (ne) ve eşik değeri (t) alınması
-    int t, ne;
-    std::cout << "EA otoritesi sayisi kac olacak? ";
-    std::cin >> ne;
-    std::cout << "Esik degeri (t) kac? (Polinom derecesi = t-1 olacak) ";
-    std::cin >> t;
-    std::cout << "\n";
+    // 1. params.txt dosyasından parametreleri oku
+    int ne, t, voterCount;
+    std::ifstream infile("params.txt");
+    if (!infile) {
+        std::cerr << "Error: params.txt bulunamadi!" << std::endl;
+        return 1;
+    }
+    std::string line;
+    while (std::getline(infile, line)) {
+        if (line.find("ea=") == 0)
+            ne = std::stoi(line.substr(3));
+        else if (line.find("threshold=") == 0)
+            t = std::stoi(line.substr(10));
+        else if (line.find("votercount=") == 0)
+            voterCount = std::stoi(line.substr(11));
+    }
+    infile.close();
     
-    // 2. Setup aşaması: Sistem parametrelerinin oluşturulması
+    std::cout << "params.txt'den okunan degerler:" << std::endl;
+    std::cout << "EA otoritesi sayisi: " << ne << std::endl;
+    std::cout << "Esik degeri (t): " << t << " (Polinom derecesi = t-1)" << std::endl;
+    std::cout << "Secmen sayisi: " << voterCount << "\n\n";
+    
+    // 2. Setup aşaması: Sistem parametrelerini oluştur
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
     auto setupDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
     
-    // Debug: Setup parametrelerinin çıktıları
+    // Debug: Setup çıktıları
     {
         char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
         std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
@@ -45,7 +63,7 @@ int main() {
         std::cout << "g2 (G2 uretec) =\n" << buffer << "\n\n";
     }
     
-    // 3. Pairing testi: G1 ve G2 arasında bilinear eşleme
+    // 3. Pairing testi
     std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
     element_t gtResult;
     element_init_GT(gtResult, params.pairing);
@@ -61,14 +79,14 @@ int main() {
     }
     element_clear(gtResult);
     
-    // 4. Anahtar Üretimi (Key Generation) aşaması (Coconut TTP'siz / Pedersen's DKG)
+    // 4. Anahtar Üretimi (Key Generation)
     std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygenDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
     
-    // Master doğrulama anahtarı (mvk) çıktıları
+    // Master doğrulama anahtarı çıktıları
     {
         char buffer[1024];
         element_snprintf(buffer, sizeof(buffer), "%B", keyOut.mvk.alpha2);
@@ -85,7 +103,7 @@ int main() {
         std::cout << "mvk.beta1 (g1^(∏ G_i(0))) =\n" << buffer << "\n\n";
     }
     
-    // EA otoriteleri için anahtar çıktıları
+    // EA otoriteleri çıktıları
     for (int i = 0; i < ne; i++) {
         std::cout << "=== EA Authority " << (i + 1) << " ===\n";
         {
@@ -116,27 +134,34 @@ int main() {
         std::cout << "\n";
     }
     
-    // 5. Seçmen (voter) sayısını kullanıcıdan alma
-    int voterCount;
-    std::cout << "Kac tane secmen (voter) var? ";
-    std::cin >> voterCount;
-    std::cout << "\n";
+    // 5. Seçmen (voter) sayısı params.txt'den alındı (voterCount)
+    // (voterCount değişkeni params.txt'den okundu)
+    std::cout << "Secmen sayisi: " << voterCount << "\n\n";
     
-    // 6. Her seçmen için gerçek ID girilerek DID oluşturulması (SHA-512 hash)
+    // 6. Her seçmen için gerçek ID'yi kullanıcıdan sormadan rastgele 11 haneli sayisal ID oluştur ve DID üret
     std::vector<DID> dids(voterCount);
     auto startDID = Clock::now();
+    
+    // Random 11 haneli sayı üretimi için C++11 random kütüphanesi kullanılıyor.
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    // 11 haneli sayı aralığı: [10000000000, 99999999999]
+    std::uniform_int_distribution<unsigned long long> dist(10000000000ULL, 99999999999ULL);
+    
     for (int i = 0; i < voterCount; i++) {
-        std::string realID;
-        std::cout << "Secmen " << (i+1) << " icin gercek ID (11 haneli sayisal) giriniz: ";
-        std::cin >> realID;
+        // Rastgele 11 haneli sayı oluştur ve string'e çevir
+        unsigned long long randNum = dist(gen);
+        std::string realID = std::to_string(randNum);
         dids[i] = createDID(params, realID);
+        
+        // x değeri ve DID çıktısını yazdır
         {
             char buffer[1024];
             element_snprintf(buffer, sizeof(buffer), "%B", dids[i].x);
             std::cout << "Secmen " << (i+1) << " icin x degeri = " << buffer << "\n";
         }
-        std::cout << "Secmen " << (i+1) << " icin DID (SHA512 hash) = " << dids[i].did << "\n";
-        std::cout << "Secmen " << (i+1) << " gercek ID = " << dids[i].realID << "\n\n";
+        std::cout << "Secmen " << (i+1) << " icin gercek ID = " << realID << "\n";
+        std::cout << "Secmen " << (i+1) << " icin DID (SHA512 hash) = " << dids[i].did << "\n\n";
     }
     auto endDID = Clock::now();
     auto didDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endDID - startDID).count();

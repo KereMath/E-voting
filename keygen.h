@@ -32,7 +32,7 @@ struct KeyGenOutput {
 };
 
 // Coconut TTP’siz Anahtar Üretimi (Pedersen’s DKG) fonksiyonu
-// Girdi: params (setup parametreleri), t (eşik; polinom derecesi = t-1), ne (EA sayısı)
+// Girdi: params, t (eşik; polinom derecesi = t-1), ne (EA sayısı)
 // Çıktı: mvk ve her EA için (sgk, vkm)
 KeyGenOutput keygen(TIACParams &params, int t, int ne);
 
