@@ -8,6 +8,7 @@
 #include "setup.h"
 #include "keygen.h"
 #include "DIDgen.h"
+#include "prepareblindsign.h"
 
 int main() {
     using Clock = std::chrono::steady_clock;
@@ -63,7 +64,7 @@ int main() {
         std::cout << "g2 (G2 uretec) =\n" << buffer << "\n\n";
     }
     
-    // 3. Pairing testi: G1 ve G2 arasında bilinear eşleme
+    // 3. Pairing testi
     std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
     element_t gtResult;
     element_init_GT(gtResult, params.pairing);
@@ -86,7 +87,7 @@ int main() {
     auto endKeygen = Clock::now();
     auto keygenDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
     
-    // Master doğrulama anahtarı (mvk) çıktıları
+    // Master doğrulama anahtarı çıktıları
     {
         char buffer[1024];
         element_snprintf(buffer, sizeof(buffer), "%B", keyOut.mvk.alpha2);
@@ -134,10 +135,10 @@ int main() {
         std::cout << "\n";
     }
     
-    // 5. Seçmen (voter) sayısı, params.txt'den okundu
+    // 5. Seçmen (voter) sayısı, params.txt'den alındı
     std::cout << "Secmen sayisi: " << voterCount << "\n\n";
     
-    // 6. ID Generation: Rastgele 11 haneli sayısal ID'lerin oluşturulması
+    // 6. ID Generation: Rastgele 11 haneli sayısal ID'ler oluşturulması
     std::vector<std::string> voterIDs(voterCount);
     std::random_device rd;
     std::mt19937_64 gen(rd());
@@ -167,7 +168,54 @@ int main() {
     auto endDIDGen = Clock::now();
     auto didGenDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
     
-    // 8. Bellek temizliği: mvk ve EA anahtar bileşenleri
+    // 8. Prepare Blind Sign: Her seçmen kendi blind imza mesajını hazırlasın
+    std::vector<BlindSignOutput> bsOutputs(voterCount);
+    auto startBlindSign = Clock::now();
+    for (int i = 0; i < voterCount; i++) {
+        bsOutputs[i] = prepareBlindSign(params, voterIDs[i]);
+        std::cout << "=== Secmen " << (i+1) << " icin Prepare Blind Sign Sonuclari ===\n";
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].comi);
+            std::cout << "comi = " << buffer << "\n";
+        }
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].h);
+            std::cout << "h = " << buffer << "\n";
+        }
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].com);
+            std::cout << "com = " << buffer << "\n";
+        }
+        // Proof output
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].pi_s.c);
+            std::cout << "πs.c = " << buffer << "\n";
+        }
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].pi_s.s1);
+            std::cout << "πs.s1 = " << buffer << "\n";
+        }
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].pi_s.s2);
+            std::cout << "πs.s2 = " << buffer << "\n";
+        }
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].pi_s.s3);
+            std::cout << "πs.s3 = " << buffer << "\n";
+        }
+        std::cout << "\n";
+    }
+    auto endBlindSign = Clock::now();
+    auto blindSignDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endBlindSign - startBlindSign).count();
+    
+    // 9. Bellek temizliği: mvk ve EA anahtar bileşenleri
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
     element_clear(keyOut.mvk.beta1);
@@ -179,21 +227,23 @@ int main() {
         element_clear(keyOut.eaKeys[i].vkm3);
     }
     
-    // 9. Setup parametrelerini temizle
+    // 10. Setup parametrelerini temizle
     clearParams(params);
     
-    // 10. Tüm ölçüm sürelerini ms cinsine çevirip raporla
+    // 11. Süre ölçümleri (ms cinsinden)
     double setup_ms    = setupDuration_us / 1000.0;
     double pairing_ms  = pairingDuration_us / 1000.0;
     double keygen_ms   = keygenDuration_us / 1000.0;
     double idGen_ms    = idGenDuration_us / 1000.0;
     double didGen_ms   = didGenDuration_us / 1000.0;
+    double blindSign_ms= blindSignDuration_us / 1000.0;
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi: " << setup_ms << " ms\n";
     std::cout << "Pairing suresi: " << pairing_ms << " ms\n";
     std::cout << "Key Generation suresi: " << keygen_ms << " ms\n";
     std::cout << "ID Generation suresi: " << idGen_ms << " ms\n";
     std::cout << "DID Generation suresi: " << didGen_ms << " ms\n";
+    std::cout << "Prepare Blind Sign suresi: " << blindSign_ms << " ms\n";
     
     std::cout << "\n=== Program Sonu ===\n";
     return 0;
