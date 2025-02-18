@@ -23,12 +23,12 @@ struct MasterVK {
 // Key Generation işleminin çıktı yapısı
 struct KeyGenOutput {
     MasterVK mvk;
-    std::vector<EAKey> eaKeys; // EA otoritelerinin anahtarları (m = 1,..., ne)
+    std::vector<EAKey> eaKeys; // EA otoritelerinin anahtarları (m ∈ {1, …, ne})
 };
 
 // Coconut TTP ile Anahtar Üretimi fonksiyonu
 // Girdi: params (setup parametreleri), t (eşik), ne (EA otoritesi sayısı)
-// Çıktı: Master doğrulama anahtarı mvk ve EA'ların (sgkm, vkm) anahtarları.
-KeyGenOutput keygen(const TIACParams &params, int t, int ne);
+// Çıktı: mvk, ve her EA için (sgkm, vkm)
+KeyGenOutput keygen(TIACParams &params, int t, int ne);
 
 #endif

@@ -4,9 +4,9 @@
 #include <vector>
 #include <iostream>
 
-// keygen fonksiyonunda kullanılacak yardımcı: polinom değerlendirmesi (Horner yöntemi)
-static void evaluatePoly(const std::vector<element_t> &coeff, int m, const TIACParams &params, element_t result) {
-    // m'yi Zr elemanı olarak ayarla.
+// Yardımcı: Horner yöntemi ile polinom değerlendirmesi
+// Not: Katsayı vektörünü const referans yerine non-const referans alıyoruz.
+static void evaluatePoly(std::vector<element_t> &coeff, int m, TIACParams &params, element_t result) {
     element_t m_val;
     element_init_Zr(m_val, params.pairing);
     element_set_si(m_val, m);
@@ -21,10 +21,10 @@ static void evaluatePoly(const std::vector<element_t> &coeff, int m, const TIACP
     element_clear(m_val);
 }
 
-KeyGenOutput keygen(const TIACParams &params, int t, int ne) {
+KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     KeyGenOutput output;
     
-    // 1. Zr'de t adet (t-1 derece) polinom katsayısı seç: v(z) ve w(z)
+    // 1. Zr'de t adet (derecesi t-1) polinom katsayısı seç: v(z) ve w(z)
     std::vector<element_t> v_coeff(t), w_coeff(t);
     for (int i = 0; i < t; i++) {
         element_init_Zr(v_coeff[i], params.pairing);
@@ -97,7 +97,7 @@ KeyGenOutput keygen(const TIACParams &params, int t, int ne) {
         output.eaKeys[m - 1] = ea;
     }
     
-    // 5. Temizlik: Polinom katsayılarını serbest bırakın.
+    // 5. Polinom katsayılarını serbest bırakın.
     for (int i = 0; i < t; i++) {
         element_clear(v_coeff[i]);
         element_clear(w_coeff[i]);
