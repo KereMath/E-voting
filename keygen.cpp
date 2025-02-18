@@ -5,18 +5,17 @@
 #include <iostream>
 
 // Yardımcı: Horner yöntemi ile polinom değerlendirmesi
-// Katsayılar pointer listesi (std::vector<element_t*>) olarak verilir.
-// Polinom: P(X) = coeff[0] + coeff[1]*X + ... + coeff[n-1]*X^(n-1)
-static void evaluatePoly(std::vector<element_t*> &coeff, int X, TIACParams &params, element_t result) {
+// Katsayılar pointer listesi: std::vector<element_s*>
+static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &params, element_t result) {
     element_t X_val;
     element_init_Zr(X_val, params.pairing);
     element_set_si(X_val, X);
     
     // result = coeff[0]
-    element_set(result, *coeff[0]);
+    element_set(result, coeff[0]);
     for (size_t i = 1; i < coeff.size(); i++) {
         element_mul(result, result, X_val);
-        element_add(result, result, *coeff[i]);
+        element_add(result, result, coeff[i]);
     }
     element_clear(X_val);
 }
@@ -24,17 +23,19 @@ static void evaluatePoly(std::vector<element_t*> &coeff, int X, TIACParams &para
 KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     KeyGenOutput output;
     
-    // 1. F ve G polinom katsayıları için 2D vector (EA sayısı x t katsayısı) pointer dizileri
-    std::vector< std::vector<element_t*> > F_coeffs(ne), G_coeffs(ne);
+    // 1. F ve G polinom katsayıları için 2D vector (EA sayısı x t katsayısı)
+    // Artık elemanlar, element_s* (yani pointer) olarak tutulacak.
+    std::vector< std::vector<element_s*> > F_coeffs(ne), G_coeffs(ne);
     for (int i = 0; i < ne; i++) {
         F_coeffs[i].resize(t);
         G_coeffs[i].resize(t);
         for (int j = 0; j < t; j++) {
-            F_coeffs[i][j] = new element_s[1]; // element_t is an array of 1 element
+            // Yeni element_s için bellek ayırıyoruz
+            F_coeffs[i][j] = new element_s;  
             element_init_Zr(F_coeffs[i][j], params.pairing);
             element_random(F_coeffs[i][j]);
             
-            G_coeffs[i][j] = new element_s[1];
+            G_coeffs[i][j] = new element_s;
             element_init_Zr(G_coeffs[i][j], params.pairing);
             element_random(G_coeffs[i][j]);
         }
@@ -47,38 +48,39 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     element_set1(prod_F0);
     element_set1(prod_G0);
     for (int i = 0; i < ne; i++) {
-        element_mul(prod_F0, prod_F0, *F_coeffs[i][0]); // F_i(0)
-        element_mul(prod_G0, prod_G0, *G_coeffs[i][0]); // G_i(0)
+        // F_i(0) = F_coeffs[i][0], G_i(0) = G_coeffs[i][0]
+        element_mul(prod_F0, prod_F0, F_coeffs[i][0]);
+        element_mul(prod_G0, prod_G0, G_coeffs[i][0]);
     }
     
     // 3. Master verification key (mvk)
-    // mvk.alpha2 = g1^(∏ F_i(0)^2)
+    // mvk.alpha2 = g1^(∏_{i} (F_i(0))^2)
     element_t temp;
     element_init_Zr(temp, params.pairing);
     element_set1(temp);
     for (int i = 0; i < ne; i++) {
         element_t square;
         element_init_Zr(square, params.pairing);
-        element_mul(square, *F_coeffs[i][0], *F_coeffs[i][0]);
+        element_mul(square, F_coeffs[i][0], F_coeffs[i][0]);
         element_mul(temp, temp, square);
         element_clear(square);
     }
     element_init_G1(output.mvk.alpha2, params.pairing);
     element_pow_zn(output.mvk.alpha2, params.g1, temp);
     
-    // mvk.beta2 = g1^(∏ G_i(0)^2)
+    // mvk.beta2 = g1^(∏_{i} (G_i(0))^2)
     element_set1(temp);
     for (int i = 0; i < ne; i++) {
         element_t square;
         element_init_Zr(square, params.pairing);
-        element_mul(square, *G_coeffs[i][0], *G_coeffs[i][0]);
+        element_mul(square, G_coeffs[i][0], G_coeffs[i][0]);
         element_mul(temp, temp, square);
         element_clear(square);
     }
     element_init_G1(output.mvk.beta2, params.pairing);
     element_pow_zn(output.mvk.beta2, params.g1, temp);
     
-    // mvk.beta1 = g1^(∏ G_i(0))
+    // mvk.beta1 = g1^(∏_{i} G_i(0))
     element_init_G1(output.mvk.beta1, params.pairing);
     element_pow_zn(output.mvk.beta1, params.g1, prod_G0);
     
@@ -114,10 +116,11 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
         element_init_Zr(ea.sgk2, params.pairing);
         element_set(ea.sgk2, sgk2);
         
-        // vkm hesaplama: vkm = (vkm1, vkm2, vkm3)
+        // vkm hesaplama: 
         // vkm1 = g1^(sgk1^2), vkm2 = g1^(sgk2^2), vkm3 = g1^(sgk2)
         element_t exp_val;
         element_init_Zr(exp_val, params.pairing);
+        
         element_mul(exp_val, sgk1, sgk1);
         element_init_G1(ea.vkm1, params.pairing);
         element_pow_zn(ea.vkm1, params.g1, exp_val);
@@ -139,10 +142,10 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     // 5. Polinom katsayılarını serbest bırakma
     for (int i = 0; i < ne; i++) {
         for (int j = 0; j < t; j++) {
-            element_clear(*F_coeffs[i][j]);
-            delete[] F_coeffs[i][j];
-            element_clear(*G_coeffs[i][j]);
-            delete[] G_coeffs[i][j];
+            element_clear(F_coeffs[i][j]);
+            delete F_coeffs[i][j];
+            element_clear(G_coeffs[i][j]);
+            delete G_coeffs[i][j];
         }
     }
     

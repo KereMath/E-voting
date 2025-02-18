@@ -8,14 +8,14 @@ int main() {
     
     std::cout << "=== TIAC/Coconut 256-bit Setup Basladi ===\n\n";
     
-    // 1. Setup aşaması: Sistem parametrelerini oluştur
+    // 1. Setup: Sistem parametrelerini oluştur
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
     auto setupDuration = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
     std::cout << "[ZAMAN] Setup icin gecen sure: " << setupDuration << " microseconds\n\n";
     
-    // Debug: Setup parametrelerini yazdırma
+    // Debug: Setup parametrelerinin bazı çıktıları
     {
         char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
         std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
@@ -53,7 +53,7 @@ int main() {
     }
     element_clear(gtResult);
     
-    // 3. Kullanıcıdan giriş alarak EA sayısını ve eşik değerini belirle
+    // 3. Kullanıcıdan giriş: EA sayısı ve eşik değeri
     int t, ne;
     std::cout << "EA otoritesi sayisi kac olacak? ";
     std::cin >> ne;
@@ -61,7 +61,7 @@ int main() {
     std::cin >> t;
     std::cout << "\n";
     
-    // 4. Anahtar Üretimi (Key Generation) aşaması
+    // 4. Anahtar Üretimi (Key Generation)
     std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
@@ -69,7 +69,7 @@ int main() {
     auto keygenDuration = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
     std::cout << "[ZAMAN] Key Generation icin gecen sure: " << keygenDuration << " microseconds\n\n";
     
-    // Master doğrulama anahtarı (mvk) çıktısını yazdırma
+    // Master doğrulama anahtarı (mvk) çıktıları
     {
         char buffer[1024];
         element_snprintf(buffer, sizeof(buffer), "%B", keyOut.mvk.alpha2);
@@ -86,7 +86,7 @@ int main() {
         std::cout << "mvk.beta1 (g1^(∏ G_i(0))) =\n" << buffer << "\n\n";
     }
     
-    // EA otoriteleri için anahtar çıktıları
+    // Her EA için anahtar çıktıları
     for (int i = 0; i < ne; i++) {
         std::cout << "=== EA Authority " << (i + 1) << " ===\n";
         {
