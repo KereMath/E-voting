@@ -5,102 +5,152 @@
 #include <iostream>
 
 // Yardımcı: Horner yöntemi ile polinom değerlendirmesi
-// Not: Katsayı vektörünü const referans yerine non-const referans alıyoruz.
-static void evaluatePoly(std::vector<element_t> &coeff, int m, TIACParams &params, element_t result) {
-    element_t m_val;
-    element_init_Zr(m_val, params.pairing);
-    element_set_si(m_val, m);
-
+// Katsayılar vektöründeki polinom için: P(X) = coeff[0] + coeff[1]*X + ... + coeff[n-1]*X^(n-1)
+static void evaluatePoly(std::vector<element_t> &coeff, int X, TIACParams &params, element_t result) {
+    element_t X_val;
+    element_init_Zr(X_val, params.pairing);
+    element_set_si(X_val, X);
+    
     // result = coeff[0]
     element_set(result, coeff[0]);
-    // Horner yöntemi: for i=1 to t-1: result = result * m_val + coeff[i]
     for (size_t i = 1; i < coeff.size(); i++) {
-        element_mul(result, result, m_val);
+        element_mul(result, result, X_val);
         element_add(result, result, coeff[i]);
     }
-    element_clear(m_val);
+    element_clear(X_val);
+}
+
+// Yardımcı: vektördeki Zr elemanlarının çarpımını hesaplar
+static void productElements(const std::vector<element_t> &vec, TIACParams &params, element_t result) {
+    element_set1(result); // Çarpımın birim elemanı (1)
+    for (size_t i = 0; i < vec.size(); i++) {
+        element_mul(result, result, vec[i]);
+    }
 }
 
 KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     KeyGenOutput output;
     
-    // 1. Zr'de t adet (derecesi t-1) polinom katsayısı seç: v(z) ve w(z)
-    std::vector<element_t> v_coeff(t), w_coeff(t);
-    for (int i = 0; i < t; i++) {
-        element_init_Zr(v_coeff[i], params.pairing);
-        element_random(v_coeff[i]);
-        element_init_Zr(w_coeff[i], params.pairing);
-        element_random(w_coeff[i]);
+    // Her EA (Yetkili Otorite) için polinom katsayılarını tutan diziler oluşturuyoruz.
+    // F_coeffs[i] : EA i+1 için F_i(X) = x_{i0} + x_{i1} X + ... + x_{it-1} X^(t-1)
+    // G_coeffs[i] : EA i+1 için G_i(X) = y_{i0} + y_{i1} X + ... + y_{it-1} X^(t-1)
+    std::vector< std::vector<element_t> > F_coeffs(ne), G_coeffs(ne);
+    for (int i = 0; i < ne; i++) {
+        F_coeffs[i].resize(t);
+        G_coeffs[i].resize(t);
+        for (int j = 0; j < t; j++) {
+            element_init_Zr(F_coeffs[i][j], params.pairing);
+            element_random(F_coeffs[i][j]);
+            element_init_Zr(G_coeffs[i][j], params.pairing);
+            element_random(G_coeffs[i][j]);
+        }
     }
     
-    // 2. Master gizli anahtar: v(0)=v_coeff[0], w(0)=w_coeff[0]
-    element_t x_master, y_master;
-    element_init_Zr(x_master, params.pairing);
-    element_init_Zr(y_master, params.pairing);
-    element_set(x_master, v_coeff[0]);
-    element_set(y_master, w_coeff[0]);
+    // Master secret: msgk = (∏_{i=1}^{ne} F_i(0), ∏_{i=1}^{ne} G_i(0))
+    element_t prod_F0, prod_G0;
+    element_init_Zr(prod_F0, params.pairing);
+    element_init_Zr(prod_G0, params.pairing);
+    element_set1(prod_F0);
+    element_set1(prod_G0);
+    for (int i = 0; i < ne; i++) {
+        // F_i(0) is the constant term = F_coeffs[i][0]
+        element_mul(prod_F0, prod_F0, F_coeffs[i][0]);
+        element_mul(prod_G0, prod_G0, G_coeffs[i][0]);
+    }
     
-    // 3. Master doğrulama anahtarı: mvk = (g1^(x_master^2), g1^(y_master^2), g1^(y_master))
-    element_t exp;
-    element_init_Zr(exp, params.pairing);
+    // Master verification key (mvk)
+    // mvk.alpha2 = g1^(∏_{i} (F_i(0))^2), mvk.beta2 = g1^(∏_{i} (G_i(0))^2), mvk.beta1 = g1^(∏_{i} G_i(0))
+    element_t temp;
+    element_init_Zr(temp, params.pairing);
     
-    // mvk.alpha2 = g1^(x_master^2)
-    element_mul(exp, x_master, x_master);
+    // temp = (F_i(0))^2 product
+    element_set1(temp);
+    for (int i = 0; i < ne; i++) {
+        element_t square;
+        element_init_Zr(square, params.pairing);
+        element_mul(square, F_coeffs[i][0], F_coeffs[i][0]);
+        element_mul(temp, temp, square);
+        element_clear(square);
+    }
     element_init_G1(output.mvk.alpha2, params.pairing);
-    element_pow_zn(output.mvk.alpha2, params.g1, exp);
+    element_pow_zn(output.mvk.alpha2, params.g1, temp);
     
-    // mvk.beta2 = g1^(y_master^2)
-    element_mul(exp, y_master, y_master);
+    // temp = product of (G_i(0))^2
+    element_set1(temp);
+    for (int i = 0; i < ne; i++) {
+        element_t square;
+        element_init_Zr(square, params.pairing);
+        element_mul(square, G_coeffs[i][0], G_coeffs[i][0]);
+        element_mul(temp, temp, square);
+        element_clear(square);
+    }
     element_init_G1(output.mvk.beta2, params.pairing);
-    element_pow_zn(output.mvk.beta2, params.g1, exp);
+    element_pow_zn(output.mvk.beta2, params.g1, temp);
     
-    // mvk.beta1 = g1^(y_master)
+    // mvk.beta1 = g1^(∏_{i} G_i(0))
     element_init_G1(output.mvk.beta1, params.pairing);
-    element_pow_zn(output.mvk.beta1, params.g1, y_master);
+    element_pow_zn(output.mvk.beta1, params.g1, prod_G0);
     
-    element_clear(exp);
-    element_clear(x_master);
-    element_clear(y_master);
+    element_clear(temp);
+    element_clear(prod_F0);
+    element_clear(prod_G0);
     
-    // 4. Her EA otoritesi için (m = 1 ... ne) anahtar üretimi:
+    // Her EA için imza ve doğrulama anahtar paylarını hesapla.
     output.eaKeys.resize(ne);
-    for (int m = 1; m <= ne; m++) {
+    // For each EA i (1-indexed, i = 1 ... ne):
+    for (int i = 1; i <= ne; i++) {
         EAKey ea;
-        // Gizli anahtar payı: sgkm = (v(m), w(m))
-        element_init_Zr(ea.sgk_x, params.pairing);
-        element_init_Zr(ea.sgk_y, params.pairing);
-        evaluatePoly(v_coeff, m, params, ea.sgk_x);
-        evaluatePoly(w_coeff, m, params, ea.sgk_y);
+        // sgk_i1 = ∏_{l=1}^{ne} F_l(i)
+        element_t sgk1, sgk2;
+        element_init_Zr(sgk1, params.pairing);
+        element_set1(sgk1);
+        element_init_Zr(sgk2, params.pairing);
+        element_set1(sgk2);
         
-        // Public anahtar bileşenleri (vkm):
-        // alpha2 = g1^(v(m)^2), beta2 = g1^(w(m)^2), beta1 = g1^(w(m))
-        element_init_G1(ea.alpha2, params.pairing);
-        element_init_G1(ea.beta2, params.pairing);
-        element_init_G1(ea.beta1, params.pairing);
+        // For each EA l (all EA's polinom evaluated at i)
+        for (int l = 0; l < ne; l++) {
+            element_t valF, valG;
+            element_init_Zr(valF, params.pairing);
+            element_init_Zr(valG, params.pairing);
+            evaluatePoly(F_coeffs[l], i, params, valF);
+            evaluatePoly(G_coeffs[l], i, params, valG);
+            element_mul(sgk1, sgk1, valF);
+            element_mul(sgk2, sgk2, valG);
+            element_clear(valF);
+            element_clear(valG);
+        }
+        // Sakla: EA i için sgk = (sgk1, sgk2)
+        element_init_Zr(ea.sgk1, params.pairing);
+        element_set(ea.sgk1, sgk1);
+        element_init_Zr(ea.sgk2, params.pairing);
+        element_set(ea.sgk2, sgk2);
         
+        // vkm hesaplama: vkm = (vkm1, vkm2, vkm3) = (g1^(sgk1^2), g1^(sgk2^2), g1^(sgk2))
         element_t exp_val;
         element_init_Zr(exp_val, params.pairing);
-        
-        // alpha2 = g1^(v(m)^2)
-        element_mul(exp_val, ea.sgk_x, ea.sgk_x);
-        element_pow_zn(ea.alpha2, params.g1, exp_val);
-        
-        // beta2 = g1^(w(m)^2)
-        element_mul(exp_val, ea.sgk_y, ea.sgk_y);
-        element_pow_zn(ea.beta2, params.g1, exp_val);
-        
-        // beta1 = g1^(w(m))
-        element_pow_zn(ea.beta1, params.g1, ea.sgk_y);
-        
+        element_mul(exp_val, sgk1, sgk1);
+        element_init_G1(ea.vkm1, params.pairing);
+        element_pow_zn(ea.vkm1, params.g1, exp_val);
+        element_mul(exp_val, sgk2, sgk2);
+        element_init_G1(ea.vkm2, params.pairing);
+        element_pow_zn(ea.vkm2, params.g1, exp_val);
+        element_init_G1(ea.vkm3, params.pairing);
+        element_pow_zn(ea.vkm3, params.g1, sgk2);
         element_clear(exp_val);
         
-        output.eaKeys[m - 1] = ea;
+        // Temizlik sgk1, sgk2
+        element_clear(sgk1);
+        element_clear(sgk2);
+        
+        output.eaKeys[i - 1] = ea;
     }
     
-    // 5. Polinom katsayılarını serbest bırakın.
-    for (int i = 0; i < t; i++) {
-        element_clear(v_coeff[i]);
-        element_clear(w_coeff[i]);
+    // Temizlik: Polinom katsayılarını serbest bırakma
+    for (int i = 0; i < ne; i++) {
+        for (int j = 0; j < t; j++) {
+            element_clear(F_coeffs[i][j]);
+            element_clear(G_coeffs[i][j]);
+        }
     }
     
     return output;
