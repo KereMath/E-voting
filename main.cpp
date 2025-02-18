@@ -9,6 +9,7 @@
 #include "keygen.h"
 #include "DIDgen.h"
 #include "prepareblindsign.h"
+#include "blindsign.h"
 
 int main() {
     using Clock = std::chrono::steady_clock;
@@ -36,7 +37,7 @@ int main() {
     std::cout << "Esik degeri (t): " << t << " (Polinom derecesi = t-1)" << std::endl;
     std::cout << "Secmen sayisi: " << voterCount << "\n\n";
     
-    // 2. Setup aşaması: Sistem parametrelerini oluştur
+    // 2. Setup: Sistem parametrelerini oluştur
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
@@ -80,14 +81,14 @@ int main() {
     }
     element_clear(gtResult);
     
-    // 4. Anahtar Üretimi (Key Generation) aşaması (Coconut TTP'siz / Pedersen's DKG)
+    // 4. Key Generation (Coconut TTP'siz / Pedersen's DKG)
     std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygenDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
     
-    // Master doğrulama anahtarı çıktıları
+    // Master verification key çıktıları
     {
         char buffer[1024];
         element_snprintf(buffer, sizeof(buffer), "%B", keyOut.mvk.alpha2);
@@ -135,14 +136,12 @@ int main() {
         std::cout << "\n";
     }
     
-    // 5. Seçmen (voter) sayısı, params.txt'den alındı
     std::cout << "Secmen sayisi: " << voterCount << "\n\n";
     
-    // 6. ID Generation: Rastgele 11 haneli sayısal ID'ler oluşturulması
+    // 5. ID Generation: Rastgele 11 haneli sayısal ID'ler oluşturulması
     std::vector<std::string> voterIDs(voterCount);
     std::random_device rd;
     std::mt19937_64 gen(rd());
-    // 11 haneli sayı aralığı: [10000000000, 99999999999]
     std::uniform_int_distribution<unsigned long long> dist(10000000000ULL, 99999999999ULL);
     auto startIDGen = Clock::now();
     for (int i = 0; i < voterCount; i++) {
@@ -152,7 +151,7 @@ int main() {
     auto endIDGen = Clock::now();
     auto idGenDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endIDGen - startIDGen).count();
     
-    // 7. DID Generation: Her seçmenin oluşturulan ID'sini kullanarak DID üretilmesi
+    // 6. DID Generation: Her seçmenin oluşturulan ID'sini kullanarak DID üretilmesi
     std::vector<DID> dids(voterCount);
     auto startDIDGen = Clock::now();
     for (int i = 0; i < voterCount; i++) {
@@ -162,13 +161,13 @@ int main() {
             element_snprintf(buffer, sizeof(buffer), "%B", dids[i].x);
             std::cout << "Secmen " << (i+1) << " icin x degeri = " << buffer << "\n";
         }
-        std::cout << "Secmen " << (i+1) << " icin gercek ID (olusturulan): " << voterIDs[i] << "\n";
+        std::cout << "Secmen " << (i+1) << " icin olusturulan ID = " << voterIDs[i] << "\n";
         std::cout << "Secmen " << (i+1) << " icin DID (SHA512 hash) = " << dids[i].did << "\n\n";
     }
     auto endDIDGen = Clock::now();
     auto didGenDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
     
-    // 8. Prepare Blind Sign: Her seçmen kendi blind imza mesajını hazırlasın
+    // 7. Prepare Blind Sign: Her seçmenin kendi prepare blind sign mesajını hazırlaması
     std::vector<BlindSignOutput> bsOutputs(voterCount);
     auto startBlindSign = Clock::now();
     for (int i = 0; i < voterCount; i++) {
@@ -189,7 +188,6 @@ int main() {
             element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].com);
             std::cout << "com = " << buffer << "\n";
         }
-        // Proof output
         {
             char buffer[1024];
             element_snprintf(buffer, sizeof(buffer), "%B", bsOutputs[i].pi_s.c);
@@ -215,6 +213,28 @@ int main() {
     auto endBlindSign = Clock::now();
     auto blindSignDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endBlindSign - startBlindSign).count();
     
+    // 8. Final Blind Signature Generation: Algoritma 12
+    // Girdi: (BlindSignOutput, voterin secret: xm, ym)
+    // Örnek: xm ve ym için DID üretiminde oluşturulan x değeri kullanılıyor (xm = did.x, ym = did.x)
+    std::vector<BlindSignature> finalSigs(voterCount);
+    auto startFinalSign = Clock::now();
+    for (int i = 0; i < voterCount; i++) {
+        finalSigs[i] = blindSign(params, bsOutputs[i], dids[i].x, dids[i].x);
+        std::cout << "=== Secmen " << (i+1) << " Final Blind Signature ===\n";
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", finalSigs[i].h);
+            std::cout << "Final Sig h = " << buffer << "\n";
+        }
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", finalSigs[i].cm);
+            std::cout << "Final Sig cm = " << buffer << "\n\n";
+        }
+    }
+    auto endFinalSign = Clock::now();
+    auto finalSignDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
+    
     // 9. Bellek temizliği: mvk ve EA anahtar bileşenleri
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
@@ -231,12 +251,13 @@ int main() {
     clearParams(params);
     
     // 11. Süre ölçümleri (ms cinsinden)
-    double setup_ms    = setupDuration_us / 1000.0;
-    double pairing_ms  = pairingDuration_us / 1000.0;
-    double keygen_ms   = keygenDuration_us / 1000.0;
-    double idGen_ms    = idGenDuration_us / 1000.0;
-    double didGen_ms   = didGenDuration_us / 1000.0;
-    double blindSign_ms= blindSignDuration_us / 1000.0;
+    double setup_ms     = setupDuration_us / 1000.0;
+    double pairing_ms   = pairingDuration_us / 1000.0;
+    double keygen_ms    = keygenDuration_us / 1000.0;
+    double idGen_ms     = idGenDuration_us / 1000.0;
+    double didGen_ms    = didGenDuration_us / 1000.0;
+    double blindSign_ms = blindSignDuration_us / 1000.0;
+    double finalSign_ms = finalSignDuration_us / 1000.0;
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi: " << setup_ms << " ms\n";
     std::cout << "Pairing suresi: " << pairing_ms << " ms\n";
@@ -244,6 +265,7 @@ int main() {
     std::cout << "ID Generation suresi: " << idGen_ms << " ms\n";
     std::cout << "DID Generation suresi: " << didGen_ms << " ms\n";
     std::cout << "Prepare Blind Sign suresi: " << blindSign_ms << " ms\n";
+    std::cout << "Final Blind Signature Generation suresi: " << finalSign_ms << " ms\n";
     
     std::cout << "\n=== Program Sonu ===\n";
     return 0;
