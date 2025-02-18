@@ -25,7 +25,7 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     element_init_Zr(o_i, params.pairing);
     element_random(o_i);
     
-    // Adım 2: comi ← g1^(o_i) · h1^(DID_elem)
+    // Adım 2: comi ← g1^(oᵢ) · h1^(DID_elem)
     element_init_G1(out.comi, params.pairing);
     {
         element_t temp1, temp2;
@@ -38,10 +38,10 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
         element_clear(temp2);
     }
     
-    // Adım 3: h ← Hash(comi) (h ∈ G₁)
+    // Adım 3: h ← Hash(comi) (h ∈ G₁) -- kanonik serileştirme kullanılarak
     {
-        std::string comiStr = elementToStr(out.comi);
-        hashToG1(comiStr, params, out.h);
+        std::string comiHex = canonicalElementToHex(out.comi);
+        hashToG1(comiHex, params, out.h);
     }
     
     // Adım 4: Rastgele o ∈ Zₚ seç
@@ -79,7 +79,8 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
         element_pow_zn(t1, params.g1, r1);
         element_pow_zn(t2, params.h1, r2);
         element_mul(comp_i, t1, t2);
-        element_clear(t1); element_clear(t2);
+        element_clear(t1);
+        element_clear(t2);
     }
     
     // (c) com′ ← g1^(r3) · h^(r2)
@@ -92,22 +93,23 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
         element_pow_zn(t1, params.g1, r3);
         element_pow_zn(t2, out.h, r2);
         element_mul(comp, t1, t2);
-        element_clear(t1); element_clear(t2);
+        element_clear(t1);
+        element_clear(t2);
     }
     
     // (d) c ← Hash(g1, h, h1, com, com′, comi, com′_i) ∈ Zₚ
     std::vector<std::string> hashData;
-    hashData.push_back(elementToStr(params.g1));
-    hashData.push_back(elementToStr(out.h));
-    hashData.push_back(elementToStr(params.h1));
-    hashData.push_back(elementToStr(out.com));
-    hashData.push_back(elementToStr(comp));
-    hashData.push_back(elementToStr(out.comi));
-    hashData.push_back(elementToStr(comp_i));
+    hashData.push_back(canonicalElementToHex(params.g1));
+    hashData.push_back(canonicalElementToHex(out.h));
+    hashData.push_back(canonicalElementToHex(params.h1));
+    hashData.push_back(canonicalElementToHex(out.com));
+    hashData.push_back(canonicalElementToHex(comp));
+    hashData.push_back(canonicalElementToHex(out.comi));
+    hashData.push_back(canonicalElementToHex(comp_i));
     element_init_Zr(out.pi_s.c, params.pairing);
     hashVectorToZr(hashData, params, out.pi_s.c);
     
-    // (e) s1 ← r1 − c·o_i, s2 ← r2 − c·(DID_elem), s3 ← r3 − c·o
+    // (e) s1 ← r1 − c · oᵢ, s2 ← r2 − c · (DID_elem), s3 ← r3 − c · o
     element_t tempZr;
     element_init_Zr(tempZr, params.pairing);
     
@@ -125,7 +127,7 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     
     element_clear(tempZr);
     
-    // (f) Temizlik: r1, r2, r3, comp, comp_i, o_i, o, DID_elem
+    // (f) Temizlik: r1, r2, r3, comp, comp_i, oᵢ, o, DID_elem
     element_clear(r1); element_clear(r2); element_clear(r3);
     element_clear(comp); element_clear(comp_i);
     element_clear(o_i); element_clear(o); element_clear(DID_elem);

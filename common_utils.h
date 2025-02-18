@@ -10,14 +10,19 @@
 #include <openssl/sha.h>
 #include "setup.h"
 
-// elementToStr: Bir element'in string temsilini döndürür.
-inline std::string elementToStr(element_t e) {
-    char buffer[1024];
-    element_snprintf(buffer, sizeof(buffer), "%B", e);
-    return std::string(buffer);
+// canonicalElementToHex: Bir element'in kanonik bayt dizisini alıp hex string'e çevirir.
+inline std::string canonicalElementToHex(element_t e) {
+    int size = element_length_in_bytes(e);
+    std::vector<unsigned char> buf(size);
+    element_to_bytes(buf.data(), e);
+    std::stringstream ss;
+    for (int i = 0; i < size; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)buf[i];
+    }
+    return ss.str();
 }
 
-// sha512Hex: Verilen stringi SHA-512 ile hash'ler, sonucu hex formatında döndürür.
+// sha512Hex: Verilen stringi SHA-512 ile hash'ler, sonucu hex string olarak döndürür.
 inline std::string sha512Hex(const std::string &input) {
     unsigned char hash[SHA512_DIGEST_LENGTH];
     SHA512(reinterpret_cast<const unsigned char*>(input.c_str()), input.size(), hash);
@@ -28,7 +33,7 @@ inline std::string sha512Hex(const std::string &input) {
     return ss.str();
 }
 
-// hashStringToZr: Verilen stringi SHA-512 ile hash'ler ve sonucu Zₚ elemanı olarak (params.pairing->r modunda) result'a aktarır.
+// hashStringToZr: Verilen stringi hash'ler ve Zₚ elemanı olarak result'a aktarır.
 inline void hashStringToZr(const std::string &input, TIACParams &params, element_t result) {
     std::string hexStr = sha512Hex(input);
     mpz_t num;
@@ -39,7 +44,7 @@ inline void hashStringToZr(const std::string &input, TIACParams &params, element
     mpz_clear(num);
 }
 
-// hashVectorToZr: Bir string vektöründeki tüm verileri birleştirip, hashStringToZr fonksiyonuyla Zₚ elemanı olarak result'a aktarır.
+// hashVectorToZr: Bir string vektöründeki verileri birleştirip, hashStringToZr ile Zₚ elemanı olarak result'a aktarır.
 inline void hashVectorToZr(const std::vector<std::string> &data, TIACParams &params, element_t result) {
     std::stringstream ss;
     for (const auto &s : data)

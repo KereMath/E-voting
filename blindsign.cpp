@@ -47,13 +47,13 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
     }
     
     std::vector<std::string> hashData;
-    hashData.push_back(elementToStr(params.g1));
-    hashData.push_back(elementToStr(h));
-    hashData.push_back(elementToStr(params.h1));
-    hashData.push_back(elementToStr(com));
-    hashData.push_back(elementToStr(comp));
-    hashData.push_back(elementToStr(comi));
-    hashData.push_back(elementToStr(comp_i));
+    hashData.push_back(canonicalElementToHex(params.g1));
+    hashData.push_back(canonicalElementToHex(h));
+    hashData.push_back(canonicalElementToHex(params.h1));
+    hashData.push_back(canonicalElementToHex(com));
+    hashData.push_back(canonicalElementToHex(comp));
+    hashData.push_back(canonicalElementToHex(comi));
+    hashData.push_back(canonicalElementToHex(comp_i));
     element_t c_prime;
     element_init_Zr(c_prime, params.pairing);
     hashVectorToZr(hashData, params, c_prime);
@@ -76,8 +76,8 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
     element_t h_prime;
     element_init_G1(h_prime, params.pairing);
     {
-        std::string comiStr = elementToStr(blindOut.comi);
-        hashToG1(comiStr, params, h_prime);
+        std::string comiHex = canonicalElementToHex(blindOut.comi);
+        hashToG1(comiHex, params, h_prime);
     }
     bool hashOk = (element_cmp(h_prime, blindOut.h) == 0);
     element_clear(h_prime);
@@ -90,7 +90,7 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
     }
     
     // Final blind signature üretimi: 
-    // cm = h^(xm) * g1^(ym)
+    // cm = h^(xm) * com^(ym)   <-- Algoritma 12’de com^(ym) kullanılmalı
     element_init_G1(sig.h, params.pairing);
     element_set(sig.h, blindOut.h);
     element_init_G1(sig.cm, params.pairing);
@@ -99,7 +99,8 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         element_init_G1(t1, params.pairing);
         element_init_G1(t2, params.pairing);
         element_pow_zn(t1, blindOut.h, xm);
-        element_pow_zn(t2, params.g1, ym);
+        // Dikkat: orijinal algoritmada ikinci faktör olarak com^(ym) kullanılmalı
+        element_pow_zn(t2, blindOut.com, ym);
         element_mul(sig.cm, t1, t2);
         element_clear(t1);
         element_clear(t2);
