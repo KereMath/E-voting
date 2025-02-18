@@ -37,7 +37,7 @@ int main() {
     std::cout << "Esik degeri (t): " << t << " (Polinom derecesi = t-1)" << std::endl;
     std::cout << "Secmen sayisi: " << voterCount << "\n\n";
     
-    // 2. Setup aşaması: Sistem parametrelerini oluştur
+    // 2. Setup: Sistem parametrelerini oluştur
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
@@ -65,7 +65,7 @@ int main() {
         std::cout << "g2 (G2 uretec) =\n" << buffer << "\n\n";
     }
     
-    // 3. Pairing testi: G1 ve G2 arasında bilinear eşleme
+    // 3. Pairing testi
     std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
     element_t gtResult;
     element_init_GT(gtResult, params.pairing);
