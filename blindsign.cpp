@@ -1,4 +1,5 @@
 #include "blindsign.h"
+#include "common_utils.h"
 #include <pbc/pbc.h>
 #include <gmp.h>
 #include <openssl/sha.h>
@@ -7,62 +8,19 @@
 #include <vector>
 #include <iostream>
 
-// --- Yardımcı Fonksiyonlar ---
-// Element'in string temsilini döndürür.
-std::string elementToStr(element_t e) {
-    char buffer[1024];
-    element_snprintf(buffer, sizeof(buffer), "%B", e);
-    return std::string(buffer);
-}
-
-// Verilen stringi SHA-512 ile hash'ler ve sonucu Zₚ elemanına dönüştürür.
-void hashStringToZr(const std::string &input, TIACParams &params, element_t result) {
-    unsigned char hash[SHA512_DIGEST_LENGTH];
-    SHA512(reinterpret_cast<const unsigned char*>(input.c_str()), input.size(), hash);
-    std::stringstream ss;
-    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
-    }
-    std::string hexStr = ss.str();
-    mpz_t num;
-    mpz_init(num);
-    mpz_set_str(num, hexStr.c_str(), 16);
-    mpz_mod(num, num, params.pairing->r);
-    element_set_mpz(result, num);
-    mpz_clear(num);
-}
-
-// Verilen stringleri birleştirip, Zₚ elemanı olarak hash'ler.
-void hashVectorToZr(const std::vector<std::string> &data, TIACParams &params, element_t result) {
-    std::stringstream ss;
-    for (const auto &s : data)
-        ss << s;
-    hashStringToZr(ss.str(), params, result);
-}
-
-// HashToG1: Verilen stringi hash'leyip, g1 üzerinden G₁ elemanı üretir.
-void hashToG1(const std::string &input, TIACParams &params, element_t output) {
-    element_t hashZr;
-    element_init_Zr(hashZr, params.pairing);
-    hashStringToZr(input, params, hashZr);
-    element_init_G1(output, params.pairing);
-    element_pow_zn(output, params.g1, hashZr);
-    element_clear(hashZr);
-}
-
-// --- CheckKoR Fonksiyonu (Algoritma 6) ---
-// Girdi: params, com, comi, h, πs  
-// İşlemler:
-// 1. com''_i = g1^(s1) · h1^(s2) · comi^(c)
-// 2. com'' = g1^(s3) · h^(s2) · com^(c)
-// 3. c' = Hash(g1, h, h1, com, com'', comi, com''_i)
-// 4. Eğer c' == c, ispat başarılı.
+// CheckKoR (Algorithm 6)
+// Girdi: params, com, comi, h, πs
+// Hesaplamalar:
+//   comp_i = g1^(s1) * h1^(s2) * comi^(c)
+//   comp  = g1^(s3) * h^(s2) * com^(c)
+//   c' = Hash(g1, h, h1, com, comp, comi, comp_i)
+// Eğer c' == c, ispat başarılı.
 bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Proof &pi_s) {
     element_t comp_i, comp;
     element_init_G1(comp_i, params.pairing);
     element_init_G1(comp, params.pairing);
     
-    { // Hesapla: comp_i = g1^(s1) * h1^(s2) * comi^(c)
+    {
         element_t t1, t2, t3;
         element_init_G1(t1, params.pairing);
         element_init_G1(t2, params.pairing);
@@ -75,7 +33,7 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
         element_clear(t1); element_clear(t2); element_clear(t3);
     }
     
-    { // Hesapla: comp = g1^(s3) * h^(s2) * com^(c)
+    {
         element_t t1, t2, t3;
         element_init_G1(t1, params.pairing);
         element_init_G1(t2, params.pairing);
@@ -88,7 +46,6 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
         element_clear(t1); element_clear(t2); element_clear(t3);
     }
     
-    // Hash verilerini hazırla
     std::vector<std::string> hashData;
     hashData.push_back(elementToStr(params.g1));
     hashData.push_back(elementToStr(h));
@@ -109,15 +66,13 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
     return valid;
 }
 
-// --- blindSign Fonksiyonu (Algoritma 12) ---
-// Girdi: prepared blind sign output (blindOut), voterin secret değerleri xm, ym  
-// İşlemler:
-// 1. Eğer CheckKoR(…) başarısızsa veya Hash(comi) != h ise hata döndür.
-// 2. Aksi halde, cm = h^(xm) · g1^(ym) hesapla ve σ'_m = (h, cm) döndür.
+// blindSign (Algorithm 12)
+// Girdi: blindOut (prepare blind sign çıktısı) ve voterin secret değerleri xm, ym
+// Önce CheckKoR kontrolü yapılır; başarılı ise, cm = h^(xm) * g1^(ym) hesaplanır.
 BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym) {
     BlindSignature sig;
     
-    // Check: Recompute h' = Hash(comi) (yani h' = HashToG1(comi))
+    // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
     element_t h_prime;
     element_init_G1(h_prime, params.pairing);
     {
@@ -130,8 +85,7 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
     bool korOk = checkKoR(params, blindOut.com, blindOut.comi, blindOut.h, blindOut.pi_s);
     
     if (!hashOk || !korOk) {
-        std::cerr << "Blind Sign Check Failed: Either KoR proof is invalid or Hash(comi) != h." << std::endl;
-        // Hata durumunda, sig.h ve sig.cm'yi sıfır olarak ayarlayalım.
+        std::cerr << "Blind Sign Check Failed: KoR proof is invalid or Hash(comi) != h." << std::endl;
         element_init_G1(sig.h, params.pairing);
         element_set0(sig.h);
         element_init_G1(sig.cm, params.pairing);
@@ -139,7 +93,8 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         return sig;
     }
     
-    // Eğer kontrol başarılıysa, hesapla: cm = h^(xm) * g1^(ym)
+    // Eğer kontrol başarılı ise, final blind signature üretimi:
+    // cm = h^(xm) * g1^(ym)
     element_init_G1(sig.h, params.pairing);
     element_set(sig.h, blindOut.h);
     element_init_G1(sig.cm, params.pairing);
@@ -150,7 +105,8 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         element_pow_zn(t1, blindOut.h, xm);
         element_pow_zn(t2, params.g1, ym);
         element_mul(sig.cm, t1, t2);
-        element_clear(t1); element_clear(t2);
+        element_clear(t1);
+        element_clear(t2);
     }
     
     return sig;

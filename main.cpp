@@ -37,7 +37,7 @@ int main() {
     std::cout << "Esik degeri (t): " << t << " (Polinom derecesi = t-1)" << std::endl;
     std::cout << "Secmen sayisi: " << voterCount << "\n\n";
     
-    // 2. Setup: Sistem parametrelerini oluştur
+    // 2. Setup aşaması: Sistem parametrelerini oluştur
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
@@ -65,7 +65,7 @@ int main() {
         std::cout << "g2 (G2 uretec) =\n" << buffer << "\n\n";
     }
     
-    // 3. Pairing testi
+    // 3. Pairing testi: G1 ve G2 arasında bilinear eşleme
     std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
     element_t gtResult;
     element_init_GT(gtResult, params.pairing);
@@ -214,8 +214,7 @@ int main() {
     auto blindSignDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endBlindSign - startBlindSign).count();
     
     // 8. Final Blind Signature Generation: Algoritma 12
-    // Girdi: (BlindSignOutput, voterin secret: xm, ym)
-    // Örnek: xm ve ym için DID üretiminde oluşturulan x değeri kullanılıyor (xm = did.x, ym = did.x)
+    // Örnek: voterin secret değerleri xm, ym olarak DID üretiminde kullanılan x değeri kullanılıyor.
     std::vector<BlindSignature> finalSigs(voterCount);
     auto startFinalSign = Clock::now();
     for (int i = 0; i < voterCount; i++) {

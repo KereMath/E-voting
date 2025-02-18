@@ -4,7 +4,7 @@
 #include "setup.h"
 #include <string>
 
-// Proof structure for KoR (Algorithm 5)
+// Proof yapısı (Algorithm 5)
 struct Proof {
     element_t c;   // Zₚ elemanı
     element_t s1;  // Zₚ elemanı
@@ -12,16 +12,16 @@ struct Proof {
     element_t s3;  // Zₚ elemanı
 };
 
-// Blind sign output structure (Algoritma 4)
+// BlindSignOutput yapısı (Algorithm 4)
 struct BlindSignOutput {
-    element_t com;   // G₁ elemanı (blind commitment)
-    element_t comi;  // G₁ elemanı (commitment from oᵢ)
-    element_t h;     // G₁ elemanı, h = Hash(comᵢ)
-    Proof pi_s;      // Proof of knowledge for representation
+    element_t com;   // G₁ elemanı: blind commitment (adım 5)
+    element_t comi;  // G₁ elemanı: commitment from oᵢ (adım 2)
+    element_t h;     // G₁ elemanı: h = Hash(comi) (adım 3)
+    Proof pi_s;      // Proof: KoR ispatı (adım 6)
 };
 
-// prepareBlindSign: Verilen setup parametreleri ve voterin (realID olarak) 11 haneli sayısal kimliği üzerinden
-// kör imzalama mesajı (com, comᵢ, h) ve KoR kanıtı (πₛ) oluşturur.
+// prepareBlindSign: Verilen setup parametreleri ve voterin gerçek ID (11 haneli string) üzerinden
+// prepare blind sign mesajı ve kanıtı (BlindSignOutput) üretir.
 BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID);
 
 #endif
