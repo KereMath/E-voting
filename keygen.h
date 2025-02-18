@@ -5,19 +5,19 @@
 #include "setup.h"
 
 // EA (Yetkili Otorite) için anahtar çiftleri:
-// sgk: EA'nın imza anahtarının parçası (signing key share)
+// sgk: EA'nın imza anahtarının payı (signing key share)
 // vkm: EA'nın doğrulama anahtar bileşenleri
 struct EAKey {
-    element_t sgk1; // sgk1 = ∏_{l∈Q} F_l(i)  (F_i polinomlarının EA i için değeri)
-    element_t sgk2; // sgk2 = ∏_{l∈Q} G_l(i)  (G_i polinomlarının EA i için değeri)
-    element_t vkm1; // vkm1 = g1^( (sgk1)^2 )
-    element_t vkm2; // vkm2 = g1^( (sgk2)^2 )
-    element_t vkm3; // vkm3 = g1^( sgk2 )
+    element_t sgk1; // sgk1 = ∏_{l∈Q} F_l(i)
+    element_t sgk2; // sgk2 = ∏_{l∈Q} G_l(i)
+    element_t vkm1; // vkm1 = g1^(sgk1^2)
+    element_t vkm2; // vkm2 = g1^(sgk2^2)
+    element_t vkm3; // vkm3 = g1^(sgk2)
 };
 
 // Master doğrulama anahtarı (mvk)
-// mvk = (alpha2, beta2, beta1) = ( g1^(∏_{i∈Q} (F_i(0))^2),
-//                                   g1^(∏_{i∈Q} (G_i(0))^2),
+// mvk = (alpha2, beta2, beta1) = ( g1^(∏_{i∈Q} F_i(0)^2),
+//                                   g1^(∏_{i∈Q} G_i(0)^2),
 //                                   g1^(∏_{i∈Q} G_i(0)) )
 struct MasterVK {
     element_t alpha2;
@@ -25,15 +25,15 @@ struct MasterVK {
     element_t beta1;
 };
 
-// Çıktı yapısı: mvk ve her EA'nın anahtar çiftleri
+// Key Generation işleminin çıktı yapısı
 struct KeyGenOutput {
     MasterVK mvk;
-    std::vector<EAKey> eaKeys;
+    std::vector<EAKey> eaKeys; // EA otoritelerinin anahtar çiftleri (i = 1,..., ne)
 };
 
-// Coconut TTP’siz Anahtar Üretimi (Pedersen’s DKG simülasyonu)
+// Coconut TTP’siz Anahtar Üretimi (Pedersen’s DKG) fonksiyonu
 // Girdi: params (setup parametreleri), t (eşik; polinom derecesi = t-1), ne (EA sayısı)
-// Çıktı: Master doğrulama anahtarı (mvk) ve her EA için (sgk, vkm)
+// Çıktı: mvk ve her EA için (sgk, vkm)
 KeyGenOutput keygen(TIACParams &params, int t, int ne);
 
 #endif

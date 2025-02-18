@@ -15,7 +15,7 @@ int main() {
     auto setupDuration = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
     std::cout << "[ZAMAN] Setup icin gecen sure: " << setupDuration << " microseconds\n\n";
     
-    // Debug: Setup parametrelerinin bazılarını yazdırma
+    // Debug: Setup parametrelerini ekrana yazdırma
     {
         char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
         std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
@@ -37,7 +37,7 @@ int main() {
         std::cout << "g2 (G2 uretec) =\n" << buffer << "\n\n";
     }
     
-    // 2. Basit pairing testi
+    // 2. Pairing testi
     std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
     element_t gtResult;
     element_init_GT(gtResult, params.pairing);
@@ -55,7 +55,7 @@ int main() {
     
     // 3. Anahtar Üretimi (Key Generation) aşaması
     std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
-    int t = 2;    // Eşik değeri; polinom derecesi = 1
+    int t = 2;    // Eşik değeri; polinom derecesi = t-1
     int ne = 3;   // EA otoritesi sayısı (örnek: 3)
     
     auto startKeygen = Clock::now();
@@ -81,7 +81,7 @@ int main() {
         std::cout << "mvk.beta1 (g1^(∏ G_i(0))) =\n" << buffer << "\n\n";
     }
     
-    // Her EA otoritesi için anahtar çıktıları
+    // EA otoriteleri için anahtar çıktıları
     for (int i = 0; i < ne; i++) {
         std::cout << "=== EA Authority " << (i + 1) << " ===\n";
         {
