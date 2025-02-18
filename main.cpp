@@ -15,7 +15,7 @@ int main() {
     auto setupDuration = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
     std::cout << "[ZAMAN] Setup icin gecen sure: " << setupDuration << " microseconds\n\n";
     
-    // Debug: Setup parametrelerini ekrana yazdırma
+    // Debug: Setup parametrelerinin bazılarını ekrana yazdırma
     {
         char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
         std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
@@ -53,11 +53,16 @@ int main() {
     }
     element_clear(gtResult);
     
-    // 3. Anahtar Üretimi (Key Generation) aşaması
-    std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
-    int t = 2;    // Eşik değeri; polinom derecesi = t-1
-    int ne = 3;   // EA otoritesi sayısı (örnek: 3)
+    // 3. Kullanıcıdan dinamik giriş alınması:
+    int t, ne;
+    std::cout << "EA otoritesi sayisi kac olacak? ";
+    std::cin >> ne;
+    std::cout << "Esik degeri (t) kac? (Polinom derecesi = t-1 olacak) ";
+    std::cin >> t;
+    std::cout << "\n";
     
+    // 4. Anahtar Üretimi (Key Generation) aşaması
+    std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
