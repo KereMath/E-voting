@@ -2,28 +2,20 @@
 #define DIDGEN_H
 
 #include "setup.h"
-#include <vector>
 #include <string>
 
-// Her bir seçmen için DID yapısı:
-// - realID: Kullanıcının gerçek (örneğin TC kimlik numarası gibi) ID'si (string olarak)
-// - x: Rastgele üretilen skaler gizli değer (Zr elemanı)
-// - did: Dijital kimlik = g1^(1/(x + ID))
+// Her seçmen için DID yapısı:
+// - realID: Sabit 11 haneli gerçek kimlik (örneğin TC kimlik numarası)
+// - x: Rastgele seçilen skaler değer (Zr elemanı)
+// - did: SHA-512 hash sonucu (hex formatında) = hash512( x || realID )
 struct DID {
     std::string realID;
-    element_t x;   // Rastgele üretilen skaler
-    element_t did; // Dijital kimlik
+    element_t x;      // Rastgele skaler (Zr)
+    std::string did;  // Hash512 sonucu (hex string)
 };
 
-// Tüm seçmenlerin DID'lerini tutan yapı
-struct DIDGenOutput {
-    std::vector<DID> dids;
-};
-
-// Belirtilen gerçek ID (numeric string) ve setup parametrelerini kullanarak
+// Belirtilen gerçek ID (string) ve setup parametrelerini kullanarak
 // bir seçmen için dijital kimlik (DID) üretir.
-// DID = g1^(1/(x + ID))
-// x, Zr’de rastgele seçilir.
 DID createDID(TIACParams &params, const std::string &realID);
 
 #endif

@@ -9,7 +9,7 @@
 int main() {
     using Clock = std::chrono::steady_clock;
     
-    // 1. Kullanıcıdan EA (Yetkili Otorite) için giriş alınması
+    // 1. Kullanıcıdan EA otoritesi sayısı (ne) ve eşik değeri (t) alınması
     int t, ne;
     std::cout << "EA otoritesi sayisi kac olacak? ";
     std::cin >> ne;
@@ -45,7 +45,7 @@ int main() {
         std::cout << "g2 (G2 uretec) =\n" << buffer << "\n\n";
     }
     
-    // 3. Pairing testi
+    // 3. Pairing testi: G1 ve G2 arasında bilinear eşleme
     std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
     element_t gtResult;
     element_init_GT(gtResult, params.pairing);
@@ -122,26 +122,20 @@ int main() {
     std::cin >> voterCount;
     std::cout << "\n";
     
-    // 6. Her seçmen için gerçek ID (örneğin 11 haneli) girilerek DID oluşturulması
-    std::vector<DID> dids;
-    dids.resize(voterCount);
+    // 6. Her seçmen için gerçek ID girilerek DID oluşturulması (SHA-512 hash)
+    std::vector<DID> dids(voterCount);
     auto startDID = Clock::now();
     for (int i = 0; i < voterCount; i++) {
         std::string realID;
-        std::cout << "Secmen " << (i+1) << " icin gercek ID (sayisal, 11 haneli) giriniz: ";
+        std::cout << "Secmen " << (i+1) << " icin gercek ID (11 haneli sayisal) giriniz: ";
         std::cin >> realID;
         dids[i] = createDID(params, realID);
-        // Her seçmenin x ve DID'sini de ekrana yazdırıyoruz:
         {
             char buffer[1024];
             element_snprintf(buffer, sizeof(buffer), "%B", dids[i].x);
             std::cout << "Secmen " << (i+1) << " icin x degeri = " << buffer << "\n";
         }
-        {
-            char buffer[1024];
-            element_snprintf(buffer, sizeof(buffer), "%B", dids[i].did);
-            std::cout << "Secmen " << (i+1) << " icin DID = " << buffer << "\n";
-        }
+        std::cout << "Secmen " << (i+1) << " icin DID (SHA512 hash) = " << dids[i].did << "\n";
         std::cout << "Secmen " << (i+1) << " gercek ID = " << dids[i].realID << "\n\n";
     }
     auto endDID = Clock::now();
@@ -162,12 +156,11 @@ int main() {
     // 8. Setup parametrelerini temizle
     clearParams(params);
     
-    // 9. Tüm ölçüm sürelerini milisaniye cinsine çevirip en sonda yazdırma
+    // 9. Tüm ölçüm sürelerini milisaniye (ms) cinsine çevirip raporla
     double setup_ms    = setupDuration_us / 1000.0;
     double pairing_ms  = pairingDuration_us / 1000.0;
     double keygen_ms   = keygenDuration_us / 1000.0;
     double did_ms      = didDuration_us / 1000.0;
-    
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi: " << setup_ms << " ms\n";
     std::cout << "Pairing suresi: " << pairing_ms << " ms\n";
