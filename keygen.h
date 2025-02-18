@@ -5,7 +5,7 @@
 #include "setup.h"
 
 // EA (Yetkili Otorite) için anahtar çiftleri:
-// sgk: EA'nın imza anahtarının payı (signing key share)
+// sgk: EA'nın imza anahtar payı
 // vkm: EA'nın doğrulama anahtar bileşenleri
 struct EAKey {
     element_t sgk1; // sgk1 = ∏_{l∈Q} F_l(i)

@@ -15,7 +15,7 @@ int main() {
     auto setupDuration = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
     std::cout << "[ZAMAN] Setup icin gecen sure: " << setupDuration << " microseconds\n\n";
     
-    // Debug: Setup parametrelerinin bazılarını ekrana yazdırma
+    // Debug: Setup parametrelerini yazdırma
     {
         char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
         std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
@@ -53,7 +53,7 @@ int main() {
     }
     element_clear(gtResult);
     
-    // 3. Kullanıcıdan dinamik giriş alınması:
+    // 3. Kullanıcıdan giriş alarak EA sayısını ve eşik değerini belirle
     int t, ne;
     std::cout << "EA otoritesi sayisi kac olacak? ";
     std::cin >> ne;
