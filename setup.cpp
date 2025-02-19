@@ -1,8 +1,9 @@
 #include "setup.h"
-#include <cstring>
+#include <cstring>  // strlen vb. için
 #include <string>
 
-// BN-256 parametre seti
+// Örnek BN-256 (type f) parametresi.
+// Gerçek kullanımda kendi güvenilir parametrenizi yerleştirin.
 static const char* BN256_PARAM = R"(
 type f
 q 205523667896953300194896352429254920972540065223
@@ -16,33 +17,34 @@ alpha1 71445317903696340296199556072836940741717506375
 TIACParams setupParams() {
     TIACParams params;
 
-    // PBC parametrelerini yükle
+    // PBC parametresini yükle
     pbc_param_t pbcParams;
     pbc_param_init_set_buf(pbcParams, BN256_PARAM, std::strlen(BN256_PARAM));
 
-    // Çiftleme yapısını başlat
+    // Pairing yapısını başlat
     pairing_init_pbc_param(params.pairing, pbcParams);
 
-    // Grup elemanlarını başlat
+    // G1, G2 gruplarının mertebesi (p)
+    mpz_init_set(params.prime_order, params.pairing->r);
+
+    // G1 ve G2 üzerinde elementleri başlat
     element_init_G1(params.g1, params.pairing);
     element_init_G1(params.h1, params.pairing);
     element_init_G2(params.g2, params.pairing);
 
-    // Rastgele üreteçler seç
+    // Rastgele üreteç değerleri seç
     element_random(params.g1);
     element_random(params.h1);
     element_random(params.g2);
 
-    // Asal mertebeyi ayarla (r değerini kullan)
-    mpz_init_set(params.prime_order, params.pairing->r);
-
-    // PBC parametrelerini temizle
+    // Artık pbc_param_t'yi temizleyebiliriz
     pbc_param_clear(pbcParams);
 
     return params;
 }
 
 void clearParams(TIACParams &params) {
+    // Elementleri, mpz_t değerini ve pairing yapısını temizle
     element_clear(params.g1);
     element_clear(params.h1);
     element_clear(params.g2);
