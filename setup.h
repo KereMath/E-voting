@@ -4,20 +4,19 @@
 #include <pbc/pbc.h>
 #include <gmp.h>
 
-// TIAC/Coconut parametrelerini tutacak yapı
+// TIAC/Coconut parametre yapısı
 struct TIACParams {
-    pairing_t pairing;   // PBC pairing objesi
-    mpz_t prime_order;   // Grubun mertebesi (p)
-    element_t g1;        // G1 üzerinde üreteç
-    element_t h1;        // G1 üzerinde ikinci üreteç
-    element_t g2;        // G2 üzerinde üreteç
+    pairing_t pairing;   // G1, G2, GT gruplarını tanımlayan çiftleme
+    mpz_t prime_order;   // Grup mertebesi (asal p)
+    element_t g1;        // G1'in üreteci
+    element_t h1;        // G1'de ikinci üreteç
+    element_t g2;        // G2'nin üreteci
 };
 
-// Kurulum fonksiyonumuz:
-// BN-256 parametresi kullanarak G1, G2 üreteçlerini ve mertebe p'yi oluşturur.
+// Sistem parametrelerini oluşturan fonksiyon
 TIACParams setupParams();
 
-// Oluşturulmuş parametreleri temizlemek için (bellek yönetimi)
+// Kaynakları temizleme fonksiyonu
 void clearParams(TIACParams &params);
 
 #endif
