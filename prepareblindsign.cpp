@@ -1,11 +1,11 @@
 #include "prepareblindsign.h"
-#include "common_utils.h"   // normalizeElement, canonicalElementToHex vb. fonksiyonlar burada tanımlı
+#include "common_utils.h"
 #include <pbc/pbc.h>
 #include <gmp.h>
 #include <iostream>
 #include <vector>
-#include <string>
 
+// prepareBlindSign fonksiyonu, Algoritma 4 ve 5'i uygular.
 BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) {
     BlindSignOutput out;
     
@@ -37,10 +37,8 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
         element_clear(temp1);
         element_clear(temp2);
     }
-    // Kanonik temsil elde etmek için normalize et
-    normalizeElement(out.comi);
     
-    // Adım 3: h ← Hash(comi) (h ∈ G₁)
+    // Adım 3: h ← Hash(comi) (h ∈ G₁) -- kanonik serileştirme kullanılarak
     {
         std::string comiHex = canonicalElementToHex(out.comi);
         hashToG1(comiHex, params, out.h);
@@ -65,6 +63,7 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     }
     
     // Adım 6: KoR (Algorithm 5) ile πs hesaplanması
+    // (a) Rastgele r1, r2, r3 ∈ Zₚ seç
     element_t r1, r2, r3;
     element_init_Zr(r1, params.pairing); element_random(r1);
     element_init_Zr(r2, params.pairing); element_random(r2);
@@ -110,6 +109,7 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     element_init_Zr(out.pi_s.c, params.pairing);
     hashVectorToZr(hashData, params, out.pi_s.c);
     
+    // (e) s1 ← r1 − c · oᵢ, s2 ← r2 − c · (DID_elem), s3 ← r3 − c · o
     element_t tempZr;
     element_init_Zr(tempZr, params.pairing);
     
@@ -126,6 +126,8 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     element_sub(out.pi_s.s3, r3, tempZr);
     
     element_clear(tempZr);
+    
+    // (f) Temizlik: r1, r2, r3, comp, comp_i, oᵢ, o, DID_elem
     element_clear(r1); element_clear(r2); element_clear(r3);
     element_clear(comp); element_clear(comp_i);
     element_clear(o_i); element_clear(o); element_clear(DID_elem);

@@ -1,5 +1,5 @@
 #include "blindsign.h"
-#include "common_utils.h"  // normalizeElement, canonicalElementToHex vb. fonksiyonlar burada tanımlı
+#include "common_utils.h"
 #include <pbc/pbc.h>
 #include <gmp.h>
 #include <openssl/sha.h>
@@ -8,6 +8,13 @@
 #include <vector>
 #include <iostream>
 
+// CheckKoR (Algorithm 6)
+// Girdi: params, com, comi, h, πs
+// Hesaplamalar:
+//   comp_i = g1^(s1) * h1^(s2) * comi^(c)
+//   comp  = g1^(s3) * h^(s2) * com^(c)
+//   c' = Hash(g1, h, h1, com, comp, comi, comp_i)
+// Eğer c' == c, ispat başarılı.
 bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Proof &pi_s) {
     element_t comp_i, comp;
     element_init_G1(comp_i, params.pairing);
@@ -59,11 +66,11 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
     return valid;
 }
 
+// blindSign (Algorithm 12)
+// Girdi: blindOut (prepare blind sign çıktısı) ve voterin secret değerleri xm, ym
+// Eğer CheckKoR geçerli değilse veya Hash(comi) ≠ h ise, uyarı verilir ancak simülasyon amaçlı imza üretimine devam edilir.
 BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym) {
     BlindSignature sig;
-    
-    // Normalize blindOut.comi kullanarak kanonik temsili elde et.
-    normalizeElement(blindOut.comi);
     
     // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
     element_t h_prime;
@@ -82,7 +89,8 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         // Simülasyon amaçlı devam ediliyor.
     }
     
-    // Final blind signature üretimi: cm = h^(xm) * com^(ym)
+    // Final blind signature üretimi: 
+    // cm = h^(xm) * com^(ym)   <-- Algoritma 12’de com^(ym) kullanılmalı
     element_init_G1(sig.h, params.pairing);
     element_set(sig.h, blindOut.h);
     element_init_G1(sig.cm, params.pairing);
@@ -91,6 +99,7 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         element_init_G1(t1, params.pairing);
         element_init_G1(t2, params.pairing);
         element_pow_zn(t1, blindOut.h, xm);
+        // Dikkat: orijinal algoritmada ikinci faktör olarak com^(ym) kullanılmalı
         element_pow_zn(t2, blindOut.com, ym);
         element_mul(sig.cm, t1, t2);
         element_clear(t1);

@@ -22,13 +22,6 @@ inline std::string canonicalElementToHex(element_t e) {
     return ss.str();
 }
 
-// normalizeElement: Bir element'i canonicalElementToHex ile normalize edip, yeniden element'e yükler.
-inline void normalizeElement(element_t e) {
-    std::string hex = canonicalElementToHex(e);
-    // Bu, elemanın dahili temsilini hex üzerinden yeniden oluşturur.
-    element_set_str(e, hex.c_str(), 16);
-}
-
 // sha512Hex: Verilen stringi SHA-512 ile hash'ler, sonucu hex string olarak döndürür.
 inline std::string sha512Hex(const std::string &input) {
     unsigned char hash[SHA512_DIGEST_LENGTH];
