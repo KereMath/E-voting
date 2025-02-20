@@ -213,12 +213,25 @@ int main() {
     auto endBlindSign = Clock::now();
     auto blindSignDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endBlindSign - startBlindSign).count();
     
-    // 8. Final Blind Signature Generation: Algoritma 12
-    // Örnek: voterin secret değerleri xm, ym olarak DID üretiminde kullanılan x değeri kullanılıyor.
+    // 8. Final Blind Signature Generation: t EA'dan imza toplama ve birleştirme
     std::vector<BlindSignature> finalSigs(voterCount);
     auto startFinalSign = Clock::now();
     for (int i = 0; i < voterCount; i++) {
-        finalSigs[i] = blindSign(params, bsOutputs[i], dids[i].x, dids[i].x);
+        // t=3 için ilk 3 EA'dan imza alıyoruz
+        std::vector<BlindSignature> partialSigs(t);
+        for (int j = 0; j < t; j++) {
+            partialSigs[j] = blindSign(params, bsOutputs[i], keyOut.eaKeys[j].sgk1, keyOut.eaKeys[j].sgk2);
+        }
+        
+        // İmzaları birleştirme (Coconut şemasına göre basit çarpım)
+        element_init_G1(finalSigs[i].h, params.pairing);
+        element_set(finalSigs[i].h, partialSigs[0].h); // h aynı olmalı
+        element_init_G1(finalSigs[i].cm, params.pairing);
+        element_set(finalSigs[i].cm, partialSigs[0].cm);
+        for (int j = 1; j < t; j++) {
+            element_mul(finalSigs[i].cm, finalSigs[i].cm, partialSigs[j].cm);
+        }
+
         std::cout << "=== Secmen " << (i+1) << " Final Blind Signature ===\n";
         {
             char buffer[1024];
