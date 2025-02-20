@@ -4,8 +4,8 @@
 #include <gmp.h>
 #include <iostream>
 #include <vector>
+#include <string>
 
-// prepareBlindSign fonksiyonu, Algoritma 4 ve 5'i uygular.
 BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) {
     BlindSignOutput out;
     
@@ -37,6 +37,8 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
         element_clear(temp1);
         element_clear(temp2);
     }
+    // Kanonik serileştirme için out.comi'yi normalize et
+    element_normalize(out.comi);
     
     // Adım 3: h ← Hash(comi) (h ∈ G₁) -- kanonik serileştirme kullanılarak
     {
