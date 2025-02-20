@@ -25,15 +25,14 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     element_init_Zr(o_i, params.pairing);
     element_random(o_i);
     
-    // Adım 2: comi ← g1^(oᵢ) · g1^(DID_elem)
+    // Adım 2: comi ← g1^(oᵢ) · h1^(DID_elem)
     element_init_G1(out.comi, params.pairing);
     {
         element_t temp1, temp2;
         element_init_G1(temp1, params.pairing);
         element_init_G1(temp2, params.pairing);
         element_pow_zn(temp1, params.g1, o_i);
-        // Değiştirilen satır: params.h1 yerine params.g1 kullanılıyor.
-        element_pow_zn(temp2, params.g1, DID_elem);
+        element_pow_zn(temp2, params.h1, DID_elem);
         element_mul(out.comi, temp1, temp2);
         element_clear(temp1);
         element_clear(temp2);
@@ -50,14 +49,15 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     element_init_Zr(o, params.pairing);
     element_random(o);
     
-    // Adım 5: com ← g1^(o) · h^(DID_elem)
+    // Adım 5: com ← g1^(o) · h1^(DID_elem)
+    // (Değişiklik: Burada out.h yerine params.h1 kullanılmalı)
     element_init_G1(out.com, params.pairing);
     {
         element_t temp1, temp2;
         element_init_G1(temp1, params.pairing);
         element_init_G1(temp2, params.pairing);
         element_pow_zn(temp1, params.g1, o);
-        element_pow_zn(temp2, out.h, DID_elem);
+        element_pow_zn(temp2, params.h1, DID_elem);
         element_mul(out.com, temp1, temp2);
         element_clear(temp1);
         element_clear(temp2);
@@ -135,3 +135,4 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     
     return out;
 }
+    
