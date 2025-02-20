@@ -14,7 +14,7 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     element_init_Zr(DID_elem, params.pairing);
     mpz_t id_mpz;
     mpz_init(id_mpz);
-    if(mpz_set_str(id_mpz, realID.c_str(), 10) != 0) {
+    if (mpz_set_str(id_mpz, realID.c_str(), 10) != 0) {
         std::cerr << "Error: realID sayisal degil!" << std::endl;
     }
     element_set_mpz(DID_elem, id_mpz);
@@ -38,10 +38,15 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
         element_clear(temp2);
     }
     
-    // Adım 3: h ← Hash(comi) (h ∈ G₁) -- kanonik serileştirme kullanılarak
+    // Adım 3: h ← Hash(comi) (h ∈ G₁)
+    element_init_G1(out.h, params.pairing);
     {
         std::string comiHex = canonicalElementToHex(out.comi);
         hashToG1(comiHex, params, out.h);
+        // Debug: h değerini yazdır
+        char buffer[1024];
+        element_snprintf(buffer, sizeof(buffer), "%B", out.h);
+        std::cout << "prepareBlindSign: h = " << buffer << "\n";
     }
     
     // Adım 4: Rastgele o ∈ Zₚ seç
@@ -108,8 +113,14 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     hashData.push_back(canonicalElementToHex(comp_i));
     element_init_Zr(out.pi_s.c, params.pairing);
     hashVectorToZr(hashData, params, out.pi_s.c);
+    // Debug: c değerini yazdır
+    {
+        char buffer[1024];
+        element_snprintf(buffer, sizeof(buffer), "%B", out.pi_s.c);
+        std::cout << "prepareBlindSign: πs.c = " << buffer << "\n";
+    }
     
-    // (e) s1 ← r1 − c · oᵢ, s2 ← r2 − c · (DID_elem), s3 ← r3 − c · o
+    // (e) s1 ← r1 − c · oᵢ, s2 ← r2 − c · DID_elem, s3 ← r3 − c · o
     element_t tempZr;
     element_init_Zr(tempZr, params.pairing);
     
@@ -127,7 +138,7 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     
     element_clear(tempZr);
     
-    // (f) Temizlik: r1, r2, r3, comp, comp_i, oᵢ, o, DID_elem
+    // (f) Temizlik
     element_clear(r1); element_clear(r2); element_clear(r3);
     element_clear(comp); element_clear(comp_i);
     element_clear(o_i); element_clear(o); element_clear(DID_elem);
