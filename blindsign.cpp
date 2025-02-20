@@ -9,12 +9,17 @@
 #include <iostream>
 
 // CheckKoR (Algorithm 6)
+// Girdi: params, com, comi, h, πs
+// Hesaplamalar:
+//   comp_i = g1^(s1) * h1^(s2) * comi^(c)
+//   comp  = g1^(s3) * h^(s2) * com^(c)
+//   c' = Hash(g1, h, h1, com, comp, comi, comp_i)
+// Eğer c' == c, ispat başarılı.
 bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Proof &pi_s) {
     element_t comp_i, comp;
     element_init_G1(comp_i, params.pairing);
     element_init_G1(comp, params.pairing);
     
-    // com′′_i ← g1^(s1) · h1^(s2) · comi^(c)
     {
         element_t t1, t2, t3;
         element_init_G1(t1, params.pairing);
@@ -28,7 +33,6 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
         element_clear(t1); element_clear(t2); element_clear(t3);
     }
     
-    // com′′ ← g1^(s3) · h^(s2) · com^(c)
     {
         element_t t1, t2, t3;
         element_init_G1(t1, params.pairing);
@@ -42,7 +46,6 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
         element_clear(t1); element_clear(t2); element_clear(t3);
     }
     
-    // c′ ← Hash(g1, h, h1, com, com′′, comi, com′′_i)
     std::vector<std::string> hashData;
     hashData.push_back(canonicalElementToHex(params.g1));
     hashData.push_back(canonicalElementToHex(h));
@@ -55,15 +58,6 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
     element_init_Zr(c_prime, params.pairing);
     hashVectorToZr(hashData, params, c_prime);
     
-    // Debug: c ve c′ değerlerini karşılaştır
-    {
-        char buffer1[1024], buffer2[1024];
-        element_snprintf(buffer1, sizeof(buffer1), "%B", pi_s.c);
-        element_snprintf(buffer2, sizeof(buffer2), "%B", c_prime);
-        std::cout << "checkKoR: πs.c = " << buffer1 << "\n";
-        std::cout << "checkKoR: c_prime = " << buffer2 << "\n";
-    }
-    
     bool valid = (element_cmp(c_prime, pi_s.c) == 0);
     
     element_clear(comp_i);
@@ -73,21 +67,17 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
 }
 
 // blindSign (Algorithm 12)
+// Girdi: blindOut (prepare blind sign çıktısı) ve voterin secret değerleri xm, ym
+// Eğer CheckKoR geçerli değilse veya Hash(comi) ≠ h ise, uyarı verilir ancak simülasyon amaçlı imza üretimine devam edilir.
 BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym) {
     BlindSignature sig;
     
-    // Hash(comi) kontrolü
+    // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
     element_t h_prime;
     element_init_G1(h_prime, params.pairing);
     {
         std::string comiHex = canonicalElementToHex(blindOut.comi);
         hashToG1(comiHex, params, h_prime);
-        // Debug: h ve h_prime karşılaştırması
-        char buffer1[1024], buffer2[1024];
-        element_snprintf(buffer1, sizeof(buffer1), "%B", blindOut.h);
-        element_snprintf(buffer2, sizeof(buffer2), "%B", h_prime);
-        std::cout << "blindSign: blindOut.h = " << buffer1 << "\n";
-        std::cout << "blindSign: h_prime = " << buffer2 << "\n";
     }
     bool hashOk = (element_cmp(h_prime, blindOut.h) == 0);
     element_clear(h_prime);
@@ -96,11 +86,11 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
     
     if (!hashOk || !korOk) {
         std::cerr << "Warning: Blind Sign Check Failed: KoR proof is invalid or Hash(comi) != h." << std::endl;
-    } else {
-        std::cout << "Blind Sign Check Passed: KoR proof valid and Hash(comi) == h." << std::endl;
+        // Simülasyon amaçlı devam ediliyor.
     }
     
-    // cm = h^(xm) * com^(ym)
+    // Final blind signature üretimi: 
+    // cm = h^(xm) * com^(ym)   <-- Algoritma 12’de com^(ym) kullanılmalı
     element_init_G1(sig.h, params.pairing);
     element_set(sig.h, blindOut.h);
     element_init_G1(sig.cm, params.pairing);
@@ -109,6 +99,7 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         element_init_G1(t1, params.pairing);
         element_init_G1(t2, params.pairing);
         element_pow_zn(t1, blindOut.h, xm);
+        // Dikkat: orijinal algoritmada ikinci faktör olarak com^(ym) kullanılmalı
         element_pow_zn(t2, blindOut.com, ym);
         element_mul(sig.cm, t1, t2);
         element_clear(t1);
