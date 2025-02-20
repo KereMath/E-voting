@@ -62,8 +62,11 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
 BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym) {
     BlindSignature sig;
     
-    // İmzalama kontrolü için: comi'nin kanonik temsili hesaplanmadan önce normalize edilmelidir.
-    element_normalize(blindOut.comi);
+    // "Normalization": blindOut.comi için kanonik temsili elde et.
+    {
+        std::string norm = canonicalElementToHex(blindOut.comi);
+        element_set_str(blindOut.comi, norm.c_str(), 16);
+    }
     
     // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
     element_t h_prime;
