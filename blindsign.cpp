@@ -1,5 +1,5 @@
 #include "blindsign.h"
-#include "common_utils.h"
+#include "common_utils.h"  // normalizeElement, canonicalElementToHex vb. fonksiyonlar burada tanımlı
 #include <pbc/pbc.h>
 #include <gmp.h>
 #include <openssl/sha.h>
@@ -62,11 +62,8 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
 BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym) {
     BlindSignature sig;
     
-    // "Normalization": blindOut.comi için kanonik temsili elde et.
-    {
-        std::string norm = canonicalElementToHex(blindOut.comi);
-        element_set_str(blindOut.comi, norm.c_str(), 16);
-    }
+    // Normalize blindOut.comi kullanarak kanonik temsili elde et.
+    normalizeElement(blindOut.comi);
     
     // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
     element_t h_prime;
@@ -85,8 +82,7 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         // Simülasyon amaçlı devam ediliyor.
     }
     
-    // Final blind signature üretimi: 
-    // cm = h^(xm) * com^(ym)
+    // Final blind signature üretimi: cm = h^(xm) * com^(ym)
     element_init_G1(sig.h, params.pairing);
     element_set(sig.h, blindOut.h);
     element_init_G1(sig.cm, params.pairing);
