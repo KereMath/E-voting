@@ -217,15 +217,30 @@ int main() {
     std::vector<BlindSignature> finalSigs(voterCount);
     auto startFinalSign = Clock::now();
     for (int i = 0; i < voterCount; i++) {
-        // t=3 için ilk 3 EA'dan imza alıyoruz
+        // t EA'dan imza al (örneğin, ilk t=3 EA)
+        if (ne < t) {
+            std::cerr << "Hata: EA sayisi (" << ne << ") esik degerinden (" << t << ") kucuk!\n";
+            return 1;
+        }
         std::vector<BlindSignature> partialSigs(t);
         for (int j = 0; j < t; j++) {
             partialSigs[j] = blindSign(params, bsOutputs[i], keyOut.eaKeys[j].sgk1, keyOut.eaKeys[j].sgk2);
+            std::cout << "Secmen " << (i+1) << " icin EA " << (j+1) << " Partial Signature:\n";
+            {
+                char buffer[1024];
+                element_snprintf(buffer, sizeof(buffer), "%B", partialSigs[j].h);
+                std::cout << "Partial Sig h = " << buffer << "\n";
+            }
+            {
+                char buffer[1024];
+                element_snprintf(buffer, sizeof(buffer), "%B", partialSigs[j].cm);
+                std::cout << "Partial Sig cm = " << buffer << "\n\n";
+            }
         }
         
-        // İmzaları birleştirme (Coconut şemasına göre basit çarpım)
+        // İmzaları birleştirme (Coconut şemasına göre G1'de çarpma)
         element_init_G1(finalSigs[i].h, params.pairing);
-        element_set(finalSigs[i].h, partialSigs[0].h); // h aynı olmalı
+        element_set(finalSigs[i].h, partialSigs[0].h); // h tüm EA'lar için aynı olmalı
         element_init_G1(finalSigs[i].cm, params.pairing);
         element_set(finalSigs[i].cm, partialSigs[0].cm);
         for (int j = 1; j < t; j++) {
@@ -242,6 +257,12 @@ int main() {
             char buffer[1024];
             element_snprintf(buffer, sizeof(buffer), "%B", finalSigs[i].cm);
             std::cout << "Final Sig cm = " << buffer << "\n\n";
+        }
+        
+        // Temizlik: partialSigs için bellek serbest bırakma
+        for (int j = 0; j < t; j++) {
+            element_clear(partialSigs[j].h);
+            element_clear(partialSigs[j].cm);
         }
     }
     auto endFinalSign = Clock::now();
