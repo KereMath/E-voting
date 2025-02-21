@@ -20,12 +20,8 @@ TIACParams setupParams() {
     pbc_param_t pbcParams;
     pbc_param_init_set_buf(pbcParams, BN256_PARAM, std::strlen(BN256_PARAM));
 
-    // Pairing'i başlatıyoruz.
-    // pairing_t zaten pointer türüdür; pairing_init_pbc_param gerekli hafızayı ayırır.
-    if (pairing_init_pbc_param(params.pairing, pbcParams) != 0) {
-        pbc_param_clear(pbcParams);
-        throw std::runtime_error("Pairing initialization failed.");
-    }
+    // Pairing'i başlatıyoruz. pairing_init_pbc_param() dönüş değeri olmadığı için kontrol edemeyiz.
+    pairing_init_pbc_param(params.pairing, pbcParams);
     // pbcParams artık kullanılmadığından temizliyoruz.
     pbc_param_clear(pbcParams);
 
@@ -35,8 +31,7 @@ TIACParams setupParams() {
     element_init_G2(params.g2, params.pairing);
     element_init_GT(params.gT, params.pairing);
 
-    // Üreteçleri rastgele seçmek yerine, sabit (deterministik) değerlerden türetiyoruz.
-    // Bu sayede her çalıştırmada aynı üreteçler elde edilir.
+    // Üreteçleri sabit (deterministik) değerlerden türetiyoruz.
     element_from_hash(params.g1, (const void*)"generator1", strlen("generator1"));
     element_from_hash(params.h1, (const void*)"generator2", strlen("generator2"));
     element_from_hash(params.g2, (const void*)"generator3", strlen("generator3"));
@@ -44,9 +39,8 @@ TIACParams setupParams() {
     // GT üreteci, pairing(g1, g2) ile hesaplanır.
     element_pairing(params.gT, params.g1, params.g2);
 
-    // Grup mertebesini, G1'in gerçek order'ı ile hesaplıyoruz.
-    mpz_init(params.prime_order);
-    element_order(params.prime_order, params.g1);
+    // Grup mertebesini, pairing->r kullanarak alıyoruz.
+    mpz_init_set(params.prime_order, params.pairing->r);
 
     return params;
 }
@@ -66,10 +60,10 @@ void clearParams(TIACParams &params) {
 // Basit H: G1 → G1 hash fonksiyonu implementasyonu.
 // Burada, girdi elemanın byte gösterimini alıp element_from_hash ile başka bir G1 elemanına dönüştürüyoruz.
 void hashG1(element_t out, const element_t in) {
-    // 'in' elemanının bayt uzunluğunu al.
-    int len = element_length_in_bytes(in);
+    // 'in' elemanının bayt uzunluğunu almak için const-cast kullanıyoruz.
+    int len = element_length_in_bytes(const_cast<element_t>(in));
     unsigned char* buffer = new unsigned char[len];
-    element_to_bytes(buffer, in);
+    element_to_bytes(buffer, const_cast<element_t>(in));
 
     // Byte dizisini G1 elemanına dönüştür.
     element_from_hash(out, buffer, len);

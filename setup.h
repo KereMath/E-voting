@@ -6,8 +6,7 @@
 #include <cstring>
 
 // TIAC/Coconut parametrelerini tutacak yapı.
-// pairing_t tipi, PBC kütüphanesinde pointer türüdür ve pairing_init_* fonksiyonları
-// bu pointer üzerinden gerekli hafıza ayırmasını yapar.
+// pairing_t, PBC kütüphanesinde pointer tipi olarak kullanılır.
 struct TIACParams {
     pairing_t pairing;   // PBC pairing objesi
     mpz_t prime_order;   // G1 grubunun gerçek mertebesi (p)
