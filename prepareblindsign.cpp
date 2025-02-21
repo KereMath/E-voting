@@ -5,31 +5,27 @@
 #include <iostream>
 #include <vector>
 
-BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) {
-    // Pairing mertebesini kontrol et
-    std::cout << "prepareBlindSign - pairing->r: ";
-    mpz_out_str(stdout, 10, params.pairing->r);
-    std::cout << std::endl;
-
+// prepareBlindSign fonksiyonu, Algoritma 4 ve 5'i uygular.
+BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) {
     BlindSignOutput out;
-
+    
+    // Gerçek ID'yi Zₚ elemanı olarak oluştur (DID_elem)
     element_t DID_elem;
     element_init_Zr(DID_elem, params.pairing);
     mpz_t id_mpz;
     mpz_init(id_mpz);
-    if (mpz_set_str(id_mpz, realID.c_str(), 10) != 0) {
+    if(mpz_set_str(id_mpz, realID.c_str(), 10) != 0) {
         std::cerr << "Error: realID sayisal degil!" << std::endl;
-        mpz_clear(id_mpz);
-        element_clear(DID_elem);
-        return out;
     }
     element_set_mpz(DID_elem, id_mpz);
     mpz_clear(id_mpz);
-
+    
+    // Adım 1: Rastgele oᵢ ∈ Zₚ seç
     element_t o_i;
     element_init_Zr(o_i, params.pairing);
     element_random(o_i);
-
+    
+    // Adım 2: comi ← g1^(oᵢ) · h1^(DID_elem)
     element_init_G1(out.comi, params.pairing);
     {
         element_t temp1, temp2;
@@ -41,18 +37,19 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(temp1);
         element_clear(temp2);
     }
-
+    
+    // Adım 3: h ← Hash(comi) (h ∈ G₁) -- kanonik serileştirme kullanılarak
     {
         std::string comiHex = canonicalElementToHex(out.comi);
         hashToG1(comiHex, params, out.h);
-        std::cout << "prepareBlindSign - comiHex: " << comiHex << std::endl;
-        element_printf("prepareBlindSign - h = %B\n", out.h);
     }
-
+    
+    // Adım 4: Rastgele o ∈ Zₚ seç
     element_t o;
     element_init_Zr(o, params.pairing);
     element_random(o);
-
+    
+    // Adım 5: com ← g1^(o) · h^(DID_elem)
     element_init_G1(out.com, params.pairing);
     {
         element_t temp1, temp2;
@@ -64,12 +61,15 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(temp1);
         element_clear(temp2);
     }
-
+    
+    // Adım 6: KoR (Algorithm 5) ile πs hesaplanması
+    // (a) Rastgele r1, r2, r3 ∈ Zₚ seç
     element_t r1, r2, r3;
     element_init_Zr(r1, params.pairing); element_random(r1);
     element_init_Zr(r2, params.pairing); element_random(r2);
     element_init_Zr(r3, params.pairing); element_random(r3);
-
+    
+    // (b) com′_i ← g1^(r1) · h1^(r2)
     element_t comp_i;
     element_init_G1(comp_i, params.pairing);
     {
@@ -82,7 +82,8 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(t1);
         element_clear(t2);
     }
-
+    
+    // (c) com′ ← g1^(r3) · h^(r2)
     element_t comp;
     element_init_G1(comp, params.pairing);
     {
@@ -95,7 +96,8 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(t1);
         element_clear(t2);
     }
-
+    
+    // (d) c ← Hash(g1, h, h1, com, com′, comi, com′_i) ∈ Zₚ
     std::vector<std::string> hashData;
     hashData.push_back(canonicalElementToHex(params.g1));
     hashData.push_back(canonicalElementToHex(out.h));
@@ -106,31 +108,29 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
     hashData.push_back(canonicalElementToHex(comp_i));
     element_init_Zr(out.pi_s.c, params.pairing);
     hashVectorToZr(hashData, params, out.pi_s.c);
-
-    std::cout << "prepareBlindSign - hashData: ";
-    for (const auto& item : hashData) std::cout << item;
-    std::cout << std::endl;
-    element_printf("prepareBlindSign - πs.c = %B\n", out.pi_s.c);
-
+    
+    // (e) s1 ← r1 − c · oᵢ, s2 ← r2 − c · (DID_elem), s3 ← r3 − c · o
     element_t tempZr;
     element_init_Zr(tempZr, params.pairing);
-
+    
     element_init_Zr(out.pi_s.s1, params.pairing);
     element_mul(tempZr, out.pi_s.c, o_i);
     element_sub(out.pi_s.s1, r1, tempZr);
-
+    
     element_init_Zr(out.pi_s.s2, params.pairing);
     element_mul(tempZr, out.pi_s.c, DID_elem);
     element_sub(out.pi_s.s2, r2, tempZr);
-
+    
     element_init_Zr(out.pi_s.s3, params.pairing);
     element_mul(tempZr, out.pi_s.c, o);
     element_sub(out.pi_s.s3, r3, tempZr);
-
+    
     element_clear(tempZr);
+    
+    // (f) Temizlik: r1, r2, r3, comp, comp_i, oᵢ, o, DID_elem
     element_clear(r1); element_clear(r2); element_clear(r3);
     element_clear(comp); element_clear(comp_i);
     element_clear(o_i); element_clear(o); element_clear(DID_elem);
-
+    
     return out;
 }

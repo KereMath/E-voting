@@ -9,8 +9,8 @@
 #include <iomanip>
 #include <openssl/sha.h>
 #include "setup.h"
-#include <iostream>
 
+// canonicalElementToHex: Bir element'in kanonik bayt dizisini alıp hex string'e çevirir.
 inline std::string canonicalElementToHex(element_t e) {
     int size = element_length_in_bytes(e);
     std::vector<unsigned char> buf(size);
@@ -22,7 +22,8 @@ inline std::string canonicalElementToHex(element_t e) {
     return ss.str();
 }
 
-inline std::string sha512Hex(const std::string& input) {
+// sha512Hex: Verilen stringi SHA-512 ile hash'ler, sonucu hex string olarak döndürür.
+inline std::string sha512Hex(const std::string &input) {
     unsigned char hash[SHA512_DIGEST_LENGTH];
     SHA512(reinterpret_cast<const unsigned char*>(input.c_str()), input.size(), hash);
     std::stringstream ss;
@@ -32,7 +33,8 @@ inline std::string sha512Hex(const std::string& input) {
     return ss.str();
 }
 
-inline void hashStringToZr(const std::string& input, TIACParams& params, element_t result) {
+// hashStringToZr: Verilen stringi hash'ler ve Zₚ elemanı olarak result'a aktarır.
+inline void hashStringToZr(const std::string &input, TIACParams &params, element_t result) {
     std::string hexStr = sha512Hex(input);
     mpz_t num;
     mpz_init(num);
@@ -40,28 +42,24 @@ inline void hashStringToZr(const std::string& input, TIACParams& params, element
     mpz_mod(num, num, params.pairing->r);
     element_set_mpz(result, num);
     mpz_clear(num);
-    // Debug: Hash sonucunu yazdır
-    std::cout << "hashStringToZr - input: " << input << ", hexStr: " << hexStr << std::endl;
-    element_printf("hashStringToZr - result = %B\n", result);
 }
 
-inline void hashVectorToZr(const std::vector<std::string>& data, TIACParams& params, element_t result) {
+// hashVectorToZr: Bir string vektöründeki verileri birleştirip, hashStringToZr ile Zₚ elemanı olarak result'a aktarır.
+inline void hashVectorToZr(const std::vector<std::string> &data, TIACParams &params, element_t result) {
     std::stringstream ss;
-    for (const auto& s : data)
+    for (const auto &s : data)
         ss << s;
     hashStringToZr(ss.str(), params, result);
 }
 
-inline void hashToG1(const std::string& input, TIACParams& params, element_t output) {
+// hashToG1: Verilen stringi hash'leyip, g1 üzerinden G₁ elemanı üretir.
+inline void hashToG1(const std::string &input, TIACParams &params, element_t output) {
     element_t hashZr;
     element_init_Zr(hashZr, params.pairing);
     hashStringToZr(input, params, hashZr);
     element_init_G1(output, params.pairing);
     element_pow_zn(output, params.g1, hashZr);
     element_clear(hashZr);
-    // Debug: Girdi ve çıktıyı yazdır
-    std::cout << "hashToG1 - input: " << input << std::endl;
-    element_printf("hashToG1 - output = %B\n", output);
 }
 
 #endif // COMMON_UTILS_H
