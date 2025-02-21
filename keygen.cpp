@@ -19,126 +19,87 @@ static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &para
     }
     element_clear(X_val);
 }
-
-KeyGenOutput keygen(TIACParams &params, int t, int ne) {
+KeyGenOutput keygen(TIACParams params, int t, int ne) {
     KeyGenOutput output;
-    
-    // 1. F ve G polinom katsayıları için 2D vector (EA sayısı x t katsayısı)
-    // Elemanlar element_s* olarak tutulacak.
-    std::vector< std::vector<element_s*> > F_coeffs(ne), G_coeffs(ne);
+    output.eaKeys.resize(ne);
+
+    // 1. Generate polynomials
+    std::vector<std::vector<element_t>> F_coeffs(ne), G_coeffs(ne);
     for (int i = 0; i < ne; i++) {
-        F_coeffs[i].resize(t);
+        F_coeffs[i].resize(t); // Degree t-1
         G_coeffs[i].resize(t);
         for (int j = 0; j < t; j++) {
-            F_coeffs[i][j] = new element_s;  
             element_init_Zr(F_coeffs[i][j], params.pairing);
             element_random(F_coeffs[i][j]);
-            
-            G_coeffs[i][j] = new element_s;
             element_init_Zr(G_coeffs[i][j], params.pairing);
             element_random(G_coeffs[i][j]);
         }
     }
-    
-    // 2. Master secret: msgk = (∏ F_i(0), ∏ G_i(0))
-    element_t prod_F0, prod_G0;
-    element_init_Zr(prod_F0, params.pairing);
-    element_init_Zr(prod_G0, params.pairing);
-    element_set1(prod_F0);
-    element_set1(prod_G0);
+
+    // 2. Master secret (sum, not product)
+    element_t sk1, sk2;
+    element_init_Zr(sk1, params.pairing);
+    element_init_Zr(sk2, params.pairing);
+    element_set0(sk1);
+    element_set0(sk2);
     for (int i = 0; i < ne; i++) {
-        element_mul(prod_F0, prod_F0, F_coeffs[i][0]);
-        element_mul(prod_G0, prod_G0, G_coeffs[i][0]);
+        element_add(sk1, sk1, F_coeffs[i][0]); // ∑ xi0
+        element_add(sk2, sk2, G_coeffs[i][0]); // ∑ yi0
     }
-    
-    // 3. Master verification key (mvk)
-    element_t temp;
-    element_init_Zr(temp, params.pairing);
-    element_set1(temp);
-    for (int i = 0; i < ne; i++) {
-        element_t square;
-        element_init_Zr(square, params.pairing);
-        element_mul(square, F_coeffs[i][0], F_coeffs[i][0]);
-        element_mul(temp, temp, square);
-        element_clear(square);
-    }
-    element_init_G1(output.mvk.alpha2, params.pairing);
-    element_pow_zn(output.mvk.alpha2, params.g1, temp);
-    
-    element_set1(temp);
-    for (int i = 0; i < ne; i++) {
-        element_t square;
-        element_init_Zr(square, params.pairing);
-        element_mul(square, G_coeffs[i][0], G_coeffs[i][0]);
-        element_mul(temp, temp, square);
-        element_clear(square);
-    }
-    element_init_G1(output.mvk.beta2, params.pairing);
-    element_pow_zn(output.mvk.beta2, params.g1, temp);
-    
+
+    // 3. Master verification key
+    element_init_G2(output.mvk.alpha2, params.pairing);
+    element_pow_zn(output.mvk.alpha2, params.g2, sk1); // g2^(∑ xi0)
+    element_init_G2(output.mvk.beta2, params.pairing);
+    element_pow_zn(output.mvk.beta2, params.g2, sk2);  // g2^(∑ yi0)
     element_init_G1(output.mvk.beta1, params.pairing);
-    element_pow_zn(output.mvk.beta1, params.g1, prod_G0);
-    
-    element_clear(temp);
-    element_clear(prod_F0);
-    element_clear(prod_G0);
-    
-    // 4. Her EA için imza ve doğrulama anahtar paylarının üretimi.
-    output.eaKeys.resize(ne);
+    element_pow_zn(output.mvk.beta1, params.g1, sk2);  // g1^(∑ yi0)
+
+    // 4. EA shares
     for (int i = 1; i <= ne; i++) {
-        EAKey ea;
         element_t sgk1, sgk2;
         element_init_Zr(sgk1, params.pairing);
-        element_set1(sgk1);
         element_init_Zr(sgk2, params.pairing);
-        element_set1(sgk2);
-        
+        element_set0(sgk1);
+        element_set0(sgk2);
+
         for (int l = 0; l < ne; l++) {
             element_t valF, valG;
             element_init_Zr(valF, params.pairing);
             element_init_Zr(valG, params.pairing);
-            evaluatePoly(F_coeffs[l], i, params, valF);
-            evaluatePoly(G_coeffs[l], i, params, valG);
-            element_mul(sgk1, sgk1, valF);
-            element_mul(sgk2, sgk2, valG);
+            evaluatePoly(F_coeffs[l], i, params, valF); // Fl(i)
+            evaluatePoly(G_coeffs[l], i, params, valG); // Gl(i)
+            element_add(sgk1, sgk1, valF); // ∑ Fl(i)
+            element_add(sgk2, sgk2, valG); // ∑ Gl(i)
             element_clear(valF);
             element_clear(valG);
         }
-        element_init_Zr(ea.sgk1, params.pairing);
-        element_set(ea.sgk1, sgk1);
-        element_init_Zr(ea.sgk2, params.pairing);
-        element_set(ea.sgk2, sgk2);
-        
-        element_t exp_val;
-        element_init_Zr(exp_val, params.pairing);
-        
-        element_mul(exp_val, sgk1, sgk1);
-        element_init_G1(ea.vkm1, params.pairing);
-        element_pow_zn(ea.vkm1, params.g1, exp_val);
-        
-        element_mul(exp_val, sgk2, sgk2);
-        element_init_G1(ea.vkm2, params.pairing);
-        element_pow_zn(ea.vkm2, params.g1, exp_val);
-        
-        element_init_G1(ea.vkm3, params.pairing);
-        element_pow_zn(ea.vkm3, params.g1, sgk2);
-        
-        element_clear(exp_val);
+
+        element_init_Zr(output.eaKeys[i-1].sgk1, params.pairing);
+        element_set(output.eaKeys[i-1].sgk1, sgk1);
+        element_init_Zr(output.eaKeys[i-1].sgk2, params.pairing);
+        element_set(output.eaKeys[i-1].sgk2, sgk2);
+
+        element_init_G2(output.eaKeys[i-1].vkm1, params.pairing);
+        element_pow_zn(output.eaKeys[i-1].vkm1, params.g2, sgk1); // g2^F(i)
+        element_init_G2(output.eaKeys[i-1].vkm2, params.pairing);
+        element_pow_zn(output.eaKeys[i-1].vkm2, params.g2, sgk2); // g2^G(i)
+        element_init_G1(output.eaKeys[i-1].vkm3, params.pairing);
+        element_pow_zn(output.eaKeys[i-1].vkm3, params.g1, sgk2); // g1^G(i)
+
         element_clear(sgk1);
         element_clear(sgk2);
-        
-        output.eaKeys[i - 1] = ea;
     }
-    
-    // 5. Polinom katsayılarını serbest bırakma
+
+    // Cleanup
     for (int i = 0; i < ne; i++) {
         for (int j = 0; j < t; j++) {
             element_clear(F_coeffs[i][j]);
-            delete F_coeffs[i][j];
             element_clear(G_coeffs[i][j]);
-            delete G_coeffs[i][j];
         }
     }
-    
+
+    element_clear(sk1);
+    element_clear(sk2);
     return output;
 }
