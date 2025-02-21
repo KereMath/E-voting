@@ -4,7 +4,7 @@
 #include <vector>
 #include <iostream>
 
-// Evaluate polynomial using Horner’s method
+// Helper function: Evaluate a polynomial at point X using Horner's method
 static void evaluatePoly(std::vector<element_t>& coeff, int X, TIACParams& params, element_t result) {
     element_t X_val;
     element_init_Zr(X_val, params.pairing);
@@ -18,9 +18,24 @@ static void evaluatePoly(std::vector<element_t>& coeff, int X, TIACParams& param
     element_clear(X_val);
 }
 
+// Main key generation function
 KeyGenOutput keygen(TIACParams params, int t, int ne) {
     KeyGenOutput output;
+    
+    // Initialize MasterVK elements
+    element_init_G2(output.mvk.alpha2, params.pairing);
+    element_init_G2(output.mvk.beta2, params.pairing);
+    element_init_G1(output.mvk.beta1, params.pairing);
+
+    // Resize eaKeys and initialize its elements
     output.eaKeys.resize(ne);
+    for (int i = 0; i < ne; i++) {
+        element_init_Zr(output.eaKeys[i].sgk1, params.pairing);
+        element_init_Zr(output.eaKeys[i].sgk2, params.pairing);
+        element_init_G2(output.eaKeys[i].vkm1, params.pairing);
+        element_init_G2(output.eaKeys[i].vkm2, params.pairing);
+        element_init_G1(output.eaKeys[i].vkm3, params.pairing);
+    }
 
     // 1. Generate polynomials (degree t-1, so t coefficients)
     std::vector<std::vector<element_t>> F_coeffs(ne), G_coeffs(ne);
@@ -35,7 +50,7 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
         }
     }
 
-    // 2. Master secret (sum of constant terms)
+    // 2. Compute master secret (sum of constant terms)
     element_t sk1, sk2;
     element_init_Zr(sk1, params.pairing);
     element_init_Zr(sk2, params.pairing);
@@ -46,15 +61,12 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
         element_add(sk2, sk2, G_coeffs[i][0]); // ∑ yi0
     }
 
-    // 3. Master verification key
-    element_init_G2(output.mvk.alpha2, params.pairing);
+    // 3. Compute master verification key (mvk)
     element_pow_zn(output.mvk.alpha2, params.g2, sk1); // g2^(∑ xi0)
-    element_init_G2(output.mvk.beta2, params.pairing);
     element_pow_zn(output.mvk.beta2, params.g2, sk2);  // g2^(∑ yi0)
-    element_init_G1(output.mvk.beta1, params.pairing);
     element_pow_zn(output.mvk.beta1, params.g1, sk2);  // g1^(∑ yi0)
 
-    // 4. EA shares
+    // 4. Compute EA shares
     for (int i = 1; i <= ne; i++) {
         element_t sgk1, sgk2;
         element_init_Zr(sgk1, params.pairing);
@@ -74,23 +86,20 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
             element_clear(valG);
         }
 
-        element_init_Zr(output.eaKeys[i-1].sgk1, params.pairing);
+        // Set signing key shares
         element_set(output.eaKeys[i-1].sgk1, sgk1);
-        element_init_Zr(output.eaKeys[i-1].sgk2, params.pairing);
         element_set(output.eaKeys[i-1].sgk2, sgk2);
 
-        element_init_G2(output.eaKeys[i-1].vkm1, params.pairing);
+        // Compute verification key components
         element_pow_zn(output.eaKeys[i-1].vkm1, params.g2, sgk1); // g2^F(i)
-        element_init_G2(output.eaKeys[i-1].vkm2, params.pairing);
         element_pow_zn(output.eaKeys[i-1].vkm2, params.g2, sgk2); // g2^G(i)
-        element_init_G1(output.eaKeys[i-1].vkm3, params.pairing);
         element_pow_zn(output.eaKeys[i-1].vkm3, params.g1, sgk2); // g1^G(i)
 
         element_clear(sgk1);
         element_clear(sgk2);
     }
 
-    // 5. Cleanup
+    // 5. Cleanup temporary variables
     for (int i = 0; i < ne; i++) {
         for (int j = 0; j < t; j++) {
             element_clear(F_coeffs[i][j]);
@@ -101,4 +110,18 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
     element_clear(sk2);
 
     return output;
+}
+
+// Cleanup function for KeyGenOutput
+void clearKeyGenOutput(KeyGenOutput& output) {
+    element_clear(output.mvk.alpha2);
+    element_clear(output.mvk.beta2);
+    element_clear(output.mvk.beta1);
+    for (auto& key : output.eaKeys) {
+        element_clear(key.sgk1);
+        element_clear(key.sgk2);
+        element_clear(key.vkm1);
+        element_clear(key.vkm2);
+        element_clear(key.vkm3);
+    }
 }
