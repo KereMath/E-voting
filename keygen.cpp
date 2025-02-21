@@ -19,6 +19,7 @@ static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &para
     }
     element_clear(X_val);
 }
+
 KeyGenOutput keygen(TIACParams params, int t, int ne) {
     KeyGenOutput output;
     output.eaKeys.resize(ne);
