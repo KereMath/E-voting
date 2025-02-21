@@ -3,21 +3,28 @@
 
 #include <pbc/pbc.h>
 #include <gmp.h>
+#include <cstring>
 
-// TIAC/Coconut parametrelerini tutacak yapı
+// TIAC/Coconut parametrelerini tutacak yapı.
+// pairing_t tipi, PBC kütüphanesinde pointer türüdür ve pairing_init_* fonksiyonları
+// bu pointer üzerinden gerekli hafıza ayırmasını yapar.
 struct TIACParams {
     pairing_t pairing;   // PBC pairing objesi
-    mpz_t prime_order;   // Grubun mertebesi (p)
-    element_t g1;        // G1 üzerinde üreteç
-    element_t h1;        // G1 üzerinde ikinci üreteç
-    element_t g2;        // G2 üzerinde üreteç
+    mpz_t prime_order;   // G1 grubunun gerçek mertebesi (p)
+    element_t g1;        // G1 için sabit üreteç (deterministik olarak türetilmiş)
+    element_t h1;        // G1 için ikinci sabit üreteç (örneğin hash fonksiyonu için kullanılabilir)
+    element_t g2;        // G2 için sabit üreteç
+    element_t gT;        // GT için üreteç (pairing(g1, g2) ile elde edilir)
 };
 
-// Kurulum fonksiyonumuz:
-// BN-256 parametresi kullanarak G1, G2 üreteçlerini ve mertebe p'yi oluşturur.
+// BN256 (örnek) parametreleri kullanılarak TIAC parametrelerini başlatır.
+// Not: Gerçek uygulamada daha güvenilir ve güncel parametreler tercih edilmelidir.
 TIACParams setupParams();
 
-// Oluşturulmuş parametreleri temizlemek için (bellek yönetimi)
+// Oluşturulan parametrelerde kullanılan tüm kaynakları temizler.
 void clearParams(TIACParams &params);
 
-#endif
+// Hash fonksiyonu H: G1 → G1. Verilen G1 elemanını sabit bir hash algoritması ile başka bir G1 elemanına dönüştürür.
+void hashG1(element_t out, const element_t in);
+
+#endif // SETUP_H
