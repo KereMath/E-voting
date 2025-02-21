@@ -9,7 +9,12 @@
 #include <iostream>
 
 bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Proof& pi_s) {
-    element_t comp_i; // com''_i
+    // Pairing mertebesini kontrol et
+    std::cout << "checkKoR - pairing->r: ";
+    mpz_out_str(stdout, 10, params.pairing->r);
+    std::cout << std::endl;
+
+    element_t comp_i;
     element_init_G1(comp_i, params.pairing);
     {
         element_t t1, t2, t3;
@@ -24,7 +29,7 @@ bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Pr
         element_clear(t1); element_clear(t2); element_clear(t3);
     }
 
-    element_t comp; // com''
+    element_t comp;
     element_init_G1(comp, params.pairing);
     {
         element_t t1, t2, t3;
@@ -44,9 +49,9 @@ bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Pr
     hashData.push_back(canonicalElementToHex(h));
     hashData.push_back(canonicalElementToHex(params.h1));
     hashData.push_back(canonicalElementToHex(com));
-    hashData.push_back(canonicalElementToHex(comp));     // com''
+    hashData.push_back(canonicalElementToHex(comp));
     hashData.push_back(canonicalElementToHex(comi));
-    hashData.push_back(canonicalElementToHex(comp_i));   // com''_i
+    hashData.push_back(canonicalElementToHex(comp_i));
     element_t c_prime;
     element_init_Zr(c_prime, params.pairing);
     hashVectorToZr(hashData, params, c_prime);
@@ -62,7 +67,7 @@ bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Pr
     element_clear(comp_i);
     element_clear(comp);
     element_clear(c_prime);
-    return 1;
+    return valid;
 }
 
 BlindSignature blindSign(TIACParams& params, BlindSignOutput& blindOut, element_t xm, element_t ym) {

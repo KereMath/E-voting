@@ -6,6 +6,11 @@
 #include <vector>
 
 BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) {
+    // Pairing mertebesini kontrol et
+    std::cout << "prepareBlindSign - pairing->r: ";
+    mpz_out_str(stdout, 10, params.pairing->r);
+    std::cout << std::endl;
+
     BlindSignOutput out;
 
     element_t DID_elem;
@@ -65,7 +70,7 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
     element_init_Zr(r2, params.pairing); element_random(r2);
     element_init_Zr(r3, params.pairing); element_random(r3);
 
-    element_t comp_i; // com'_i
+    element_t comp_i;
     element_init_G1(comp_i, params.pairing);
     {
         element_t t1, t2;
@@ -78,7 +83,7 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(t2);
     }
 
-    element_t comp; // com'
+    element_t comp;
     element_init_G1(comp, params.pairing);
     {
         element_t t1, t2;
@@ -96,9 +101,9 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
     hashData.push_back(canonicalElementToHex(out.h));
     hashData.push_back(canonicalElementToHex(params.h1));
     hashData.push_back(canonicalElementToHex(out.com));
-    hashData.push_back(canonicalElementToHex(comp));     // com'
+    hashData.push_back(canonicalElementToHex(comp));
     hashData.push_back(canonicalElementToHex(out.comi));
-    hashData.push_back(canonicalElementToHex(comp_i));   // com'_i
+    hashData.push_back(canonicalElementToHex(comp_i));
     element_init_Zr(out.pi_s.c, params.pairing);
     hashVectorToZr(hashData, params, out.pi_s.c);
 
