@@ -2,7 +2,7 @@
 #include <stdexcept>
 #include <string>
 
-// Örnek BN256 parametre stringi. (Güvenlik açısından üretim ortamında uygun parametreler kullanılmalıdır.)
+// Örnek BN256 parametre stringi. (Üretim ortamında uygun ve güvenilir parametrelerin kullanılması önerilir.)
 static const char* BN256_PARAM = R"(
 type f
 q 205523667896953300194896352429254920972540065223
@@ -39,7 +39,7 @@ TIACParams setupParams() {
     // GT üreteci, pairing(g1, g2) ile hesaplanır.
     element_pairing(params.gT, params.g1, params.g2);
 
-    // Grup mertebesini, pairing->r kullanarak alıyoruz.
+    // Grup mertebesini pairing yapısındaki r değerini kullanarak alıyoruz.
     mpz_init_set(params.prime_order, params.pairing->r);
 
     return params;
@@ -58,15 +58,11 @@ void clearParams(TIACParams &params) {
 #include <cstddef>
 
 // Basit H: G1 → G1 hash fonksiyonu implementasyonu.
-// Burada, girdi elemanın byte gösterimini alıp element_from_hash ile başka bir G1 elemanına dönüştürüyoruz.
-void hashG1(element_t out, const element_t in) {
-    // 'in' elemanının bayt uzunluğunu almak için const-cast kullanıyoruz.
-    int len = element_length_in_bytes(const_cast<element_t>(in));
+// Burada, 'in' elemanının bayt gösterimini alıp element_from_hash ile başka bir G1 elemanına dönüştürüyoruz.
+void hashG1(element_t out, element_t in) {
+    int len = element_length_in_bytes(in);
     unsigned char* buffer = new unsigned char[len];
-    element_to_bytes(buffer, const_cast<element_t>(in));
-
-    // Byte dizisini G1 elemanına dönüştür.
+    element_to_bytes(buffer, in);
     element_from_hash(out, buffer, len);
-
     delete[] buffer;
 }
