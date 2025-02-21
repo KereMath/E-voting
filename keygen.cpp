@@ -5,48 +5,34 @@
 #include <iostream>
 
 // Helper function: Evaluate a polynomial at point X using Horner's method
-static void evaluatePoly(std::vector<element_t>& coeff, int X, TIACParams& params, element_t result) {
+static void evaluatePoly(std::vector<ElementWrapper>& coeff, int X, TIACParams& params, element_t result) {
     element_t X_val;
     element_init_Zr(X_val, params.pairing);
     element_set_si(X_val, X);
     
-    element_set(result, coeff[0]); // Initialize with constant term
+    element_set(result, coeff[0].elem); // Initialize with constant term
     for (size_t i = 1; i < coeff.size(); i++) {
         element_mul(result, result, X_val); // result = result * X
-        element_add(result, result, coeff[i]); // result = result + coeff[i]
+        element_add(result, result, coeff[i].elem); // result = result + coeff[i]
     }
     element_clear(X_val);
 }
 
 // Main key generation function
 KeyGenOutput keygen(TIACParams params, int t, int ne) {
-    KeyGenOutput output;
+    KeyGenOutput output(params.pairing);
     
-    // Initialize MasterVK elements
-    element_init_G2(output.mvk.alpha2, params.pairing);
-    element_init_G2(output.mvk.beta2, params.pairing);
-    element_init_G1(output.mvk.beta1, params.pairing);
-
-    // Resize eaKeys and initialize its elements
-    output.eaKeys.resize(ne);
-    for (int i = 0; i < ne; i++) {
-        element_init_Zr(output.eaKeys[i].sgk1, params.pairing);
-        element_init_Zr(output.eaKeys[i].sgk2, params.pairing);
-        element_init_G2(output.eaKeys[i].vkm1, params.pairing);
-        element_init_G2(output.eaKeys[i].vkm2, params.pairing);
-        element_init_G1(output.eaKeys[i].vkm3, params.pairing);
-    }
+    // Resize eaKeys (now safe with EAKey's constructor)
+    output.eaKeys.resize(ne, EAKey(params.pairing));
 
     // 1. Generate polynomials (degree t-1, so t coefficients)
-    std::vector<std::vector<element_t>> F_coeffs(ne), G_coeffs(ne);
+    std::vector<std::vector<ElementWrapper>> F_coeffs(ne), G_coeffs(ne);
     for (int i = 0; i < ne; i++) {
-        F_coeffs[i].resize(t);
-        G_coeffs[i].resize(t);
+        F_coeffs[i].resize(t, ElementWrapper(params.pairing, 0));
+        G_coeffs[i].resize(t, ElementWrapper(params.pairing, 0));
         for (int j = 0; j < t; j++) {
-            element_init_Zr(F_coeffs[i][j], params.pairing);
-            element_random(F_coeffs[i][j]);
-            element_init_Zr(G_coeffs[i][j], params.pairing);
-            element_random(G_coeffs[i][j]);
+            element_random(F_coeffs[i][j].elem);
+            element_random(G_coeffs[i][j].elem);
         }
     }
 
@@ -57,14 +43,14 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
     element_set0(sk1);
     element_set0(sk2);
     for (int i = 0; i < ne; i++) {
-        element_add(sk1, sk1, F_coeffs[i][0]); // ∑ xi0
-        element_add(sk2, sk2, G_coeffs[i][0]); // ∑ yi0
+        element_add(sk1, sk1, F_coeffs[i][0].elem); // ∑ xi0
+        element_add(sk2, sk2, G_coeffs[i][0].elem); // ∑ yi0
     }
 
     // 3. Compute master verification key (mvk)
-    element_pow_zn(output.mvk.alpha2, params.g2, sk1); // g2^(∑ xi0)
-    element_pow_zn(output.mvk.beta2, params.g2, sk2);  // g2^(∑ yi0)
-    element_pow_zn(output.mvk.beta1, params.g1, sk2);  // g1^(∑ yi0)
+    element_pow_zn(output.mvk.alpha2.elem, params.g2, sk1); // g2^(∑ xi0)
+    element_pow_zn(output.mvk.beta2.elem, params.g2, sk2);  // g2^(∑ yi0)
+    element_pow_zn(output.mvk.beta1.elem, params.g1, sk2);  // g1^(∑ yi0)
 
     // 4. Compute EA shares
     for (int i = 1; i <= ne; i++) {
@@ -87,41 +73,21 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
         }
 
         // Set signing key shares
-        element_set(output.eaKeys[i-1].sgk1, sgk1);
-        element_set(output.eaKeys[i-1].sgk2, sgk2);
+        element_set(output.eaKeys[i-1].sgk1.elem, sgk1);
+        element_set(output.eaKeys[i-1].sgk2.elem, sgk2);
 
         // Compute verification key components
-        element_pow_zn(output.eaKeys[i-1].vkm1, params.g2, sgk1); // g2^F(i)
-        element_pow_zn(output.eaKeys[i-1].vkm2, params.g2, sgk2); // g2^G(i)
-        element_pow_zn(output.eaKeys[i-1].vkm3, params.g1, sgk2); // g1^G(i)
+        element_pow_zn(output.eaKeys[i-1].vkm1.elem, params.g2, sgk1); // g2^F(i)
+        element_pow_zn(output.eaKeys[i-1].vkm2.elem, params.g2, sgk2); // g2^G(i)
+        element_pow_zn(output.eaKeys[i-1].vkm3.elem, params.g1, sgk2); // g1^G(i)
 
         element_clear(sgk1);
         element_clear(sgk2);
     }
 
     // 5. Cleanup temporary variables
-    for (int i = 0; i < ne; i++) {
-        for (int j = 0; j < t; j++) {
-            element_clear(F_coeffs[i][j]);
-            element_clear(G_coeffs[i][j]);
-        }
-    }
     element_clear(sk1);
     element_clear(sk2);
 
     return output;
-}
-
-// Cleanup function for KeyGenOutput
-void clearKeyGenOutput(KeyGenOutput& output) {
-    element_clear(output.mvk.alpha2);
-    element_clear(output.mvk.beta2);
-    element_clear(output.mvk.beta1);
-    for (auto& key : output.eaKeys) {
-        element_clear(key.sgk1);
-        element_clear(key.sgk2);
-        element_clear(key.vkm1);
-        element_clear(key.vkm2);
-        element_clear(key.vkm3);
-    }
 }
