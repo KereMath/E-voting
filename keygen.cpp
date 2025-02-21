@@ -4,18 +4,16 @@
 #include <vector>
 #include <iostream>
 
-// Yardımcı: Horner yöntemi ile polinom değerlendirmesi
-// Katsayılar pointer listesi: std::vector<element_s*>
-static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &params, element_t result) {
+// Evaluate polynomial using Horner’s method
+static void evaluatePoly(std::vector<element_t>& coeff, int X, TIACParams& params, element_t result) {
     element_t X_val;
     element_init_Zr(X_val, params.pairing);
     element_set_si(X_val, X);
     
-    // result = coeff[0]
-    element_set(result, coeff[0]);
+    element_set(result, coeff[0]); // Initialize with constant term
     for (size_t i = 1; i < coeff.size(); i++) {
-        element_mul(result, result, X_val);
-        element_add(result, result, coeff[i]);
+        element_mul(result, result, X_val); // result = result * X
+        element_add(result, result, coeff[i]); // result = result + coeff[i]
     }
     element_clear(X_val);
 }
@@ -24,10 +22,10 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
     KeyGenOutput output;
     output.eaKeys.resize(ne);
 
-    // 1. Generate polynomials
+    // 1. Generate polynomials (degree t-1, so t coefficients)
     std::vector<std::vector<element_t>> F_coeffs(ne), G_coeffs(ne);
     for (int i = 0; i < ne; i++) {
-        F_coeffs[i].resize(t); // Degree t-1
+        F_coeffs[i].resize(t);
         G_coeffs[i].resize(t);
         for (int j = 0; j < t; j++) {
             element_init_Zr(F_coeffs[i][j], params.pairing);
@@ -37,7 +35,7 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
         }
     }
 
-    // 2. Master secret (sum, not product)
+    // 2. Master secret (sum of constant terms)
     element_t sk1, sk2;
     element_init_Zr(sk1, params.pairing);
     element_init_Zr(sk2, params.pairing);
@@ -92,15 +90,15 @@ KeyGenOutput keygen(TIACParams params, int t, int ne) {
         element_clear(sgk2);
     }
 
-    // Cleanup
+    // 5. Cleanup
     for (int i = 0; i < ne; i++) {
         for (int j = 0; j < t; j++) {
             element_clear(F_coeffs[i][j]);
             element_clear(G_coeffs[i][j]);
         }
     }
-
     element_clear(sk1);
     element_clear(sk2);
+
     return output;
 }
