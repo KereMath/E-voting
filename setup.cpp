@@ -22,11 +22,7 @@ TIACParams setupParams() {
     // Pairing'i BN-256 parametreleriyle başlat
     pbc_param_t pbcParams;
     pbc_param_init_set_buf(pbcParams, BN256_PARAM, std::strlen(BN256_PARAM));
-    if (pairing_init_pbc_param(params.pairing, pbcParams) != 0) {
-        std::cerr << "Pairing başlatma hatası!" << std::endl;
-        pbc_param_clear(pbcParams);
-        return params;
-    }
+    pairing_init_pbc_param(params.pairing, pbcParams); // Hata kontrolü yok, doğrudan başlatıyoruz
 
     // Grup mertebesini set et
     mpz_init_set(params.prime_order, params.pairing->r);
@@ -72,10 +68,6 @@ TIACParams setupParams() {
     std::string g1_y = g1_str.substr(comma + 1);
     mpz_set_str(temp_x, g1_x.c_str(), 10);
     mpz_set_str(temp_y, g1_y.c_str(), 10);
-    // G1 elemanını set et
-    element_set_mpz(params.g1, temp_x); // x koordinatı
-    element_set_mpz(params.g1, temp_y); // y koordinatı (not: bu bir hata olabilir, aşağıda düzelteceğiz)
-    // Doğru yöntem: element_from_hash veya manuel set
     std::string g1_combined = g1_x + g1_y;
     element_from_hash(params.g1, (void*)g1_combined.data(), g1_combined.size());
     element_printf("Setup - g1 = %B\n", params.g1);
