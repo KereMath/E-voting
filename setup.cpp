@@ -1,25 +1,33 @@
-// setup.cpp
 #include "setup.h"
 #include <stdexcept>
 #include <string>
 
 static const char* BN256_PARAM = R"(
 type d
-q 25451229125838931816532161417680598543386368531494515945851210512836528987393
-r 25451229125838931816532161417680598543386368531494515945851210512836526359041
-h 315113925988032513224249117698304
+q 25195908475657893494027183240048397689940557347513054227947345557770262917187
+h 1
+r 25195908475657893494027183240048397689940557347513054227947345557770262917187
+n 25195908475657893494027183240048397689940557347513054227947345557770262917187
+a 0
 b 3
 k 6
-nk 152707374755033590899192968505883591260318211188967095674907263077019171954241
-nq 50811258251677863633064322835361197086772737062989031891702421025673052718143
+hk 25062608225816371759792539131299361753640647431616701360871338285845816347766
+nqr 5
+coeff0 0
+coeff1 0
+coeff2 25195908475657893494027183240048397689940557347513054227947345557770262917184
 )";
 
 TIACParams setupParams() {
     TIACParams params;
 
     pbc_param_t pbcParams;
-    pbc_param_init_set_buf(pbcParams, BN256_PARAM, std::strlen(BN256_PARAM));
-    pairing_init_pbc_param(params.pairing, pbcParams);
+    if (pbc_param_init_set_buf(pbcParams, BN256_PARAM, std::strlen(BN256_PARAM)) != 0) {
+        throw std::runtime_error("Failed to initialize PBC parameters");
+    }
+    if (pairing_init_pbc_param(params.pairing, pbcParams) != 0) {
+        throw std::runtime_error("Failed to initialize pairing");
+    }
     pbc_param_clear(pbcParams);
 
     element_init_G1(params.g1, params.pairing);
@@ -27,15 +35,12 @@ TIACParams setupParams() {
     element_init_G2(params.g2, params.pairing);
     element_init_GT(params.gT, params.pairing);
 
-    // Generate random non-identity elements
     element_random(params.g1);
     element_random(params.h1);
     element_random(params.g2);
 
-    // Compute GT generator
     element_pairing(params.gT, params.g1, params.g2);
 
-    // Check if pairing result is non-trivial
     if (element_is1(params.gT)) {
         throw std::runtime_error("Pairing resulted in identity element in GT!");
     }
@@ -45,7 +50,7 @@ TIACParams setupParams() {
     return params;
 }
 
-void clearParams(TIACParams& params) { // Fixed typo: ¶ms -> params
+void clearParams(TIACParams& params) {
     element_clear(params.g1);
     element_clear(params.h1);
     element_clear(params.g2);
