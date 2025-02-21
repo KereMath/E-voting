@@ -67,19 +67,24 @@ int main() {
     
     // 3. Pairing testi
     std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
-    element_t gtResult;
-    element_init_GT(gtResult, params.pairing);
-    auto startPairing = Clock::now();
-    pairing_apply(gtResult, params.g1, params.g2, params.pairing);
-    auto endPairing = Clock::now();
-    auto pairingDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
-    {
-        char buffer[1024];
-        element_snprintf(buffer, sizeof(buffer), "%B", gtResult);
-        std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairingDuration_us << " microseconds\n";
-        std::cout << "e(g1, g2) = \n" << buffer << "\n\n";
-    }
-    element_clear(gtResult);
+
+element_t gtResult;
+element_init_GT(gtResult, params.pairing);
+
+// Zaman ölçümü için high_resolution_clock kullanıyoruz.
+auto startPairing = std::chrono::high_resolution_clock::now();
+pairing_apply(gtResult, params.g1, params.g2, params.pairing);
+auto endPairing = std::chrono::high_resolution_clock::now();
+
+auto pairingDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
+
+{
+    char buffer[1024];
+    element_snprintf(buffer, sizeof(buffer), "%B", gtResult);
+    std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairingDuration_us << " microseconds\n";
+    std::cout << "e(g1, g2) = \n" << buffer << "\n\n";
+}
+element_clear(gtResult);
     
     // 4. Key Generation (Coconut TTP'siz / Pedersen's DKG)
     std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
