@@ -5,6 +5,7 @@
         "iomanip": "cpp",
         "sstream": "cpp",
         "iostream": "cpp",
-        "cstddef": "cpp"
+        "cstddef": "cpp",
+        "cstring": "cpp"
     }
 }
