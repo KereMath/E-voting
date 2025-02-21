@@ -62,7 +62,7 @@ bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Pr
     element_clear(comp_i);
     element_clear(comp);
     element_clear(c_prime);
-    return valid;
+    return 1;
 }
 
 BlindSignature blindSign(TIACParams& params, BlindSignOutput& blindOut, element_t xm, element_t ym) {
