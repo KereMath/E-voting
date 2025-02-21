@@ -8,7 +8,6 @@
 BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) {
     BlindSignOutput out;
 
-    // Gerçek ID'yi Zₚ elemanı olarak oluştur (DID_elem)
     element_t DID_elem;
     element_init_Zr(DID_elem, params.pairing);
     mpz_t id_mpz;
@@ -17,17 +16,15 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         std::cerr << "Error: realID sayisal degil!" << std::endl;
         mpz_clear(id_mpz);
         element_clear(DID_elem);
-        return out; // Hatalı giriş durumunda boş çıktı döndür
+        return out;
     }
     element_set_mpz(DID_elem, id_mpz);
     mpz_clear(id_mpz);
 
-    // Adım 1: Rastgele oᵢ ∈ Zₚ seç
     element_t o_i;
     element_init_Zr(o_i, params.pairing);
     element_random(o_i);
 
-    // Adım 2: comi ← g1^(oᵢ) · h1^(DID_elem)
     element_init_G1(out.comi, params.pairing);
     {
         element_t temp1, temp2;
@@ -40,21 +37,17 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(temp2);
     }
 
-    // Adım 3: h ← Hash(comi)
     {
         std::string comiHex = canonicalElementToHex(out.comi);
         hashToG1(comiHex, params, out.h);
-        // Debug: comi ve h değerlerini yazdır
         std::cout << "prepareBlindSign - comiHex: " << comiHex << std::endl;
         element_printf("prepareBlindSign - h = %B\n", out.h);
     }
 
-    // Adım 4: Rastgele o ∈ Zₚ seç
     element_t o;
     element_init_Zr(o, params.pairing);
     element_random(o);
 
-    // Adım 5: com ← g1^(o) · h^(DID_elem)
     element_init_G1(out.com, params.pairing);
     {
         element_t temp1, temp2;
@@ -67,13 +60,12 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(temp2);
     }
 
-    // Adım 6: KoR (Algorithm 5) ile πs hesaplanması
     element_t r1, r2, r3;
     element_init_Zr(r1, params.pairing); element_random(r1);
     element_init_Zr(r2, params.pairing); element_random(r2);
     element_init_Zr(r3, params.pairing); element_random(r3);
 
-    element_t comp_i;
+    element_t comp_i; // com'_i
     element_init_G1(comp_i, params.pairing);
     {
         element_t t1, t2;
@@ -86,7 +78,7 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
         element_clear(t2);
     }
 
-    element_t comp;
+    element_t comp; // com'
     element_init_G1(comp, params.pairing);
     {
         element_t t1, t2;
@@ -104,12 +96,12 @@ BlindSignOutput prepareBlindSign(TIACParams& params, const std::string& realID) 
     hashData.push_back(canonicalElementToHex(out.h));
     hashData.push_back(canonicalElementToHex(params.h1));
     hashData.push_back(canonicalElementToHex(out.com));
-    hashData.push_back(canonicalElementToHex(comp));
+    hashData.push_back(canonicalElementToHex(comp));     // com'
     hashData.push_back(canonicalElementToHex(out.comi));
-    hashData.push_back(canonicalElementToHex(comp_i));
+    hashData.push_back(canonicalElementToHex(comp_i));   // com'_i
     element_init_Zr(out.pi_s.c, params.pairing);
     hashVectorToZr(hashData, params, out.pi_s.c);
-    // Debug: Hash girdisini ve c'yi yazdır
+
     std::cout << "prepareBlindSign - hashData: ";
     for (const auto& item : hashData) std::cout << item;
     std::cout << std::endl;

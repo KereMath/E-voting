@@ -9,10 +9,8 @@
 #include <iostream>
 
 bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Proof& pi_s) {
-    element_t comp_i, comp;
+    element_t comp_i; // com''_i
     element_init_G1(comp_i, params.pairing);
-    element_init_G1(comp, params.pairing);
-
     {
         element_t t1, t2, t3;
         element_init_G1(t1, params.pairing);
@@ -26,6 +24,8 @@ bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Pr
         element_clear(t1); element_clear(t2); element_clear(t3);
     }
 
+    element_t comp; // com''
+    element_init_G1(comp, params.pairing);
     {
         element_t t1, t2, t3;
         element_init_G1(t1, params.pairing);
@@ -44,14 +44,13 @@ bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Pr
     hashData.push_back(canonicalElementToHex(h));
     hashData.push_back(canonicalElementToHex(params.h1));
     hashData.push_back(canonicalElementToHex(com));
-    hashData.push_back(canonicalElementToHex(comp));
+    hashData.push_back(canonicalElementToHex(comp));     // com''
     hashData.push_back(canonicalElementToHex(comi));
-    hashData.push_back(canonicalElementToHex(comp_i));
+    hashData.push_back(canonicalElementToHex(comp_i));   // com''_i
     element_t c_prime;
     element_init_Zr(c_prime, params.pairing);
     hashVectorToZr(hashData, params, c_prime);
 
-    // Debug: Hash girdisini ve c_prime'ı yazdır
     std::cout << "checkKoR - hashData: ";
     for (const auto& item : hashData) std::cout << item;
     std::cout << std::endl;
@@ -69,13 +68,11 @@ bool checkKoR(TIACParams& params, element_t com, element_t comi, element_t h, Pr
 BlindSignature blindSign(TIACParams& params, BlindSignOutput& blindOut, element_t xm, element_t ym) {
     BlindSignature sig;
 
-    // Hash(comi) kontrolü
     element_t h_prime;
     element_init_G1(h_prime, params.pairing);
     {
         std::string comiHex = canonicalElementToHex(blindOut.comi);
         hashToG1(comiHex, params, h_prime);
-        // Debug: comiHex ve h_prime'ı yazdır
         std::cout << "blindSign - comiHex: " << comiHex << std::endl;
         element_printf("blindSign - h_prime = %B\n", h_prime);
         element_printf("blindSign - blindOut.h = %B\n", blindOut.h);
@@ -88,7 +85,6 @@ BlindSignature blindSign(TIACParams& params, BlindSignOutput& blindOut, element_
     if (!hashOk || !korOk) {
         std::cerr << "Warning: Blind Sign Check Failed: KoR proof is invalid (" << korOk
                   << ") or Hash(comi) != h (" << hashOk << ")." << std::endl;
-        // Simülasyon için devam ediliyor
     }
 
     element_init_G1(sig.h, params.pairing);
