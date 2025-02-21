@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <openssl/sha.h>
 #include "setup.h"
+#include <iostream>
 
 inline std::string canonicalElementToHex(element_t e) {
     int size = element_length_in_bytes(e);
