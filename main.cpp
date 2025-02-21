@@ -40,38 +40,46 @@ int main() {
     // 2. Setup: Sistem parametrelerini oluştur
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
-
-        std::cout << "p (Grup mertebesi) = ";
-        mpz_out_str(stdout, 10, params.prime_order);
-        std::cout << "\n";
-
-        std::cout << "g1 (G1 uretec) = ";
-        element_out_str(stdout, 10, params.g1);
-        std::cout << "\n";
-
-        std::cout << "g2 (G2 uretec) = ";
-        element_out_str(stdout, 10, params.g2);
-        std::cout << "\n";
-
-        std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
-        element_t gtResult;
-        element_init_GT(gtResult, params.pairing);
-        auto startPairing = Clock::now();
-        pairing_apply(gtResult, params.g1, params.g2, params.pairing);
-        auto endPairing = Clock::now();
-        auto pairingDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
-
+    auto endSetup = Clock::now();
+    auto setupDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
+    
+    // Debug: Setup çıktıları
+    {
+        char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
+        std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
+        free(p_str);
+    }
+    {
+        char buffer[1024];
+        element_snprintf(buffer, sizeof(buffer), "%B", params.g1);
+        std::cout << "g1 (G1 uretec) =\n" << buffer << "\n\n";
+    }
+    {
+        char buffer[1024];
+        element_snprintf(buffer, sizeof(buffer), "%B", params.h1);
+        std::cout << "h1 (G1 ikinci uretec) =\n" << buffer << "\n\n";
+    }
+    {
+        char buffer[1024];
+        element_snprintf(buffer, sizeof(buffer), "%B", params.g2);
+        std::cout << "g2 (G2 uretec) =\n" << buffer << "\n\n";
+    }
+    
+    // 3. Pairing testi
+    std::cout << "=== e(g1, g2) cift dogrusal eslem (pairing) hesabi ===\n";
+    element_t gtResult;
+    element_init_GT(gtResult, params.pairing);
+    auto startPairing = Clock::now();
+    pairing_apply(gtResult, params.g1, params.g2, params.pairing);
+    auto endPairing = Clock::now();
+    auto pairingDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
+    {
+        char buffer[1024];
+        element_snprintf(buffer, sizeof(buffer), "%B", gtResult);
         std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairingDuration_us << " microseconds\n";
-        std::cout << "e(g1, g2) = ";
-        element_out_str(stdout, 10, gtResult);
-        std::cout << "\n";
-
-        if (element_is1(gtResult)) {
-            std::cout << "HATA: e(g1, g2) is the identity element!\n";
-        }
-
-        element_clear(gtResult);
-        clearParams(params);
+        std::cout << "e(g1, g2) = \n" << buffer << "\n\n";
+    }
+    element_clear(gtResult);
     
     // 4. Key Generation (Coconut TTP'siz / Pedersen's DKG)
     std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
