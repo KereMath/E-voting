@@ -79,6 +79,9 @@ int main() {
         std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairingDuration_us << " microseconds\n";
         std::cout << "e(g1, g2) = \n" << buffer << "\n\n";
     }
+    if (element_is1(gtResult)) {
+        std::cout << "HATA: e(g1, g2) is the identity element!\n";
+    }
     element_clear(gtResult);
     
     // 4. Key Generation (Coconut TTP'siz / Pedersen's DKG)
