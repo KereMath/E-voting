@@ -7,7 +7,7 @@
 // DID yapısı:
 //  - x   : Her kullanıcının rastgele seçilen gizli değeri (mpz_t olarak saklanır)
 //  - did : ID + x_string birleştirmesinin SHA-512 özeti (hex string)
-struct DID {sdadas
+struct DID {
     mpz_t x;
     std::string did;
 };
