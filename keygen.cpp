@@ -155,7 +155,6 @@ for (int i = 1; i <= ne; i++) {
 
 
 
-bu da maindeki keygen yeri
 
     // 4. Key Generation (Coconut TTP'siz / Pedersen's DKG)
     std::cout << "=== Coconut TTP'siz Anahtar Uretimi (Pedersen's DKG) ===\n";
