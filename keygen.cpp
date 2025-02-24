@@ -4,14 +4,12 @@
 #include <vector>
 #include <iostream>
 
-// Yardımcı: Horner yöntemi ile polinom değerlendirmesi
-// Katsayılar pointer listesi: std::vector<element_s*>
-static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &params, element_t result) {
+// Updated: evaluatePoly now uses vector of element_t instead of element_s*
+static void evaluatePoly(const std::vector<element_t>& coeff, int X, TIACParams &params, element_t result) {
     element_t X_val;
     element_init_Zr(X_val, params.pairing);
     element_set_si(X_val, X);
     
-    // result = coeff[0]
     element_set(result, coeff[0]);
     for (size_t i = 1; i < coeff.size(); i++) {
         element_mul(result, result, X_val);
@@ -23,18 +21,15 @@ static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &para
 KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     KeyGenOutput output;
     
-    // 1. F ve G polinom katsayıları için 2D vector (EA sayısı x t katsayısı)
-    // Elemanlar element_s* olarak tutulacak.
-    std::vector< std::vector<element_s*> > F_coeffs(ne), G_coeffs(ne);
+    // 1. Initialize F and G polynomial coefficients as 2D vectors of element_t.
+    std::vector< std::vector<element_t> > F_coeffs(ne, std::vector<element_t>(t));
+    std::vector< std::vector<element_t> > G_coeffs(ne, std::vector<element_t>(t));
     for (int i = 0; i < ne; i++) {
-        F_coeffs[i].resize(t);
-        G_coeffs[i].resize(t);
         for (int j = 0; j < t; j++) {
-            F_coeffs[i][j] = new element_s;  
+            // Initialize each coefficient in Zr.
             element_init_Zr(F_coeffs[i][j], params.pairing);
             element_random(F_coeffs[i][j]);
             
-            G_coeffs[i][j] = new element_s;
             element_init_Zr(G_coeffs[i][j], params.pairing);
             element_random(G_coeffs[i][j]);
         }
@@ -233,9 +228,7 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     for (int i = 0; i < ne; i++) {
         for (int j = 0; j < t; j++) {
             element_clear(F_coeffs[i][j]);
-            delete F_coeffs[i][j];
             element_clear(G_coeffs[i][j]);
-            delete G_coeffs[i][j];
         }
     }
     
