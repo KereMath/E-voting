@@ -156,10 +156,13 @@ int main() {
         element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
         element_snprintf(bufH, sizeof(bufH), "%B", bsOutputs[i].h);
         element_snprintf(bufCom, sizeof(bufCom), "%B", bsOutputs[i].com);
+        element_snprintf(bufO, sizeof(bufO), "%B", bsOutputs[i].o);
+
         std::cout << "Secmen " << (i+1) << " Prepare Blind Sign:\n"
                   << "comi = " << bufComi << "\n"
                   << "h    = " << bufH    << "\n"
-                  << "com  = " << bufCom  << "\n\n";
+                  << "com  = " << bufCom  << "\n\n"
+                  << "o  = " << bufO  << "\n\n";;
     }
     auto endBS = Clock::now();
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
