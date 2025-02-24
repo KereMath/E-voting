@@ -8,6 +8,12 @@
 #include "keygen.h"
 #include "didgen.h"
 #include "prepareblindsign.h"
+#include "blindsign.h"  // <-- yeni eklenen header (Alg.12)
+
+// Not: "blindsign.h" içinde şu fonksiyonlar tanımlı olmalı:
+//  - bool CheckKoR(...)
+//  - BlindSignature blindSign(...)
+//  - struct BlindSignature { element_t h; element_t cm; }
 
 int main() {
     using Clock = std::chrono::steady_clock;
@@ -185,7 +191,6 @@ int main() {
     auto startBS = Clock::now();
     std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
     for(int i = 0; i < voterCount; i++) {
-        // Örnek: dids[i].did (hash string)
         bsOutputs[i] = prepareBlindSign(params, dids[i].did);
 
         // Ekrana yazma
@@ -214,9 +219,56 @@ int main() {
     }
     auto endBS = Clock::now();
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
+    
+    // 8) Kör İmzalama (Algoritma 12) - Her EA, her seçmen için partial signature
+    std::cout << "=== Kör Imzalama (BlindSign) (Algoritma 12) ===\n";
+    auto startFinalSign = Clock::now();
 
-    // 8) Bellek temizliği
-    // KeyOut
+    for(int i = 0; i < voterCount; i++) {
+        std::cout << "Secmen " << (i+1) << " icin EA otoritelerinin imzalari:\n";
+
+        for(int m = 0; m < ne; m++) {
+            // EA otoritesinin (x_m, y_m) = (sgk1, sgk2)
+            mpz_t xm, ym;
+            mpz_init(xm);
+            mpz_init(ym);
+
+            element_to_mpz(xm, keyOut.eaKeys[m].sgk1); // x_m
+            element_to_mpz(ym, keyOut.eaKeys[m].sgk2); // y_m
+
+            try {
+                BlindSignature partialSig = blindSign(
+                    params, 
+                    bsOutputs[i], 
+                    xm,  // x_m
+                    ym   // y_m
+                );
+                
+                // partialSig => (h, cm)
+                char bufH[2048], bufCM[2048];
+                element_snprintf(bufH,  sizeof(bufH),  "%B", partialSig.h);
+                element_snprintf(bufCM, sizeof(bufCM), "%B", partialSig.cm);
+
+                std::cout << "  [EA " << (m+1) << "] => h=" << bufH << "\n"
+                          << "              cm=" << bufCM << "\n\n";
+
+                // Temizlik
+                element_clear(partialSig.h);
+                element_clear(partialSig.cm);
+
+            } catch(const std::exception &ex) {
+                std::cerr << "  [EA " << (m+1) 
+                          << "] blindSign error: " << ex.what() << "\n";
+            }
+
+            mpz_clear(xm);
+            mpz_clear(ym);
+        }
+    }
+    auto endFinalSign = Clock::now();
+    auto finalSign_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
+
+    // 9) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
     element_clear(keyOut.mvk.beta1);
@@ -228,12 +280,10 @@ int main() {
         element_clear(keyOut.eaKeys[i].vkm3);
     }
 
-    // DID'ler
     for(int i=0; i<voterCount; i++){
         mpz_clear(dids[i].x);
     }
 
-    // PrepareBlindSignOutput
     for(int i=0; i<voterCount; i++){
         element_clear(bsOutputs[i].comi);
         element_clear(bsOutputs[i].h);
@@ -244,24 +294,25 @@ int main() {
         element_clear(bsOutputs[i].pi_s.s3);
     }
 
-    // Setup parametreleri
     clearParams(params);
 
-    // 9) Zaman ölçümleri (ms)
-    double setup_ms   = setup_us  / 1000.0;
-    double pairing_ms = pairing_us / 1000.0;
-    double keygen_ms  = keygen_us  / 1000.0;
-    double idGen_ms   = idGen_us   / 1000.0;
-    double didGen_ms  = didGen_us  / 1000.0;
-    double bs_ms      = bs_us      / 1000.0;
+    // 10) Zaman ölçümleri (ms)
+    double setup_ms     = setup_us    / 1000.0;
+    double pairing_ms   = pairing_us  / 1000.0;
+    double keygen_ms    = keygen_us   / 1000.0;
+    double idGen_ms     = idGen_us    / 1000.0;
+    double didGen_ms    = didGen_us   / 1000.0;
+    double bs_ms        = bs_us       / 1000.0;
+    double finalSign_ms = finalSign_us / 1000.0;
 
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
-    std::cout << "Setup suresi       : " << setup_ms   << " ms\n";
-    std::cout << "Pairing suresi     : " << pairing_ms << " ms\n";
-    std::cout << "KeyGen suresi      : " << keygen_ms  << " ms\n";
-    std::cout << "ID Generation      : " << idGen_ms   << " ms\n";
-    std::cout << "DID Generation     : " << didGen_ms  << " ms\n";
-    std::cout << "Prepare Blind Sign : " << bs_ms      << " ms\n";
+    std::cout << "Setup suresi       : " << setup_ms     << " ms\n";
+    std::cout << "Pairing suresi     : " << pairing_ms   << " ms\n";
+    std::cout << "KeyGen suresi      : " << keygen_ms    << " ms\n";
+    std::cout << "ID Generation      : " << idGen_ms     << " ms\n";
+    std::cout << "DID Generation     : " << didGen_ms    << " ms\n";
+    std::cout << "Prepare Blind Sign : " << bs_ms        << " ms\n";
+    std::cout << "Final Blind Sign   : " << finalSign_ms << " ms\n";
 
     std::cout << "\n=== Program Sonu ===\n";
     return 0;
