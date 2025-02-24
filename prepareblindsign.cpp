@@ -7,72 +7,80 @@
 #include <stdexcept>
 
 /*
-  * Kodun amacı:
-  *  - Algoritma 4: comi, h, com, pi_s
-  *  - Algoritma 5: KoRProof
-  *
-  * Dikkat: PBC'de "element_t" = "struct element_s[1]" 
-  * => &g1 tipik "element_s(*)[1]" olur. 
-  * => Bu yüzden "std::vector<element_t*> toHash = {&g1, ...}" dersek hata. 
-  *    Onun yerine "toHash.push_back(&g1[0])" yapılır.
+  PBC’de:
+    element_t = struct element_s[1];
+  Dolayısıyla g1, h, vs. birer "struct element_s" dizisi (uzunluk 1).
+  Dizinin adı (g1, h vb.) -> decay -> (element_s*)
 */
 
-// Rastgele element Zr
+////////////////////////////////////
+// 1) Yardımcı fonksiyonlar
+////////////////////////////////////
+
+// Rastgele Zr
 static void randomZr(element_t zr, TIACParams &params) {
-    element_random(zr);
+    element_random(zr);  
 }
 
-// DID (hex) -> mpz (mod p)
+// DID (hex) -> mpz mod p
 static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) {
-    if (mpz_set_str(rop, didStr.c_str(), 16) != 0) {
+    // 16 taban: parse
+    if(mpz_set_str(rop, didStr.c_str(), 16) != 0) {
         throw std::runtime_error("didStringToMpz: invalid hex string");
     }
     mpz_mod(rop, rop, p);
 }
 
-// G1 elemanını hex string’e çevir
-static std::string elementToStringG1(element_t g1Elem) {
-    // g1Elem => "struct element_s[1]" => pbc fonksiyonları
-    int length = element_length_in_bytes(g1Elem);
+// G1 elemanını hex string’e çevir 
+// (burada parametre "element_s *" tipinde)
+static std::string elementToStringG1(element_s *elemPtr) {
+    // element_length_in_bytes, element_to_bytes => (element_t) = (element_s *)
+    int length = element_length_in_bytes(elemPtr);
     std::vector<unsigned char> buf(length);
-    element_to_bytes(buf.data(), g1Elem);
+    element_to_bytes(buf.data(), elemPtr);
 
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
-    for(unsigned char c : buf) {
+    for(auto c : buf) {
         oss << std::setw(2) << (int)c;
     }
     return oss.str();
 }
 
-// outG1 = HashInG1(inElem)
+// outG1 = hash(G1)  
 static void hashToG1(element_t outG1, TIACParams &params, element_t inElem) {
-    std::string s = elementToStringG1(inElem);
+    // inElem => "struct element_s[1]"
+    // inElem decays to (element_s *), 
+    std::string s = elementToStringG1(inElem); 
+    // PBC: element_from_hash(element_t e, void *data, int len)
     element_from_hash(outG1, s.data(), s.size());
 }
 
 // c = Hash( [elems] ) -> Zr
-// Burada "elems" = vector of (element_t*)
-static void hashToZr(element_t outZr, TIACParams &params, const std::vector<element_t*> &elems) {
+// "elems" = vector of "element_s *"
+static void hashToZr(element_t outZr, TIACParams &params, const std::vector<element_s*> &elems) {
     std::ostringstream oss;
-    for (auto ePtr : elems) {
-        oss << elementToStringG1(*ePtr); 
+    for(auto ePtr : elems) {
+        // ePtr : element_s*
+        oss << elementToStringG1(ePtr);
     }
-    std::string fullStr = oss.str();
+    std::string msg = oss.str();
 
-    unsigned char hash[SHA512_DIGEST_LENGTH];
-    SHA512((const unsigned char*)fullStr.data(), fullStr.size(), hash);
+    unsigned char digest[SHA512_DIGEST_LENGTH];
+    SHA512((unsigned char*)msg.data(), msg.size(), digest);
 
     mpz_t tmp;
     mpz_init(tmp);
-    mpz_import(tmp, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, hash);
+    mpz_import(tmp, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, digest);
     mpz_mod(tmp, tmp, params.prime_order);
 
     element_set_mpz(outZr, tmp);
     mpz_clear(tmp);
 }
 
-// Algoritma 5: KoR
+////////////////////////////////////
+// 2) Algoritma 5: computeKoR
+////////////////////////////////////
 static KoRProof computeKoR(
     TIACParams &params,
     element_t com,   // G1
@@ -80,9 +88,9 @@ static KoRProof computeKoR(
     element_t g1,    // G1
     element_t h1,    // G1
     element_t h,     // G1
-    mpz_t oi,        // Zp
-    mpz_t did,       // Zp
-    mpz_t o          // Zp
+    mpz_t oi,        
+    mpz_t did,
+    mpz_t o
 ) {
     KoRProof proof;
 
@@ -100,10 +108,12 @@ static KoRProof computeKoR(
     element_t comi_prime;
     element_init_G1(comi_prime, params.pairing);
 
+    // g1^r1
     element_t g1_r1;
     element_init_G1(g1_r1, params.pairing);
     element_pow_zn(g1_r1, g1, r1);
 
+    // h1^r2
     element_t h1_r2;
     element_init_G1(h1_r2, params.pairing);
     element_pow_zn(h1_r2, h1, r2);
@@ -128,25 +138,25 @@ static KoRProof computeKoR(
     element_clear(g1_r3);
     element_clear(h_r2);
 
-    // c = Hash([g1, h, h1, com, comi, com_prime, comi_prime])
+    // proof.c, s1, s2, s3 init
     element_init_Zr(proof.c,  params.pairing);
     element_init_Zr(proof.s1, params.pairing);
     element_init_Zr(proof.s2, params.pairing);
     element_init_Zr(proof.s3, params.pairing);
 
-    // Dikkat: "element_t" = "struct element_s[1]"
-    // => &g1 => (element_s (*)[1])
-    // => &g1[0] => (element_t*) 
-    // vektöre push_back ile ekleyelim:
-    std::vector<element_t*> toHash;
+    // Hash(g1, h, h1, com, comi, com_prime, comi_prime)
+    // Hepsi: element_t => "struct element_s[1]"
+    // => Dizinin ismi "g1" decays -> (element_s*) 
+    //   "com_prime" -> (element_s*)
+    std::vector<element_s*> toHash;
     toHash.reserve(7);
-    toHash.push_back(&g1[0]);
-    toHash.push_back(&h[0]);
-    toHash.push_back(&h1[0]);
-    toHash.push_back(&com[0]);
-    toHash.push_back(&comi[0]);
-    toHash.push_back(&com_prime[0]);
-    toHash.push_back(&comi_prime[0]);
+    toHash.push_back(g1);         // g1 => element_s*
+    toHash.push_back(h);          // h => element_s*
+    toHash.push_back(h1);         // h1 => element_s*
+    toHash.push_back(com);        // com => element_s*
+    toHash.push_back(comi);       // comi => element_s*
+    toHash.push_back(com_prime);  // com_prime => element_s*
+    toHash.push_back(comi_prime); // comi_prime => element_s*
 
     hashToZr(proof.c, params, toHash);
 
@@ -158,7 +168,6 @@ static KoRProof computeKoR(
     // r1, r2, r3 -> mpz
     mpz_t r1_mpz, r2_mpz, r3_mpz;
     mpz_inits(r1_mpz, r2_mpz, r3_mpz, NULL);
-
     element_to_mpz(r1_mpz, r1);
     element_to_mpz(r2_mpz, r2);
     element_to_mpz(r3_mpz, r3);
@@ -198,11 +207,12 @@ static KoRProof computeKoR(
     return proof;
 }
 
-// Algoritma 4: prepareBlindSign
+////////////////////////////////////
+// 3) Algoritma 4: prepareBlindSign
+////////////////////////////////////
 PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &didStr) {
     PrepareBlindSignOutput out;
 
-    // oi, o
     mpz_t oi, o;
     mpz_inits(oi, o, NULL);
 
@@ -227,7 +237,7 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     mpz_init(didInt);
     didStringToMpz(didStr, didInt, params.prime_order);
 
-    // 2) comi = g1^oi * h1^did
+    // (2) comi = g1^oi * h1^did
     element_init_G1(out.comi, params.pairing);
     {
         element_t g1_oi;
@@ -257,11 +267,11 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         element_clear(h1_did);
     }
 
-    // 3) h = HashInG1(comi)
+    // (3) h = HashInG1(comi)
     element_init_G1(out.h, params.pairing);
     hashToG1(out.h, params, out.comi);
 
-    // 5) com = g1^o * h^did
+    // (5) com = g1^o * h^did
     element_init_G1(out.com, params.pairing);
     {
         element_t g1_o;
@@ -291,19 +301,19 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         element_clear(h_did);
     }
 
-    // 6) pi_s = computeKoR(...)
-    out.pi_s = computeKoR(params, 
-                          out.com, 
-                          out.comi, 
-                          params.g1, 
-                          params.h1, 
-                          out.h,
-                          oi,
-                          didInt,
-                          o);
+    // (6) pi_s = computeKoR(...)
+    out.pi_s = computeKoR(
+        params,
+        out.com,
+        out.comi,
+        params.g1,
+        params.h1,
+        out.h,
+        oi,
+        didInt,
+        o
+    );
 
-    // temizlik
     mpz_clears(oi, o, didInt, NULL);
-
     return out;
 }
