@@ -127,6 +127,14 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
         element_clear(sgk1);
         element_clear(sgk2);
         
+        // Yeni: EA'nın kendi secret değerlerini (F₀ ve G₀) saklayalım.
+        // Her EA için kendi polinomunun sabit terimi F_coeffs[i-1][0] ve G_coeffs[i-1][0] kullanılıyor.
+        element_init_Zr(ea.f0, params.pairing);
+        element_set(ea.f0, *(F_coeffs[i-1][0]));
+        
+        element_init_Zr(ea.g0, params.pairing);
+        element_set(ea.g0, *(G_coeffs[i-1][0]));
+        
         output.eaKeys[i - 1] = ea;
     }
     

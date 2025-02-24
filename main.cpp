@@ -216,20 +216,27 @@ int main() {
     // Örnek: voterin secret değerleri xm, ym olarak DID üretiminde kullanılan x değeri kullanılıyor.
     std::vector<BlindSignature> finalSigs(voterCount);
     auto startFinalSign = Clock::now();
+// Final blind signature: Her seçmenin hazırladığı mesajı, her EA otoritesi ayrı ayrı imzalar.
     for (int i = 0; i < voterCount; i++) {
-        finalSigs[i] = blindSign(params, bsOutputs[i], dids[i].x, dids[i].x);
-        std::cout << "=== Secmen " << (i+1) << " Final Blind Signature ===\n";
-        {
-            char buffer[1024];
-            element_snprintf(buffer, sizeof(buffer), "%B", finalSigs[i].h);
-            std::cout << "Final Sig h = " << buffer << "\n";
-        }
-        {
-            char buffer[1024];
-            element_snprintf(buffer, sizeof(buffer), "%B", finalSigs[i].cm);
-            std::cout << "Final Sig cm = " << buffer << "\n\n";
+        std::cout << "=== Secmen " << (i+1) << " için EA otoritelerinin Blind Signature sonuçları ===\n";
+        for (int j = 0; j < ne; j++) {
+            BlindSignature sig = blindSign(params, bsOutputs[i],
+                                            keyOut.eaKeys[j].secret_x, 
+                                            keyOut.eaKeys[j].secret_y);
+            std::cout << "EA " << (j+1) << " imza sonuçları:\n";
+            {
+                char buffer[1024];
+                element_snprintf(buffer, sizeof(buffer), "%B", sig.h);
+                std::cout << "Final Sig h = " << buffer << "\n";
+            }
+            {
+                char buffer[1024];
+                element_snprintf(buffer, sizeof(buffer), "%B", sig.cm);
+                std::cout << "Final Sig cm = " << buffer << "\n\n";
+            }
         }
     }
+
     auto endFinalSign = Clock::now();
     auto finalSignDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
     

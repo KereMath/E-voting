@@ -11,10 +11,10 @@
 // CheckKoR (Algorithm 6)
 // Girdi: params, com, comi, h, πs
 // Hesaplamalar:
-//   comp_i = g1^(s1) * h1^(s2) * comi^(c)
-//   comp  = g1^(s3) * h^(s2) * com^(c)
+//   comp_i = g1^(s1) · h1^(s2) · comi^(c)
+//   comp   = g1^(s3) · h^(s2) · com^(c)
 //   c' = Hash(g1, h, h1, com, comp, comi, comp_i)
-// Eğer c' == c, ispat başarılı.
+// Eğer c' == c ise ispat başarılı.
 bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Proof &pi_s) {
     element_t comp_i, comp;
     element_init_G1(comp_i, params.pairing);
@@ -67,31 +67,14 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
 }
 
 // blindSign (Algorithm 12)
-// Girdi: blindOut (prepare blind sign çıktısı) ve voterin secret değerleri xm, ym
-// Eğer CheckKoR geçerli değilse veya Hash(comi) ≠ h ise, uyarı verilir ancak simülasyon amaçlı imza üretimine devam edilir.
-BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, const std::string &xm_str, const std::string &ym_str) {
+// Girdi: blindOut (prepare blind sign çıktısı) ve EA otoritesinin secret değerleri xm, ym
+// (Bu secret değerler, EA tarafından keygen aşamasında belirlenen xi0 ve yi0’dır)
+// Önce, Hash(comi) yeniden hesaplanır ve KoR ispatı kontrol edilir.
+// Eğer kontroller geçerse, final blind signature:
+//   cm = h^(xm) · com^(ym)
+// üretilir.
+BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym) {
     BlindSignature sig;
-    
-    // Önce, string olarak verilen xm_str ve ym_str'yi Zₚ elemanlarına dönüştürelim.
-    element_t xm, ym;
-    element_init_Zr(xm, params.pairing);
-    element_init_Zr(ym, params.pairing);
-    
-    mpz_t mpz_xm;
-    mpz_init(mpz_xm);
-    if(mpz_set_str(mpz_xm, xm_str.c_str(), 16) != 0) {
-        std::cerr << "Error converting xm_str to mpz_t" << std::endl;
-    }
-    element_set_mpz(xm, mpz_xm);
-    mpz_clear(mpz_xm);
-    
-    mpz_t mpz_ym;
-    mpz_init(mpz_ym);
-    if(mpz_set_str(mpz_ym, ym_str.c_str(), 16) != 0) {
-        std::cerr << "Error converting ym_str to mpz_t" << std::endl;
-    }
-    element_set_mpz(ym, mpz_ym);
-    mpz_clear(mpz_ym);
     
     // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
     element_t h_prime;
@@ -125,9 +108,6 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, const st
         element_clear(t1);
         element_clear(t2);
     }
-    
-    element_clear(xm);
-    element_clear(ym);
     
     return sig;
 }
