@@ -9,6 +9,7 @@
 #include "didgen.h"
 #include "prepareblindsign.h"
 #include "blindsign.h"  // <-- yeni eklenen header (Alg.12)
+#include "unblindsign.h"  // <-- yeni header
 
 // Not: "blindsign.h" içinde şu fonksiyonlar tanımlı olmalı:
 //  - bool CheckKoR(...)
@@ -268,6 +269,129 @@ int main() {
     auto endFinalSign = Clock::now();
     auto finalSign_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
 
+    std::cout << "=== Unblind Signature (Algoritma 13) ===\n";
+    auto startUnblind = Clock::now();
+
+    // Varsayalım voterCount=1, sadece 1 seçmen var;
+    // Ve 3 EA var => partialSig[EA].
+    // "o" (prepareBlindSign'da kullanılan rastgele), DIDi (mod p), 
+    // vkm = (alpha2,m, beta2,m, beta1,m) => keyOut.eaKeys[m], 
+    // cm => final blind signature => "partialSig.cm"
+
+    for(int i=0; i<voterCount; i++) {
+        // "o" -> prepareBlindSign'dan saklanmalıydı. 
+        //  Orada "o" mpz_t oluşturuyorduk. Bunu "unblindsign" aşamasına taşımalıyız.
+        //  Burada sadece demonstre ediyoruz:
+        //   + ID: bsOutputs[i]. => prepareBlindSignOutput'ta "o" yok. 
+        //     O'yu saklamadığınız halde gösterim için bir "dummy" kullanalım.
+
+        mpz_t o;
+        mpz_init(o);
+
+        // Sadece DEMO: "o" rastgele seçiyorum.
+        // Gerçekte "o" = PrepareBlindSign fonksiyonu içinde saklanmalı.
+        {
+            element_t tmp;
+            element_init_Zr(tmp, params.pairing);
+            element_random(tmp);
+            element_to_mpz(o, tmp);
+            element_clear(tmp);
+        }
+
+        // DID'yi de "mpz_t" formunda saklamak istersek => dids[i].x vs. 
+        // Ki Alg.13(5). "beta2^{DIDi}" => DID mod p
+        // diyelim mpz_t didInt; 
+        // mpz_init_set(didInt, ...);
+
+        // EA her partial sig => (h, cm)
+        // Bu örnek: Final Blind Sign kısımda "partialSig" => (h, cm)
+        // "unblindsign" => (h, sm)
+
+        for(int m=0; m<ne; m++) {
+            std::cout << "[UNBLIND] Secmen " << (i+1) << ", EA " << (m+1) << "\n";
+
+            // vkm: alpha2=m, beta2=m, beta1=m
+            //  => keyOut.eaKeys[m].vkm1, vkm2, vkm3 (dizayn?)
+            //  Aslında vkm1= g2^xm, vkm2= g2^ym, vkm3= g1^ym. 
+            //  Fakat alpha2,m = ??
+            //  Muhtemelen alpha2,m = vkm1 ?
+
+            // Alg.13 girdi:
+            UnblindSignInput in;
+            element_init_G1(in.comi, params.pairing);
+            element_init_G1(in.h,    params.pairing);
+            mpz_init(in.o);
+            element_init_G2(in.alpha2, params.pairing);
+            element_init_G2(in.beta2,  params.pairing);
+            element_init_G1(in.beta1,  params.pairing);
+            element_init_G1(in.cm,     params.pairing);
+            mpz_init(in.DIDi);
+
+            // comi = bsOutputs[i].comi
+            element_set(in.comi, bsOutputs[i].comi);
+            // h = partialSig.h => AMA partialSig yok, 
+            //   main’de "kör imza" = partialSig, orada param yok. 
+            // Demo: bsOutputs[i].h (not correct, real partialSig from blindSign step)
+            element_set(in.h, bsOutputs[i].h);
+
+            // o
+            mpz_set(in.o, o);
+
+            // vkm = (alpha2, beta2, beta1)
+            //  Bu dizaynda alpha2, beta2, beta1 => 
+            //   => "keyOut.eaKeys[m].??"
+            //  Aslında alpha2,m = ??? 
+            //  Normalde alpha2,m =?? 
+            //  Protokol tasarımınıza göre eklemeniz lazım. 
+            element_set(in.alpha2, keyOut.eaKeys[m].vkm1); // DEMO 
+            element_set(in.beta2,  keyOut.eaKeys[m].vkm2); // DEMO
+            element_set(in.beta1,  keyOut.eaKeys[m].vkm3); // DEMO
+
+            // cm => partialSig.cm
+            //  Sizin kodda partialSig her otoriteden "blindSign" asamasinda cikar. 
+            //  Bunu saklamanız lazım. Ornek: "partialSigVec[m]" 
+            //  Biz orada yok diyorsak dummy verelim.
+            element_set(in.cm, bsOutputs[i].com); // DEMO (not correct in real code)
+
+            // DIDi => dids[i].x
+            mpz_set(in.DIDi, dids[i].x);
+
+            try {
+                UnblindSignature unb = unblindSignature(params, in);
+                // unb => (h, sm)
+
+                // print
+                char hBuf[1024], smBuf[1024];
+                element_snprintf(hBuf,  sizeof(hBuf),  "%B", unb.h);
+                element_snprintf(smBuf, sizeof(smBuf), "%B", unb.sm);
+
+                std::cout << "  Unblinded Sig => h=" << hBuf 
+                          << "\n                  sm=" << smBuf << "\n";
+
+                // Temizlik
+                element_clear(unb.h);
+                element_clear(unb.sm);
+            }
+            catch(const std::exception &ex) {
+                std::cerr << "  unblindsign error: " << ex.what() << "\n";
+            }
+
+            // Temizlik
+            element_clear(in.comi);
+            element_clear(in.h);
+            mpz_clear(in.o);
+            element_clear(in.alpha2);
+            element_clear(in.beta2);
+            element_clear(in.beta1);
+            element_clear(in.cm);
+            mpz_clear(in.DIDi);
+        }
+        mpz_clear(o);
+    }
+
+    auto endUnblind = Clock::now();
+    auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(endUnblind - startUnblind).count();
+
     // 9) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
@@ -304,7 +428,7 @@ int main() {
     double didGen_ms    = didGen_us   / 1000.0;
     double bs_ms        = bs_us       / 1000.0;
     double finalSign_ms = finalSign_us / 1000.0;
-
+    double unblind_ms = unblind_us / 1000.0;
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi       : " << setup_ms     << " ms\n";
     std::cout << "Pairing suresi     : " << pairing_ms   << " ms\n";
@@ -313,6 +437,7 @@ int main() {
     std::cout << "DID Generation     : " << didGen_ms    << " ms\n";
     std::cout << "Prepare Blind Sign : " << bs_ms        << " ms\n";
     std::cout << "Final Blind Sign   : " << finalSign_ms << " ms\n";
+    std::cout << "Unblind Signature: " << unblind_ms << " ms\n\n";
 
     std::cout << "\n=== Program Sonu ===\n";
     return 0;
