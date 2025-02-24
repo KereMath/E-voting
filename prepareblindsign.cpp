@@ -40,6 +40,7 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
     
     // Adım 3: h ← Hash(comi) (h ∈ G₁) -- kanonik serileştirme kullanılarak
     {
+        element_normalize(out.comi); // Normalize et
         std::string comiHex = canonicalElementToHex(out.comi);
         hashToG1(comiHex, params, out.h);
     }

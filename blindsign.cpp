@@ -80,8 +80,13 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
     element_t h_prime;
     element_init_G1(h_prime, params.pairing);
     {
-        std::string comiHex = canonicalElementToHex(blindOut.comi);
+        element_t comi_norm;
+        element_init_G1(comi_norm, params.pairing);
+        element_set(comi_norm, blindOut.comi);
+        element_normalize(comi_norm); // Normalize et
+        std::string comiHex = canonicalElementToHex(comi_norm);
         hashToG1(comiHex, params, h_prime);
+        element_clear(comi_norm);
     }
     bool hashOk = (element_cmp(h_prime, blindOut.h) == 0);
     element_clear(h_prime);
