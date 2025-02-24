@@ -10,6 +10,13 @@
 #include "prepareblindsign.h"
 #include "blindsign.h"   // BlindSign (Alg.12)
 #include "unblindsign.h" // UnblindSignature (Alg.13)
+// my_element_dup: src elemanının kopyasını (duplication) oluşturur.
+element_t my_element_dup(const element_t src) {
+    element_t dup;
+    element_init_same_as(dup, src);
+    element_set(dup, src);
+    return dup;
+}
 
 int main() {
     using Clock = std::chrono::steady_clock;
@@ -160,8 +167,8 @@ int main() {
             try {
                 BlindSignature partSig = blindSign(params, bsOutputs[i], xm, ym);
                 // Sakla:
-                partialSigs[i][m].h = element_dup(partSig.h);
-                partialSigs[i][m].cm = element_dup(partSig.cm);
+                partialSigs[i][m].h = my_element_dup(partSig.h);
+                partialSigs[i][m].cm = my_element_dup(partSig.cm);
                 // Yazdırma:
                 char bufH[2048], bufCM[2048];
                 element_snprintf(bufH, sizeof(bufH), "%B", partSig.h);
