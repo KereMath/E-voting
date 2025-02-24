@@ -101,8 +101,8 @@ pairing_apply(rhs, out.sm, params.g2, params.pairing);
 char lhsStr[1024], rhsStr[1024];
 element_snprintf(lhsStr, sizeof(lhsStr), "%B", lhs);
 element_snprintf(rhsStr, sizeof(rhsStr), "%B", rhs);
-cout << "unblindSignature: lhs = " << lhsStr << "\n";
-cout << "unblindSignature: rhs = " << rhsStr << "\n";
+std::cout << "unblindSignature: lhs = " << lhsStr << "\n";
+std::cout << "unblindSignature: rhs = " << rhsStr << "\n";
 
 bool eq = (element_cmp(lhs, rhs) == 0);
 element_clear(lhs);

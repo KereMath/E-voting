@@ -160,15 +160,15 @@ int main() {
                   << "comi = " << bufComi << "\n"
                   << "h    = " << bufH    << "\n"
                   << "com  = " << bufCom  << "\n\n";
-                  char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
-                  std::cout << "o    = " << o_str << "\n\n";
-                  free(o_str);
+                      char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
+    std::cout << "o    = " << o_str << "\n\n";
+    free(o_str);
     }
     auto endBS = Clock::now();
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
     
     // 8) BlindSign (Alg.12): EA partial imza üretimi
-    cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
+    std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
     // Her seçmen için her EA'nın partial imzası saklanıyor
     std::vector< std::vector<BlindSignature> > partialSigs(voterCount, std::vector<BlindSignature>(ne));
