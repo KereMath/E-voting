@@ -5,21 +5,26 @@
 #include <gmp.h>
 
 /**
- *  TIAC/Coconut sisteminde kullanılacak
- *  bilinear grup parametrelerini tutan yapı.
+ * TIAC/Coconut benzeri sistemlerde kullanılacak
+ * bilinear grup parametrelerini tutan yapı.
  */
 struct TIACParams {
-    pairing_t pairing;    // pairing yapısı (const olmamalı)
-    mpz_t prime_order;    // Grubun asal mertebesi p
-    element_t g1;         // G1 üzerindeki üreteç
-    element_t h1;         // G1 üzerindeki ikinci üreteç
-    element_t g2;         // G2 üzerindeki üreteç
+    pairing_t pairing;   // Pairing yapısı (non-const)
+    mpz_t prime_order;   // Grubun asal mertebesi p
+    element_t g1;        // G1 üzerindeki üreteç
+    element_t h1;        // G1 üzerindeki ikinci üreteç
+    element_t g2;        // G2 üzerindeki üreteç
 };
 
-// Kurulum fonksiyonu: BN-256 parametresi yüklenir, (g1, h1, g2) seçilir.
+/**
+ * BN-256 parametresiyle tip-3 bilinear grup kurar,
+ * (g1, h1, g2) rastgele seçer ve e(g1, g2) != 1 kontrolü yapar.
+ */
 TIACParams setupParams();
 
-// Parametreleri bellekten temizler.
+/**
+ * Parametreleri bellekten temizler.
+ */
 void clearParams(TIACParams &params);
 
 #endif // SETUP_H
