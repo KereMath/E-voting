@@ -171,7 +171,7 @@ int main() {
         double idGen_ms = idGenDuration_us / 1000.0;
         std::cout << "[ZAMAN] ID Generation suresi: " << idGen_ms << " ms\n\n";
     }
-
+    double didGen_ms;
     // 7) DID Generation: Her seçmen için createDID çağır
     std::cout << "=== DID Generation (Hash of ID + x) ===\n";
     std::vector<DID> dids(voterCount);
