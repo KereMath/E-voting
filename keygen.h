@@ -3,41 +3,49 @@
 
 #include <pbc/pbc.h>
 #include <vector>
+#include <string>
 #include "setup.h"
 
 /**
- *  Her EA (Yetkili Otorite) için üretilecek paylar ve
- *  anahtar bileşenlerini saklayan struct.
+ * Her EA (Yetkili Otorite) için tutulan veriler
+ * (polinom sabit terimleri, commitments, local paylar, vb.)
  */
 struct EAKey {
-    // Polinomların sabit terimleri (x_i0, y_i0)
-    element_t x_m; // F_i(0)
-    element_t y_m; // G_i(0)
+    // x0, y0  (EA_i’nin polinom sabit katsayıları)
+    element_t x0; 
+    element_t y0; 
 
-    // İmza payları (sgk1, sgk2) = ( ∑ F_l(i),  ∑ G_l(i) )
-    element_t sgk1;
-    element_t sgk2;
+    // t+1 katsayı için commitment dizileri:
+    //   Vx[j] = g2^( x_{ij} )
+    //   Vy[j] = g2^( y_{ij} )
+    //   Vyprime[j] = g1^( y_{ij} )
+    std::vector<element_t> Vx;
+    std::vector<element_t> Vy;
+    std::vector<element_t> Vyprime;
 
-    // Doğrulama payları (vki1, vki2, vki3)
-    // vki1 = g2^(sgk1), vki2 = g2^(sgk2), vki3 = g1^(sgk2)
-    element_t vki1;
-    element_t vki2;
-    element_t vki3;
+    // Final: local signing share (sgk1, sgk2)
+    element_t sgk1;  // ∑_{l in Q} F_l(i)
+    element_t sgk2;  // ∑_{l in Q} G_l(i)
+
+    // Final: local verification share (vki1, vki2, vki3)
+    element_t vki1;  // g2^(sgk1)
+    element_t vki2;  // g2^(sgk2)
+    element_t vki3;  // g1^(sgk2)
 };
 
 /**
- *  Master Doğrulama Anahtarı (mvk) = (vk1, vk2, vk3)
- *  = (g2^(Σ x_i0),  g2^(Σ y_i0),  g1^(Σ y_i0))
+ * Master verification key (mvk) = (vk1, vk2, vk3)
+ * = ( ∏_{i in Q} Vx_i0,  ∏_{i in Q} Vy_i0,  ∏_{i in Q} Vy'_i0 )
+ * = ( g2^( sum x_i0 ), g2^( sum y_i0 ), g1^( sum y_i0 ) ).
  */
 struct MasterVK {
-    element_t vk1;
+    element_t vk1; 
     element_t vk2;
     element_t vk3;
 };
 
 /**
- *  Master Gizli Anahtar (msk) = (sk1, sk2)
- *  = (Σ x_i0,  Σ y_i0)
+ * Master signing key (msgk) = (sk1, sk2) = ( sum x_i0, sum y_i0 )
  */
 struct MasterSK {
     element_t sk1;
@@ -45,19 +53,26 @@ struct MasterSK {
 };
 
 /**
- *  KeyGen sonrası dönen tüm veriyi tutan yapı.
+ * Bu struct, keygen sonunda dönen tüm değerleri tutar.
  */
 struct KeyGenOutput {
-    MasterVK mvk;             // Genel doğrulama anahtarı
-    MasterSK msk;             // Ortak gizli anahtar (opsiyonel kullanım)
-    std::vector<EAKey> eaKeys; // Her EA için paylar
+    MasterVK mvk;              // Genel doğrulama anahtarı
+    MasterSK msgk;             // Master gizli anahtar
+    std::vector<EAKey> eaKeys; // Her EA için ayrıntılar
 };
 
 /**
- *  Coconut TTP’siz Anahtar Üretimi (Pedersen’s DKG) (şikayet yok)
- *  Girdi: params (setup), t (eşik), n (EA sayısı)
- *  Çıktı: Master public key (mvk), master secret key (msk),
- *         ve EAKey payları.
+ * Coconut TTP’siz Anahtar Üretimi (Pedersen’s DKG).
+ * 
+ * Girdi:
+ *   - params (setup sonucu)
+ *   - t (eşik değeri)
+ *   - n (EA sayısı)
+ * Çıktı:
+ *   - KeyGenOutput (mvk, msgk, her EA'nın payları)
+ *
+ * NOT: Şikayet ve diskalifiye aşamaları basitleştirilmiştir 
+ * (kimse hata yapmıyor varsayımı).
  */
 KeyGenOutput keygen(TIACParams &params, int t, int n);
 

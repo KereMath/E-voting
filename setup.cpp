@@ -2,8 +2,7 @@
 #include <cstring>
 #include <iostream>
 
-// Örnek BN-256 (type f) parametresi.
-// Gerçek projede güvenilir bir kaynak veya param dosyası kullanmanız önerilir.
+// Örnek BN-256 (type f) parametresi
 static const char* BN256_PARAM = R"(
 type f
 q 186944716490498228592211144210229761989241675946164825413929
@@ -24,44 +23,44 @@ TIACParams setupParams() {
     // 2) Pairing yapısını başlat
     pairing_init_pbc_param(params.pairing, pbcParam);
 
-    // 3) Grubun asal mertebesini p = r ile mpz_t'ye kopyala
+    // 3) Grubun asal mertebesi p = r
     mpz_init_set(params.prime_order, params.pairing->r);
 
-    // 4) G1 ve G2 elemanlarını init
+    // 4) G1, G2 elemanlarını init
     element_init_G1(params.g1, params.pairing);
     element_init_G1(params.h1, params.pairing);
     element_init_G2(params.g2, params.pairing);
 
-    // 5) Rastgele üreteç değerleri seç
+    // 5) Rastgele üreticiler seç
     element_random(params.g1);
     element_random(params.h1);
     element_random(params.g2);
 
-    // 6) Pairing’in symmetric/asymmetric durumunu kontrol
+    // 6) Tipi (symmetric/asymmetric) kontrol
     if (pairing_is_symmetric(params.pairing)) {
-        std::cerr << "[Warning] Seçilen pairing symmetric. Tip-3 (asymmetric) istiyorsanız parametreyi değiştirin.\n";
+        std::cerr << "[WARNING] Seçilen pairing symmetric olabilir. Tip-3 isteniyorsa parametreyi kontrol edin.\n";
     }
 
-    // 7) e(g1, g2) != 1 olacak şekilde tekrar seçme
+    // 7) e(g1, g2) = 1 olmamasına dikkat
     element_t testGT;
     element_init_GT(testGT, params.pairing);
     pairing_apply(testGT, params.g1, params.g2, params.pairing);
 
-    int attempts = 0, MAX_ATTEMPTS = 32;
-    while(element_is1(testGT) && attempts < MAX_ATTEMPTS) {
+    int attemptCount = 0;
+    const int MAX_ATTEMPTS = 32;
+    while (element_is1(testGT) && attemptCount < MAX_ATTEMPTS) {
         element_random(params.g1);
         element_random(params.g2);
         pairing_apply(testGT, params.g1, params.g2, params.pairing);
-        attempts++;
+        attemptCount++;
     }
     element_clear(testGT);
+    pbc_param_clear(pbcParam);
 
-    if (attempts >= MAX_ATTEMPTS) {
-        std::cerr << "[ERROR] Uygun g1, g2 rastgele seçilemedi. Parametreyi gözden geçirin!\n";
+    if (attemptCount >= MAX_ATTEMPTS) {
+        std::cerr << "[ERROR] g1, g2 kimlik olmayan elaman bulunamadı!\n";
     }
 
-    // 8) pbc_param temizle
-    pbc_param_clear(pbcParam);
     return params;
 }
 
