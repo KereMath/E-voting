@@ -21,20 +21,17 @@ static std::string elemToStrG1(element_t g1Elem) {
 }
 
 /*
-  unblindSignature (Algoritma 13) – Düzeltilmiş:
-  Eğer blindSign aşamasında EA ek bir blinding uygulamıyorsa,
-  unblinding adımını (β₁^{-o}) atıp doğrudan sm = cm olarak alıyoruz.
-  
-  1) Eğer Hash(comi) != h, hata.
-  2) sm = cm  (yani hiçbir ek faktör uygulanmıyor)
-  3) Doğrulama: e(h, α₂ · β₂^(DIDi)) == e(sm, g₂)
-  4) Eğer eşit ise σₘ = (h, sm) döndür, aksi halde hata.
+  unblindSignature (Algoritma 13) – Düzeltilmiş Versiyon:
+  Eğer EA blindSign aşamasında ek bir blinding uygulanmıyorsa, 
+  unblinding adımını (β₁^(-o)) atlayıp, 
+     sm = cm  
+  olarak alıyoruz. Pairing kontrolü ise aşağıdaki gibidir.
 */
 UnblindSignature unblindSignature(
     TIACParams &params,
     UnblindSignInput &in
 ) {
-    // 1) Hash(comi) kontrolü:
+    // 1) Hash(comi) kontrolü
     element_t hashComi;
     element_init_G1(hashComi, params.pairing);
     {
@@ -47,8 +44,8 @@ UnblindSignature unblindSignature(
     }
     element_clear(hashComi);
     
-    // 2) Unblinding: EA blindSign aşamasında ekstra blinding uygulanmadığı için,
-    //    sm = in.cm (yani, unblinding adımını atlıyoruz)
+    // 2) Unblinding: Eğer EA blindSign aşamasında ek blinding uygulanmamışsa,
+    //    sm = cm (yani unblinding adımını atlıyoruz)
     UnblindSignature out;
     element_init_G1(out.h, params.pairing);
     element_init_G1(out.sm, params.pairing);
