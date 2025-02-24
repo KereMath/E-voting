@@ -1,17 +1,18 @@
 #include "setup.h"
 #include <cstring>  // strlen vb. için
 #include <string>
+#include <iostream>
 
 // Örnek BN-256 (type f) parametresi.
 // Gerçek kullanımda kendi güvenilir parametrenizi yerleştirin.
 static const char* BN256_PARAM = R"(
 type f
-q 205523667896953300194896352429254920972540065223
-r 205523667896953300194896352429254920972540065223
+q 186944716490498228592211144210229761989241675946164825413929
+r 186944716490498228592211144210229761989241675946164825526319
 b 1
-beta 115660053124364240149057221100520178164405286230
-alpha0 191079354656274778837764015557338301375963168470
-alpha1 71445317903696340296199556072836940741717506375
+beta 109341043287096796981443118641762728007143963588
+alpha0 147354120310549301445722100263386112552812769040
+alpha1 12707752274141484575335849047546472705710528192
 )";
 
 TIACParams setupParams() {
@@ -37,6 +38,32 @@ TIACParams setupParams() {
     element_random(params.h1);
     element_random(params.g2);
 
+    // Ek: Pairing tipini denetle
+    if (pairing_is_symmetric(params.pairing)) {
+        std::cerr << "[Uyari] Pairing symmetric olmus olabilir, BN-256 parametresi kontrol edin.\n";
+    }
+
+    // Ek: E(g1, g2) kontrolu
+    element_t testGT;
+    element_init_GT(testGT, params.pairing);
+    pairing_apply(testGT, params.g1, params.g2, params.pairing);
+    if (element_is1(testGT)) {
+        std::cerr << "[Uyari] g1 veya g2 kimlik elemani, tekrar rastgele seciliyor.\n";
+        int attemptCount = 0;
+        const int MAX_ATTEMPTS = 100;
+        do {
+            element_random(params.g1);
+            element_random(params.g2);
+            pairing_apply(testGT, params.g1, params.g2, params.pairing);
+            attemptCount++;
+            if (attemptCount > MAX_ATTEMPTS) {
+                std::cerr << "[Hata] " << MAX_ATTEMPTS << " defa denenmesine ragmen kimlik olmayan eleman bulunamadi.\n";
+                break;
+            }
+        } while (element_is1(testGT));
+    }
+    element_clear(testGT);
+
     // Artık pbc_param_t'yi temizleyebiliriz
     pbc_param_clear(pbcParams);
 
@@ -51,3 +78,4 @@ void clearParams(TIACParams &params) {
     mpz_clear(params.prime_order);
     pairing_clear(params.pairing);
 }
+
