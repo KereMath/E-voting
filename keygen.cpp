@@ -4,8 +4,8 @@
 #include <vector>
 #include <iostream>
 
-// Updated: evaluatePoly now uses vector of element_t instead of element_s*
-static void evaluatePoly(const std::vector<element_t>& coeff, int X, TIACParams &params, element_t result) {
+// Updated: remove const so coeff[0] yields a non-const element.
+static void evaluatePoly(std::vector<element_t>& coeff, int X, TIACParams &params, element_t result) {
     element_t X_val;
     element_init_Zr(X_val, params.pairing);
     element_set_si(X_val, X);
