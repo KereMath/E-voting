@@ -1,10 +1,9 @@
 #include "setup.h"
-#include <cstring>  // strlen vb. için
-#include <string>
 #include <iostream>
+#include <cstring> // strlen vs. için
 
 // Örnek BN-256 (type f) parametresi.
-// Gerçek kullanımda kendi güvenilir parametrenizi yerleştirin.
+// Gerçek kullanımda güvenilir parametrelerinizi yerleştirmeniz önerilir.
 static const char* BN256_PARAM = R"(
 type f
 q 186944716490498228592211144210229761989241675946164825413929
@@ -18,51 +17,48 @@ alpha1 12707752274141484575335849047546472705710528192
 TIACParams setupParams() {
     TIACParams params;
 
-    // PBC parametresini yükle
+    // 1. PBC parametresini yükle
     pbc_param_t pbcParams;
     pbc_param_init_set_buf(pbcParams, BN256_PARAM, std::strlen(BN256_PARAM));
 
-    // Pairing yapısını başlat
+    // 2. Pairing yapısını başlat
     pairing_init_pbc_param(params.pairing, pbcParams);
 
-    // G1, G2 gruplarının mertebesi (p)
+    // 3. G1, G2 gruplarının mertebesi (p)
     mpz_init_set(params.prime_order, params.pairing->r);
 
-    // G1 ve G2 üzerinde elementleri başlat
+    // 4. Elemanların bellek/init ayarı
     element_init_G1(params.g1, params.pairing);
     element_init_G1(params.h1, params.pairing);
     element_init_G2(params.g2, params.pairing);
 
-    // Rastgele üreteç değerleri seç
+    // 5. Rastgele üreteç değerleri seç
     element_random(params.g1);
     element_random(params.h1);
     element_random(params.g2);
 
-    // Ek: Pairing tipini denetle
+    // 6. Pairing tipini (symmetric/asymmetric) kontrol
     if (pairing_is_symmetric(params.pairing)) {
-        std::cerr << "[Uyari] Pairing symmetric olmus olabilir, BN-256 parametresi kontrol edin.\n";
+        std::cerr << "[Uyari] Seçilen pairing symmetric. Tip-3 (asymmetric) isteniyorsa parametrenizi kontrol edin.\n";
     }
 
-    // Ek: E(g1, g2) kontrolu
-    element_t testGT;
-    element_init_GT(testGT, params.pairing);
-    pairing_apply(testGT, params.g1, params.g2, params.pairing);
-    if (element_is1(testGT)) {
-        std::cerr << "[Uyari] g1 veya g2 kimlik elemani, tekrar rastgele seciliyor.\n";
-        int attemptCount = 0;
-        const int MAX_ATTEMPTS = 100;
-        do {
-            element_random(params.g1);
-            element_random(params.g2);
-            pairing_apply(testGT, params.g1, params.g2, params.pairing);
-            attemptCount++;
-            if (attemptCount > MAX_ATTEMPTS) {
-                std::cerr << "[Hata] " << MAX_ATTEMPTS << " defa denenmesine ragmen kimlik olmayan eleman bulunamadi.\n";
-                break;
-            }
-        } while (element_is1(testGT));
+    // 7. e(g1, g2) = 1 olmamasını sağlamak için gerekirse tekrar rastgele seç
+    element_t tempGT;
+    element_init_GT(tempGT, params.pairing);
+    pairing_apply(tempGT, params.g1, params.g2, params.pairing);
+    int attemptCount = 0;
+    const int MAX_ATTEMPTS = 32;
+    while (element_is1(tempGT) && attemptCount < MAX_ATTEMPTS) {
+        element_random(params.g1);
+        element_random(params.g2);
+        pairing_apply(tempGT, params.g1, params.g2, params.pairing);
+        attemptCount++;
     }
-    element_clear(testGT);
+    element_clear(tempGT);
+    
+    if (attemptCount >= MAX_ATTEMPTS) {
+        std::cerr << "[HATA] g1 ve g2 kimlik olmayan eleman bulunamadı! Parametrenizi tekrar gözden geçirin.\n";
+    }
 
     // Artık pbc_param_t'yi temizleyebiliriz
     pbc_param_clear(pbcParams);
@@ -71,7 +67,6 @@ TIACParams setupParams() {
 }
 
 void clearParams(TIACParams &params) {
-    // Elementleri, mpz_t değerini ve pairing yapısını temizle
     element_clear(params.g1);
     element_clear(params.h1);
     element_clear(params.g2);
