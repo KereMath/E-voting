@@ -1,6 +1,7 @@
 #include "setup.h"
 #include <cstring>  // strlen vb. için
 #include <string>
+#include <iostream>
 
 // Örnek BN-256 (type f) parametresi.
 // Gerçek kullanımda kendi güvenilir parametrenizi yerleştirin.
