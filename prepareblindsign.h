@@ -26,7 +26,7 @@ struct PrepareBlindSignOutput {
 
 // prepareBlindSign:
 //  Girdi: params (TIACParams), didStr (DID'in hex stringi)
-//  Çıktı: (comi, h, com, pi_s)
+//  Çıktı: (comi, h, com, pi_s) -- Algoritma 4
 PrepareBlindSignOutput prepareBlindSign(
     TIACParams &params, 
     const std::string &didStr
