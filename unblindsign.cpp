@@ -28,7 +28,7 @@ static std::string elemToStrG1(element_t g1Elem) {
 */
 UnblindSignature unblindSignature(
     TIACParams &params,
-    const UnblindSignInput &in
+    UnblindSignInput &in
 ) {
     // 1) Hash(comi) != h ?
     element_t hashComi;
