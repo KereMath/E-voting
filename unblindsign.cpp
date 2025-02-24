@@ -71,27 +71,48 @@ UnblindSignature unblindSignature(
 
     // 3) Doğrulama: e(h, alpha2 * beta2^{DIDi}) ?= e(sm, g2)
 // 3) Doğrulama: e(h, alpha2) == e(sm, g2)
-element_t alpha2;
-element_init_G2(alpha2, params.pairing);
-element_set(alpha2, in.alpha2); // alpha2 = g2^{x_m}
+// 3) Doğrulama: e(h, alpha2 * beta2^{DIDi}) ?= e(sm, g2)
+element_t alpha2beta;
+element_init_G2(alpha2beta, params.pairing);
+element_set(alpha2beta, in.alpha2);
+
+element_t beta2_did;
+element_init_G2(beta2_did, params.pairing);
+{
+    element_t didZr;
+    element_init_Zr(didZr, params.pairing);
+    element_set_mpz(didZr, in.DIDi);
+    element_pow_zn(beta2_did, in.beta2, didZr);
+    element_clear(didZr);
+}
+element_mul(alpha2beta, alpha2beta, beta2_did);
+element_clear(beta2_did);
 
 element_t lhs;
 element_init_GT(lhs, params.pairing);
-pairing_apply(lhs, in.h, alpha2, params.pairing); // e(h, alpha2)
+pairing_apply(lhs, in.h, alpha2beta, params.pairing);
+element_clear(alpha2beta);
 
 element_t rhs;
 element_init_GT(rhs, params.pairing);
-pairing_apply(rhs, out.sm, params.g2, params.pairing); // e(sm, g2)
+pairing_apply(rhs, out.sm, params.g2, params.pairing);
+
+// Yazdırma: lhs ve rhs GT elemanlarını stringe çeviriyoruz.
+char lhsStr[1024], rhsStr[1024];
+element_snprintf(lhsStr, sizeof(lhsStr), "%B", lhs);
+element_snprintf(rhsStr, sizeof(rhsStr), "%B", rhs);
+std::cout << "unblindSignature: lhs = " << lhsStr << "\n";
+std::cout << "unblindSignature: rhs = " << rhsStr << "\n";
 
 bool eq = (element_cmp(lhs, rhs) == 0);
 element_clear(lhs);
 element_clear(rhs);
-element_clear(alpha2);
-    if(!eq) {
-        element_clear(out.h);
-        element_clear(out.sm);
-        throw std::runtime_error("unblindSignature: pairing mismatch => Hata");
-    }
-    
+
+if (!eq) {
+    element_clear(out.h);
+    element_clear(out.sm);
+    throw std::runtime_error("unblindSignature: pairing mismatch => Hata");
+}
+
     return out;
 }

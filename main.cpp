@@ -160,6 +160,9 @@ int main() {
                   << "comi = " << bufComi << "\n"
                   << "h    = " << bufH    << "\n"
                   << "com  = " << bufCom  << "\n\n";
+                  char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
+                  std::cout << "o    = " << o_str << "\n\n";
+                  free(o_str);
     }
     auto endBS = Clock::now();
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
