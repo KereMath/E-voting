@@ -27,7 +27,6 @@ struct PrepareBlindSignOutput {
     element_t h;
     element_t com;
     KoRProof  pi_s;
-    mpz_t o; // <-- EKLENDİ: PrepareBlindSign sırasında seçilen rastgele o
 };
 
 /*

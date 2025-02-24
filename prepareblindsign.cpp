@@ -313,8 +313,7 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         didInt,
         o
     );
-    mpz_init(out.o);
-    mpz_set(out.o, o);
+
     mpz_clears(oi, o, didInt, NULL);
     return out;
 }
