@@ -154,8 +154,8 @@ static KoRProof computeKoR(
     toHash.push_back(h);          // h => element_s*
     toHash.push_back(h1);         // h1 => element_s*
     toHash.push_back(com);        // com => element_s*
-    toHash.push_back(com_prime);  // com_prime => element_s*
     toHash.push_back(comi);       // comi => element_s*
+    toHash.push_back(com_prime);  // com_prime => element_s*
     toHash.push_back(comi_prime); // comi_prime => element_s*
 
     hashToZr(proof.c, params, toHash);
