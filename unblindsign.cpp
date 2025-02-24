@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <vector>
+#include <iostream>
 
 // Yardımcı: G1 elemanını hex string’e çevir (non-const pointer)
 static std::string elemToStrG1(element_t g1Elem) {
