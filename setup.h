@@ -4,11 +4,11 @@
 #include <pbc/pbc.h>
 #include <gmp.h>
 
-// TIACParams yapısı, sistemde ihtiyacımız olan temel parametreleri tutar.
-// pairing: PBC kütüphanesinin pairing bilgisini tutar
-// prime_order: Grupların asal mertebesi p (örn. 256-bit)
-// g1, g2: Sırasıyla G1 ve G2 üzerinde oluşturulan üreteçler
-// h1: G1 üzerinde ek bir üreteç (coconut şeması için)
+// TIACParams yapısı, sistemde ihtiyacımız olan temel parametreleri tutar:
+//  - pairing: PBC kütüphanesinin pairing (çift doğrusal eşleme) bilgisini tutar
+//  - prime_order: Grupların asal mertebesi p
+//  - g1, h1: G1 üzerindeki üreteçler
+//  - g2: G2 üzerindeki üreteç
 struct TIACParams {
     pairing_t pairing;
     mpz_t prime_order;
@@ -17,14 +17,13 @@ struct TIACParams {
     element_t h1;
 };
 
-// Sistemi kurup TIACParams döndüren fonksiyon.
-// Bu fonksiyon, Algoritma 1’deki adımları gerçekleştirir:
-//  1) λ-bit asal mertebeli bilinear group seç (p, G1, G2, GT)
-//  2) G1 içinde g1, h1 ve G2 içinde g2 üreteçlerini seç
-//  3) Hepsini TIACParams içinde döndür
+// Algoritma 1: TIAC Kurulum
+// 1) λ-bit asal mertebeli bilinear group (G1, G2, GT, p)
+// 2) G1’de g1, h1 ve G2’de g2 üreteçlerini rastgele seç
+// 3) TIACParams içinde döndür
 TIACParams setupParams();
 
-// Oluşturulan parametreleri bellekte temizlemek için
+// Bellek temizliği
 void clearParams(TIACParams &params);
 
 #endif
