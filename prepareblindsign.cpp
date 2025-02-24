@@ -5,17 +5,17 @@
 #include <iostream>
 #include <vector>
 
-// prepareBlindSign fonksiyonu, Algoritma 4 ve 5'i uygular.
-BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) {
+BlindSignOutput prepareBlindSign(TIACParams &params, const DID &did) {
     BlindSignOutput out;
     
-    // Gerçek ID'yi Zₚ elemanı olarak oluştur (DID_elem)
+    // DID'i Zₚ elemanı olarak oluştur (DID_elem) 
+    // (DIDgen'de did.x hex string olarak saklanmış; burada base 16 kullanıyoruz)
     element_t DID_elem;
     element_init_Zr(DID_elem, params.pairing);
     mpz_t id_mpz;
     mpz_init(id_mpz);
-    if(mpz_set_str(id_mpz, realID.c_str(), 10) != 0) {
-        std::cerr << "Error: realID sayisal degil!" << std::endl;
+    if(mpz_set_str(id_mpz, did.x.c_str(), 16) != 0) {
+        std::cerr << "Error: DID.x hex olarak çözümlenemedi!" << std::endl;
     }
     element_set_mpz(DID_elem, id_mpz);
     mpz_clear(id_mpz);
@@ -38,9 +38,8 @@ BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID) 
         element_clear(temp2);
     }
     
-    // Adım 3: h ← Hash(comi) (h ∈ G₁) -- kanonik serileştirme kullanılarak
+    // Adım 3: h ← Hash(comi) (h ∈ G₁) -- canonicalElementToHex kullanılarak
     {
-        element_normalize(out.comi); // Normalize et
         std::string comiHex = canonicalElementToHex(out.comi);
         hashToG1(comiHex, params, out.h);
     }

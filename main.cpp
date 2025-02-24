@@ -170,7 +170,7 @@ int main() {
     std::vector<BlindSignOutput> bsOutputs(voterCount);
     auto startBlindSign = Clock::now();
     for (int i = 0; i < voterCount; i++) {
-        bsOutputs[i] = prepareBlindSign(params, voterIDs[i]);
+        bsOutputs[i] = prepareBlindSign(params, dids[i]);
         std::cout << "=== Secmen " << (i+1) << " icin Prepare Blind Sign Sonuclari ===\n";
         {
             char buffer[1024];

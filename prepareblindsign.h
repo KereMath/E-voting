@@ -2,6 +2,7 @@
 #define PREPAREBLINDSIGN_H
 
 #include "setup.h"
+#include "DIDgen.h"  // DID yapısını içerir.
 #include <string>
 
 // Proof yapısı (Algorithm 5)
@@ -20,8 +21,8 @@ struct BlindSignOutput {
     Proof pi_s;      // Proof: KoR ispatı (adım 6)
 };
 
-// prepareBlindSign: Verilen setup parametreleri ve voterin gerçek ID (11 haneli string) üzerinden
+// prepareBlindSign: Verilen setup parametreleri ve seçmenin DID'i üzerinden
 // prepare blind sign mesajı ve kanıtı (BlindSignOutput) üretir.
-BlindSignOutput prepareBlindSign(TIACParams &params, const std::string &realID);
+BlindSignOutput prepareBlindSign(TIACParams &params, const DID &did);
 
 #endif
