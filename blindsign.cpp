@@ -28,7 +28,7 @@ static std::string elemToStrG1(element_t g1Elem) {
 
 // Hash fonksiyonu (G1 elemanlarından concat -> SHA512 -> mod p)
 static void hashToZr(element_t outZr, TIACParams &params, 
-                     const std::vector<element_t> &elems)
+                      std::vector<element_t> &elems)
 {
     // Elems => G1'lerin concat
     std::ostringstream oss;
@@ -60,10 +60,10 @@ static void hashToZr(element_t outZr, TIACParams &params,
 */
 bool CheckKoR(
     TIACParams &params,
-    const element_t com,
-    const element_t comi,
-    const element_t h,
-    const KoRProof &pi_s
+     element_t com,
+     element_t comi,
+     element_t h,
+     KoRProof &pi_s
 ) {
     // (c, s1, s2, s3) in pi_s
     // g1, h1 from params
@@ -183,9 +183,9 @@ bool CheckKoR(
 */
 BlindSignature blindSign(
     TIACParams &params,
-    const PrepareBlindSignOutput &bsOut,
-    const mpz_t xm,
-    const mpz_t ym
+     PrepareBlindSignOutput &bsOut,
+     mpz_t xm,
+     mpz_t ym
 ) {
     // 1) KoR kontrol
     bool ok = CheckKoR(params, bsOut.com, bsOut.comi, bsOut.h, bsOut.pi_s);
