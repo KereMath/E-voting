@@ -69,8 +69,29 @@ bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Pr
 // blindSign (Algorithm 12)
 // Girdi: blindOut (prepare blind sign çıktısı) ve voterin secret değerleri xm, ym
 // Eğer CheckKoR geçerli değilse veya Hash(comi) ≠ h ise, uyarı verilir ancak simülasyon amaçlı imza üretimine devam edilir.
-BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym) {
+BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, const std::string &xm_str, const std::string &ym_str) {
     BlindSignature sig;
+    
+    // Önce, string olarak verilen xm_str ve ym_str'yi Zₚ elemanlarına dönüştürelim.
+    element_t xm, ym;
+    element_init_Zr(xm, params.pairing);
+    element_init_Zr(ym, params.pairing);
+    
+    mpz_t mpz_xm;
+    mpz_init(mpz_xm);
+    if(mpz_set_str(mpz_xm, xm_str.c_str(), 16) != 0) {
+        std::cerr << "Error converting xm_str to mpz_t" << std::endl;
+    }
+    element_set_mpz(xm, mpz_xm);
+    mpz_clear(mpz_xm);
+    
+    mpz_t mpz_ym;
+    mpz_init(mpz_ym);
+    if(mpz_set_str(mpz_ym, ym_str.c_str(), 16) != 0) {
+        std::cerr << "Error converting ym_str to mpz_t" << std::endl;
+    }
+    element_set_mpz(ym, mpz_ym);
+    mpz_clear(mpz_ym);
     
     // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
     element_t h_prime;
@@ -90,7 +111,7 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
     }
     
     // Final blind signature üretimi: 
-    // cm = h^(xm) * com^(ym)   <-- Algoritma 12’de com^(ym) kullanılmalı
+    // cm = h^(xm) · com^(ym)
     element_init_G1(sig.h, params.pairing);
     element_set(sig.h, blindOut.h);
     element_init_G1(sig.cm, params.pairing);
@@ -99,12 +120,14 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
         element_init_G1(t1, params.pairing);
         element_init_G1(t2, params.pairing);
         element_pow_zn(t1, blindOut.h, xm);
-        // Dikkat: orijinal algoritmada ikinci faktör olarak com^(ym) kullanılmalı
         element_pow_zn(t2, blindOut.com, ym);
         element_mul(sig.cm, t1, t2);
         element_clear(t1);
         element_clear(t2);
     }
+    
+    element_clear(xm);
+    element_clear(ym);
     
     return sig;
 }

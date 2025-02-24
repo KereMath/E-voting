@@ -1,3 +1,4 @@
+// blindsign.h
 #ifndef BLINDSIGN_H
 #define BLINDSIGN_H
 
@@ -17,9 +18,9 @@ struct BlindSignature {
 bool checkKoR(TIACParams &params, element_t com, element_t comi, element_t h, Proof &pi_s);
 
 // blindSign: Algoritma 12 – Final blind signature üretimi
-// Girdi: BlindSignOutput (prepare blind sign çıktısı), voterin secret değerleri xm, ym
+// Girdi: BlindSignOutput (prepare blind sign çıktısı) ve voterin secret değerleri xm, ym
 // (Örnek amaçlı: xm, ym olarak DID üretiminde oluşturulan x değeri kullanılıyor)
 // Eğer CheckKoR geçerli değilse veya Hash(comi) ≠ h ise hata döndürür.
-BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_t xm, element_t ym);
+BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, const std::string &xm_str, const std::string &ym_str);
 
 #endif
