@@ -1,5 +1,5 @@
 #include "prepareblindsign.h"
-#include <openssl/sha.h>  // SHA512 fonksiyonları
+#include <openssl/sha.h>
 #include <vector>
 #include <random>
 #include <sstream>
@@ -7,19 +7,22 @@
 #include <stdexcept>
 
 /*
-  1) randomZr: Zr’de rastgele element üretir.
-  2) didStringToMpz: DID (hex) -> mpz (mod p).
-  3) elementToStringG1: G1 elemanını hex stringe çevirir.
-  4) hashToG1: G1 elemanından string -> element_from_hash ile G1'e mapler.
-  5) hashToZr: G1 eleman(lar)ını string’e dönüştürüp, SHA-512 sonucunu mod p alarak Zr elde eder.
-  6) computeKoR: Algoritma 5 (Temsil Bilgisinin İspatı).
-  7) prepareBlindSign: Algoritma 4 (Kör İmzalama Mesajı).
+  * Kodun amacı:
+  *  - Algoritma 4: comi, h, com, pi_s
+  *  - Algoritma 5: KoRProof
+  *
+  * Dikkat: PBC'de "element_t" = "struct element_s[1]" 
+  * => &g1 tipik "element_s(*)[1]" olur. 
+  * => Bu yüzden "std::vector<element_t*> toHash = {&g1, ...}" dersek hata. 
+  *    Onun yerine "toHash.push_back(&g1[0])" yapılır.
 */
 
+// Rastgele element Zr
 static void randomZr(element_t zr, TIACParams &params) {
     element_random(zr);
 }
 
+// DID (hex) -> mpz (mod p)
 static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) {
     if (mpz_set_str(rop, didStr.c_str(), 16) != 0) {
         throw std::runtime_error("didStringToMpz: invalid hex string");
@@ -27,8 +30,9 @@ static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) 
     mpz_mod(rop, rop, p);
 }
 
-// G1 elemanını hex stringe çevir
+// G1 elemanını hex string’e çevir
 static std::string elementToStringG1(element_t g1Elem) {
+    // g1Elem => "struct element_s[1]" => pbc fonksiyonları
     int length = element_length_in_bytes(g1Elem);
     std::vector<unsigned char> buf(length);
     element_to_bytes(buf.data(), g1Elem);
@@ -41,19 +45,18 @@ static std::string elementToStringG1(element_t g1Elem) {
     return oss.str();
 }
 
-// HashInG1: comi -> outG1
+// outG1 = HashInG1(inElem)
 static void hashToG1(element_t outG1, TIACParams &params, element_t inElem) {
     std::string s = elementToStringG1(inElem);
     element_from_hash(outG1, s.data(), s.size());
 }
 
-// c = Hash( [elemsG1...] ) -> Zr
-// NOT: Kullanırken std::vector<element_t*> alacağız (pointer).
+// c = Hash( [elems] ) -> Zr
+// Burada "elems" = vector of (element_t*)
 static void hashToZr(element_t outZr, TIACParams &params, const std::vector<element_t*> &elems) {
-    // Elemanların hepsini hex stringe çevirip birleştiriyoruz
     std::ostringstream oss;
     for (auto ePtr : elems) {
-        oss << elementToStringG1(*ePtr);
+        oss << elementToStringG1(*ePtr); 
     }
     std::string fullStr = oss.str();
 
@@ -69,17 +72,17 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<elem
     mpz_clear(tmp);
 }
 
-// Alg 5: computeKoR
+// Algoritma 5: KoR
 static KoRProof computeKoR(
     TIACParams &params,
-    element_t com,
-    element_t comi,
-    element_t g1,
-    element_t h1,
-    element_t h,
-    mpz_t oi,   // comi exponent
-    mpz_t did,  // DID integer
-    mpz_t o     // com exponent
+    element_t com,   // G1
+    element_t comi,  // G1
+    element_t g1,    // G1
+    element_t h1,    // G1
+    element_t h,     // G1
+    mpz_t oi,        // Zp
+    mpz_t did,       // Zp
+    mpz_t o          // Zp
 ) {
     KoRProof proof;
 
@@ -125,15 +128,26 @@ static KoRProof computeKoR(
     element_clear(g1_r3);
     element_clear(h_r2);
 
-    // c = Hash( [g1, h, h1, com, comi, com_prime, comi_prime] ) -> Zr
+    // c = Hash([g1, h, h1, com, comi, com_prime, comi_prime])
     element_init_Zr(proof.c,  params.pairing);
     element_init_Zr(proof.s1, params.pairing);
     element_init_Zr(proof.s2, params.pairing);
     element_init_Zr(proof.s3, params.pairing);
 
-    std::vector<element_t*> toHash = {
-        &g1, &h, &h1, &com, &comi, &com_prime, &comi_prime
-    };
+    // Dikkat: "element_t" = "struct element_s[1]"
+    // => &g1 => (element_s (*)[1])
+    // => &g1[0] => (element_t*) 
+    // vektöre push_back ile ekleyelim:
+    std::vector<element_t*> toHash;
+    toHash.reserve(7);
+    toHash.push_back(&g1[0]);
+    toHash.push_back(&h[0]);
+    toHash.push_back(&h1[0]);
+    toHash.push_back(&com[0]);
+    toHash.push_back(&comi[0]);
+    toHash.push_back(&com_prime[0]);
+    toHash.push_back(&comi_prime[0]);
+
     hashToZr(proof.c, params, toHash);
 
     // c -> mpz
@@ -141,7 +155,7 @@ static KoRProof computeKoR(
     mpz_init(c_mpz);
     element_to_mpz(c_mpz, proof.c);
 
-    // r1,r2,r3 -> mpz
+    // r1, r2, r3 -> mpz
     mpz_t r1_mpz, r2_mpz, r3_mpz;
     mpz_inits(r1_mpz, r2_mpz, r3_mpz, NULL);
 
@@ -149,7 +163,7 @@ static KoRProof computeKoR(
     element_to_mpz(r2_mpz, r2);
     element_to_mpz(r3_mpz, r3);
 
-    // s1 = r1 - c * oi
+    // s1 = r1 - c*oi
     mpz_t s1_mpz;
     mpz_init(s1_mpz);
     mpz_mul(s1_mpz, c_mpz, oi);
@@ -157,7 +171,7 @@ static KoRProof computeKoR(
     mpz_mod(s1_mpz, s1_mpz, params.prime_order);
     element_set_mpz(proof.s1, s1_mpz);
 
-    // s2 = r2 - c * did
+    // s2 = r2 - c*did
     mpz_t s2_mpz;
     mpz_init(s2_mpz);
     mpz_mul(s2_mpz, c_mpz, did);
@@ -165,7 +179,7 @@ static KoRProof computeKoR(
     mpz_mod(s2_mpz, s2_mpz, params.prime_order);
     element_set_mpz(proof.s2, s2_mpz);
 
-    // s3 = r3 - c * o
+    // s3 = r3 - c*o
     mpz_t s3_mpz;
     mpz_init(s3_mpz);
     mpz_mul(s3_mpz, c_mpz, o);
@@ -173,7 +187,7 @@ static KoRProof computeKoR(
     mpz_mod(s3_mpz, s3_mpz, params.prime_order);
     element_set_mpz(proof.s3, s3_mpz);
 
-    // Temizlik
+    // temizlik
     mpz_clears(c_mpz, r1_mpz, r2_mpz, r3_mpz, s1_mpz, s2_mpz, s3_mpz, NULL);
     element_clear(r1);
     element_clear(r2);
@@ -184,7 +198,7 @@ static KoRProof computeKoR(
     return proof;
 }
 
-// Alg 4: prepareBlindSign
+// Algoritma 4: prepareBlindSign
 PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &didStr) {
     PrepareBlindSignOutput out;
 
@@ -213,7 +227,7 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     mpz_init(didInt);
     didStringToMpz(didStr, didInt, params.prime_order);
 
-    // comi = g1^oi * h1^did
+    // 2) comi = g1^oi * h1^did
     element_init_G1(out.comi, params.pairing);
     {
         element_t g1_oi;
@@ -239,16 +253,15 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         }
 
         element_mul(out.comi, g1_oi, h1_did);
-
         element_clear(g1_oi);
         element_clear(h1_did);
     }
 
-    // h = HashInG1(comi)
+    // 3) h = HashInG1(comi)
     element_init_G1(out.h, params.pairing);
     hashToG1(out.h, params, out.comi);
 
-    // com = g1^o * h^did
+    // 5) com = g1^o * h^did
     element_init_G1(out.com, params.pairing);
     {
         element_t g1_o;
@@ -274,15 +287,22 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         }
 
         element_mul(out.com, g1_o, h_did);
-
         element_clear(g1_o);
         element_clear(h_did);
     }
 
-    // πs = computeKoR(...)
-    out.pi_s = computeKoR(params, out.com, out.comi, params.g1, params.h1, out.h, oi, didInt, o);
+    // 6) pi_s = computeKoR(...)
+    out.pi_s = computeKoR(params, 
+                          out.com, 
+                          out.comi, 
+                          params.g1, 
+                          params.h1, 
+                          out.h,
+                          oi,
+                          didInt,
+                          o);
 
-    // Temizlik
+    // temizlik
     mpz_clears(oi, o, didInt, NULL);
 
     return out;

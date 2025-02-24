@@ -184,40 +184,33 @@ int main() {
     // 7) Prepare Blind Sign (Algoritma 4)
     auto startBS = Clock::now();
     std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
-    for(int i = 0; i < voterCount; i++){
+    for(int i = 0; i < voterCount; i++) {
+        // Örnek: dids[i].did (hash string)
         bsOutputs[i] = prepareBlindSign(params, dids[i].did);
 
-        // Örnek çıktı:
-        std::cout << "=== Secmen " << (i+1) << " icin Prepare Blind Sign ===\n";
+        // Ekrana yazma
         {
-            char buf[2048];
-            element_snprintf(buf, sizeof(buf), "%B", bsOutputs[i].comi);
-            std::cout << "comi = " << buf << "\n";
-        }
-        {
-            char buf[2048];
-            element_snprintf(buf, sizeof(buf), "%B", bsOutputs[i].h);
-            std::cout << "h = " << buf << "\n";
-        }
-        {
-            char buf[2048];
-            element_snprintf(buf, sizeof(buf), "%B", bsOutputs[i].com);
-            std::cout << "com = " << buf << "\n";
-        }
-        {
-            // pi_s.c, s1, s2, s3 (Zr)
-            char bufc[1024], buf1[1024], buf2[1024], buf3[1024];
-            element_snprintf(bufc, sizeof(bufc), "%B", bsOutputs[i].pi_s.c);
-            element_snprintf(buf1, sizeof(buf1), "%B", bsOutputs[i].pi_s.s1);
-            element_snprintf(buf2, sizeof(buf2), "%B", bsOutputs[i].pi_s.s2);
-            element_snprintf(buf3, sizeof(buf3), "%B", bsOutputs[i].pi_s.s3);
+            char bufComi[2048], bufH[1024], bufCom[2048];
+            element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
+            element_snprintf(bufH,    sizeof(bufH),    "%B", bsOutputs[i].h);
+            element_snprintf(bufCom,  sizeof(bufCom),  "%B", bsOutputs[i].com);
+            std::cout << "Secmen " << (i+1) << ":\n"
+                      << "comi = " << bufComi << "\n"
+                      << "h    = " << bufH    << "\n"
+                      << "com  = " << bufCom  << "\n";
 
-            std::cout << "pi_s.c  = " << bufc << "\n";
-            std::cout << "pi_s.s1 = " << buf1 << "\n";
-            std::cout << "pi_s.s2 = " << buf2 << "\n";
-            std::cout << "pi_s.s3 = " << buf3 << "\n";
+            // pi_s
+            char bufC[1024], bufS1[1024], bufS2[1024], bufS3[1024];
+            element_snprintf(bufC,  sizeof(bufC),  "%B", bsOutputs[i].pi_s.c);
+            element_snprintf(bufS1, sizeof(bufS1), "%B", bsOutputs[i].pi_s.s1);
+            element_snprintf(bufS2, sizeof(bufS2), "%B", bsOutputs[i].pi_s.s2);
+            element_snprintf(bufS3, sizeof(bufS3), "%B", bsOutputs[i].pi_s.s3);
+
+            std::cout << "pi_s.c  = " << bufC  << "\n"
+                      << "pi_s.s1 = " << bufS1 << "\n"
+                      << "pi_s.s2 = " << bufS2 << "\n"
+                      << "pi_s.s3 = " << bufS3 << "\n\n";
         }
-        std::cout << std::endl;
     }
     auto endBS = Clock::now();
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
