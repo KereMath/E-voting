@@ -154,19 +154,18 @@ int main() {
     // 6. DID Generation: Her seçmenin oluşturulan ID'sini kullanarak DID üretilmesi
     std::vector<DID> dids(voterCount);
     auto startDIDGen = Clock::now();
+    
     for (int i = 0; i < voterCount; i++) {
-        dids[i] = createDID(params, voterIDs[i]);
-        {
-            char buffer[1024];
-            element_snprintf(buffer, sizeof(buffer), "%B", dids[i].x);
-            std::cout << "Secmen " << (i+1) << " icin x degeri = " << buffer << "\n";
-        }
-        std::cout << "Secmen " << (i+1) << " icin olusturulan ID = " << voterIDs[i] << "\n";
-        std::cout << "Secmen " << (i+1) << " icin DID (SHA512 hash) = " << dids[i].did << "\n\n";
+        // params gönderilmiyor; sadece gerçek ID yeterli.
+        dids[i] = createDID(voterIDs[i]);
+        
+        std::cout << "Secmen " << (i + 1) << " icin x degeri = " << dids[i].x << "\n";
+        std::cout << "Secmen " << (i + 1) << " icin olusturulan ID = " << voterIDs[i] << "\n";
+        std::cout << "Secmen " << (i + 1) << " icin DID (SHA512 hash) = " << dids[i].did << "\n\n";
     }
+    
     auto endDIDGen = Clock::now();
     auto didGenDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
-    
     // 7. Prepare Blind Sign: Her seçmenin kendi prepare blind sign mesajını hazırlaması
     std::vector<BlindSignOutput> bsOutputs(voterCount);
     auto startBlindSign = Clock::now();
