@@ -77,14 +77,19 @@ BlindSignature blindSign(TIACParams &params, BlindSignOutput &blindOut, element_
     BlindSignature sig;
     
     // İlk olarak, kontrol için Hash(comi) yeniden hesaplanır.
-    element_t h_prime;
-    element_init_G1(h_prime, params.pairing);
-    {
-        std::string comiHex = canonicalElementToHex(blindOut.comi);
-        hashToG1(comiHex, params, h_prime);
-    }
-    bool hashOk = (element_cmp(h_prime, blindOut.h) == 0);
-    element_clear(h_prime);
+element_t h_prime;
+element_init_G1(h_prime, params.pairing);
+{
+    element_t comi_norm;
+    element_init_G1(comi_norm, params.pairing);
+    element_set(comi_norm, blindOut.comi);
+    elemet_to_mpz(comi_norm); // Normalize et
+    std::string comiHex = canonicalElementToHex(comi_norm);
+    hashToG1(comiHex, params, h_prime);
+    element_clear(comi_norm);
+}
+bool hashOk = (element_cmp(h_prime, blindOut.h) == 0);
+element_clear(h_prime);
     
     bool korOk = checkKoR(params, blindOut.com, blindOut.comi, blindOut.h, blindOut.pi_s);
     
