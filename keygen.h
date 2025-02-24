@@ -13,7 +13,7 @@ struct EAKey {
     element_t vkm1; // vkm1 = g1^(sgk1^2)
     element_t vkm2; // vkm2 = g1^(sgk2^2)
     element_t vkm3; // vkm3 = g1^(sgk2)
-    // Yeni: EA'nın kendi secret değerleri (sabit terimler)
+    // EA'nın kendi secret değerleri (sabit terimler)
     element_t f0;   // EA'nın F polinomunun 0. katsayısı (xi₀)
     element_t g0;   // EA'nın G polinomunun 0. katsayısı (yi₀)
 };

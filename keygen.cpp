@@ -84,59 +84,61 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     element_clear(prod_G0);
     
     // 4. Her EA için imza ve doğrulama anahtar paylarının üretimi.
-    output.eaKeys.resize(ne);
-    for (int i = 1; i <= ne; i++) {
-        EAKey ea;
-        element_t sgk1, sgk2;
-        element_init_Zr(sgk1, params.pairing);
-        element_set1(sgk1);
-        element_init_Zr(sgk2, params.pairing);
-        element_set1(sgk2);
-        
-        for (int l = 0; l < ne; l++) {
-            element_t valF, valG;
-            element_init_Zr(valF, params.pairing);
-            element_init_Zr(valG, params.pairing);
-            evaluatePoly(F_coeffs[l], i, params, valF);
-            evaluatePoly(G_coeffs[l], i, params, valG);
-            element_mul(sgk1, sgk1, valF);
-            element_mul(sgk2, sgk2, valG);
-            element_clear(valF);
-            element_clear(valG);
-        }
-        element_init_Zr(ea.sgk1, params.pairing);
-        element_set(ea.sgk1, sgk1);
-        element_init_Zr(ea.sgk2, params.pairing);
-        element_set(ea.sgk2, sgk2);
-        
-        element_t exp_val;
-        element_init_Zr(exp_val, params.pairing);
-        
-        element_mul(exp_val, sgk1, sgk1);
-        element_init_G1(ea.vkm1, params.pairing);
-        element_pow_zn(ea.vkm1, params.g1, exp_val);
-        
-        element_mul(exp_val, sgk2, sgk2);
-        element_init_G1(ea.vkm2, params.pairing);
-        element_pow_zn(ea.vkm2, params.g1, exp_val);
-        
-        element_init_G1(ea.vkm3, params.pairing);
-        element_pow_zn(ea.vkm3, params.g1, sgk2);
-        
-        element_clear(exp_val);
-        element_clear(sgk1);
-        element_clear(sgk2);
-        
-        // Yeni: EA'nın kendi secret değerlerini (F₀ ve G₀) saklayalım.
-        // Her EA için kendi polinomunun sabit terimi F_coeffs[i-1][0] ve G_coeffs[i-1][0] kullanılıyor.
-        element_init_Zr(ea.f0, params.pairing);
-        element_set(ea.f0, *(F_coeffs[i-1][0]));
-        
-        element_init_Zr(ea.g0, params.pairing);
-        element_set(ea.g0, *(G_coeffs[i-1][0]));
-        
-        output.eaKeys[i - 1] = ea;
+// 4. Her EA için imza ve doğrulama anahtar paylarının üretimi.
+output.eaKeys.resize(ne);
+for (int i = 1; i <= ne; i++) {
+    EAKey ea;
+    element_t sgk1, sgk2;
+    element_init_Zr(sgk1, params.pairing);
+    element_set1(sgk1);
+    element_init_Zr(sgk2, params.pairing);
+    element_set1(sgk2);
+    
+    for (int l = 0; l < ne; l++) {
+        element_t valF, valG;
+        element_init_Zr(valF, params.pairing);
+        element_init_Zr(valG, params.pairing);
+        evaluatePoly(F_coeffs[l], i, params, valF);
+        evaluatePoly(G_coeffs[l], i, params, valG);
+        element_mul(sgk1, sgk1, valF);
+        element_mul(sgk2, sgk2, valG);
+        element_clear(valF);
+        element_clear(valG);
     }
+    element_init_Zr(ea.sgk1, params.pairing);
+    element_set(ea.sgk1, sgk1);
+    element_init_Zr(ea.sgk2, params.pairing);
+    element_set(ea.sgk2, sgk2);
+    
+    element_t exp_val;
+    element_init_Zr(exp_val, params.pairing);
+    
+    element_mul(exp_val, sgk1, sgk1);
+    element_init_G1(ea.vkm1, params.pairing);
+    element_pow_zn(ea.vkm1, params.g1, exp_val);
+    
+    element_mul(exp_val, sgk2, sgk2);
+    element_init_G1(ea.vkm2, params.pairing);
+    element_pow_zn(ea.vkm2, params.g1, exp_val);
+    
+    element_init_G1(ea.vkm3, params.pairing);
+    element_pow_zn(ea.vkm3, params.g1, sgk2);
+    
+    element_clear(exp_val);
+    element_clear(sgk1);
+    element_clear(sgk2);
+    
+    // EA'nın kendi secret değerlerini (F₀ ve G₀) saklayalım.
+    // F_coeffs[i-1][0] ve G_coeffs[i-1][0] zaten element_t (pointer) oldukları için doğrudan aktarabiliriz.
+    element_init_Zr(ea.f0, params.pairing);
+    element_set(ea.f0, F_coeffs[i-1][0]);
+    
+    element_init_Zr(ea.g0, params.pairing);
+    element_set(ea.g0, G_coeffs[i-1][0]);
+    
+    output.eaKeys[i - 1] = ea;
+}
+
     
     // 5. Polinom katsayılarını serbest bırakma
     for (int i = 0; i < ne; i++) {

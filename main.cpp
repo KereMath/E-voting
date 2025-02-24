@@ -217,25 +217,27 @@ int main() {
     std::vector<BlindSignature> finalSigs(voterCount);
     auto startFinalSign = Clock::now();
 // Final blind signature: Her seçmenin hazırladığı mesajı, her EA otoritesi ayrı ayrı imzalar.
-    for (int i = 0; i < voterCount; i++) {
-        std::cout << "=== Secmen " << (i+1) << " için EA otoritelerinin Blind Signature sonuçları ===\n";
-        for (int j = 0; j < ne; j++) {
-            BlindSignature sig = blindSign(params, bsOutputs[i],
-                                            keyOut.eaKeys[j].secret_x, 
-                                            keyOut.eaKeys[j].secret_y);
-            std::cout << "EA " << (j+1) << " imza sonuçları:\n";
-            {
-                char buffer[1024];
-                element_snprintf(buffer, sizeof(buffer), "%B", sig.h);
-                std::cout << "Final Sig h = " << buffer << "\n";
-            }
-            {
-                char buffer[1024];
-                element_snprintf(buffer, sizeof(buffer), "%B", sig.cm);
-                std::cout << "Final Sig cm = " << buffer << "\n\n";
-            }
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "=== Secmen " << (i+1) << " için EA otoritelerinin Blind Signature sonuçları ===\n";
+    for (int j = 0; j < ne; j++) {
+        // Blind signature üretiminde, her EA kendi secret değerleri f0 ve g0'yu kullanıyor.
+        BlindSignature sig = blindSign(params, bsOutputs[i],
+                                        keyOut.eaKeys[j].f0, 
+                                        keyOut.eaKeys[j].g0);
+        std::cout << "EA " << (j+1) << " imza sonuçları:\n";
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", sig.h);
+            std::cout << "Final Sig h = " << buffer << "\n";
+        }
+        {
+            char buffer[1024];
+            element_snprintf(buffer, sizeof(buffer), "%B", sig.cm);
+            std::cout << "Final Sig cm = " << buffer << "\n\n";
         }
     }
+}
+
 
     auto endFinalSign = Clock::now();
     auto finalSignDuration_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
