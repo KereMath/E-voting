@@ -38,9 +38,10 @@ int main() {
     auto pair_us = std::chrono::duration_cast<std::chrono::microseconds>(endPair - startPair).count();
 
     {
-        char buf[512];
-        element_snprintf(buf, sizeof(buf), "%B", testGT);
-        std::cout << "e(g1, g2) = " << buf << "\n";
+        char bigBuf[16384]; // veya 4096, 8192...
+        element_snprintf(bigBuf, sizeof(bigBuf), "%B", testGT);
+        std::cout << "e(g1, g2) = " << bigBuf << "\n";
+        
     }
     element_clear(testGT);
 
