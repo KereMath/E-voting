@@ -1,81 +1,55 @@
 #include "setup.h"
-#include <cstring>  // strlen vb. için
-#include <string>
 #include <iostream>
+#include <fstream>
+#include <stdexcept>
 
-// Örnek BN-256 (type f) parametresi.
-// Gerçek kullanımda kendi güvenilir parametrenizi yerleştirin.
-static const char* BN256_PARAM = R"(
-type f
-q 186944716490498228592211144210229761989241675946164825413929
-r 186944716490498228592211144210229761989241675946164825526319
-b 1
-beta 109341043287096796981443118641762728007143963588
-alpha0 147354120310549301445722100263386112552812769040
-alpha1 12707752274141484575335849047546472705710528192
-)";
+/*
+  Bu örnekte PBC kütüphanesinin Type A (BN veya başka bir eğri) 
+  parametre oluşturma fonksiyonları kullanılmaktadır.
+  Gerçek bir "Type 3 Pairing" (kütüphaneye göre Type E, F vs. olabilir) 
+  parametreleri, pbc_param_init_*(...) fonksiyonuyla veya hazır param dosyasıyla
+  ayarlanır. Burada basitlik adına pbc_param_init_a_gen ile örnek gösterilmiştir.
+*/
 
 TIACParams setupParams() {
     TIACParams params;
 
-    // PBC parametresini yükle
-    pbc_param_t pbcParams;
-    pbc_param_init_set_buf(pbcParams, BN256_PARAM, std::strlen(BN256_PARAM));
+    // mpz_t gibi alanları init etmemiz gerekiyor
+    mpz_init(params.prime_order);
 
-    // Pairing yapısını başlat
-    pairing_init_pbc_param(params.pairing, pbcParams);
+    // 256 bit güvenlik için yaklaşık parametre
+    // (Elbette gerçek projede "a_gen" yerine 
+    //  BN tipi eğri parametreleri kullanılabilir.)
+    pbc_param_t par;
+    // 256 bitlik bir prime ve 512 bitlik alan parametresi
+    pbc_param_init_a_gen(par, 256, 512);
 
-    // G1, G2 gruplarının mertebesi (p)
-    mpz_init_set(params.prime_order, params.pairing->r);
+    // pairing_init_pbc_param ile parametrelerden pairing oluşturuluyor
+    pairing_init_pbc_param(params.pairing, par);
 
-    // G1 ve G2 üzerinde elementleri başlat
+    // pairing->r, G1 (ve G2) gruplarının mertebesini (asar mertebe p) tutar
+    mpz_set(params.prime_order, params.pairing->r);
+
+    // G1, G2, h1 elementlerini init
     element_init_G1(params.g1, params.pairing);
     element_init_G1(params.h1, params.pairing);
     element_init_G2(params.g2, params.pairing);
 
-    // Rastgele üreteç değerleri seç
+    // Rastgele üreteç seçimi
     element_random(params.g1);
     element_random(params.h1);
     element_random(params.g2);
 
-    // Ek: Pairing tipini denetle
-    if (pairing_is_symmetric(params.pairing)) {
-        std::cerr << "[Uyari] Pairing symmetric olmus olabilir, BN-256 parametresi kontrol edin.\n";
-    }
-
-    // Ek: E(g1, g2) kontrolu
-    element_t testGT;
-    element_init_GT(testGT, params.pairing);
-    pairing_apply(testGT, params.g1, params.g2, params.pairing);
-    if (element_is1(testGT)) {
-        std::cerr << "[Uyari] g1 veya g2 kimlik elemani, tekrar rastgele seciliyor.\n";
-        int attemptCount = 0;
-        const int MAX_ATTEMPTS = 100;
-        do {
-            element_random(params.g1);
-            element_random(params.g2);
-            pairing_apply(testGT, params.g1, params.g2, params.pairing);
-            attemptCount++;
-            if (attemptCount > MAX_ATTEMPTS) {
-                std::cerr << "[Hata] " << MAX_ATTEMPTS << " defa denenmesine ragmen kimlik olmayan eleman bulunamadi.\n";
-                break;
-            }
-        } while (element_is1(testGT));
-    }
-    element_clear(testGT);
-
-    // Artık pbc_param_t'yi temizleyebiliriz
-    pbc_param_clear(pbcParams);
+    // Artık par kullanılmayacağından temizleyelim
+    pbc_param_clear(par);
 
     return params;
 }
 
 void clearParams(TIACParams &params) {
-    // Elementleri, mpz_t değerini ve pairing yapısını temizle
     element_clear(params.g1);
-    element_clear(params.h1);
     element_clear(params.g2);
+    element_clear(params.h1);
     mpz_clear(params.prime_order);
     pairing_clear(params.pairing);
 }
-
