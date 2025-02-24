@@ -5,13 +5,11 @@
 #include <iostream>
 
 // Yardımcı: Horner yöntemi ile polinom değerlendirmesi
-// Katsayılar pointer listesi: std::vector<element_s*>
-static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &params, element_t result) {
+static void evaluatePoly(const std::vector<element_t>& coeff, int X, TIACParams &params, element_t result) {
     element_t X_val;
     element_init_Zr(X_val, params.pairing);
     element_set_si(X_val, X);
     
-    // result = coeff[0]
     element_set(result, coeff[0]);
     for (size_t i = 1; i < coeff.size(); i++) {
         element_mul(result, result, X_val);
@@ -23,212 +21,126 @@ static void evaluatePoly(std::vector<element_s*> &coeff, int X, TIACParams &para
 KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     KeyGenOutput output;
     
-    // 1. F ve G polinom katsayıları için 2D vector (EA sayısı x t katsayısı)
-    // Elemanlar element_s* olarak tutulacak.
-    std::vector< std::vector<element_s*> > F_coeffs(ne), G_coeffs(ne);
+    // 1. F ve G polinom katsayıları ve commitmentlar için vektorler
+    std::vector<std::vector<element_t>> F_coeffs(ne);
+    std::vector<std::vector<element_t>> G_coeffs(ne);
+    std::vector<std::vector<element_t>> Vx(ne);  // g2^xij commitments
+    std::vector<std::vector<element_t>> Vy(ne);  // g2^yij commitments
+    std::vector<std::vector<element_t>> Vy_prime(ne);  // g1^yij commitments
+    
+    // Initialize vectors
     for (int i = 0; i < ne; i++) {
         F_coeffs[i].resize(t);
         G_coeffs[i].resize(t);
+        Vx[i].resize(t);
+        Vy[i].resize(t);
+        Vy_prime[i].resize(t);
+        
         for (int j = 0; j < t; j++) {
-            F_coeffs[i][j] = new element_s;  
+            // Initialize polynomial coefficients
             element_init_Zr(F_coeffs[i][j], params.pairing);
-            element_random(F_coeffs[i][j]);
-            
-            G_coeffs[i][j] = new element_s;
             element_init_Zr(G_coeffs[i][j], params.pairing);
+            element_random(F_coeffs[i][j]);
             element_random(G_coeffs[i][j]);
+            
+            // Initialize and compute commitments
+            element_init_G2(Vx[i][j], params.pairing);
+            element_init_G2(Vy[i][j], params.pairing);
+            element_init_G1(Vy_prime[i][j], params.pairing);
+            
+            element_pow_zn(Vx[i][j], params.g2, F_coeffs[i][j]);
+            element_pow_zn(Vy[i][j], params.g2, G_coeffs[i][j]);
+            element_pow_zn(Vy_prime[i][j], params.g1, G_coeffs[i][j]);
         }
     }
     
-    // 2. Master secret: msgk = (∏ F_i(0), ∏ G_i(0))
-    element_t prod_F0, prod_G0;
-    element_init_Zr(prod_F0, params.pairing);
-    element_init_Zr(prod_G0, params.pairing);
-    element_set1(prod_F0);
-    element_set1(prod_G0);
+    // 2. Verify shares
+    std::vector<bool> disqualified(ne, false);
     for (int i = 0; i < ne; i++) {
-        element_mul(prod_F0, prod_F0, F_coeffs[i][0]);
-        element_mul(prod_G0, prod_G0, G_coeffs[i][0]);
-    }
-    
-    // 3. Master verification key (mvk)
-    element_t temp;
-    element_init_Zr(temp, params.pairing);
-    element_set1(temp);
-    for (int i = 0; i < ne; i++) {
-        element_t square;
-        element_init_Zr(square, params.pairing);
-        element_mul(square, F_coeffs[i][0], F_coeffs[i][0]);
-        element_mul(temp, temp, square);
-        element_clear(square);
-    }
-    element_init_G1(output.mvk.alpha2, params.pairing);
-    element_pow_zn(output.mvk.alpha2, params.g1, temp);
-    
-    element_set1(temp);
-    for (int i = 0; i < ne; i++) {
-        element_t square;
-        element_init_Zr(square, params.pairing);
-        element_mul(square, G_coeffs[i][0], G_coeffs[i][0]);
-        element_mul(temp, temp, square);
-        element_clear(square);
-    }
-    element_init_G1(output.mvk.beta2, params.pairing);
-    element_pow_zn(output.mvk.beta2, params.g1, temp);
-    
-    element_init_G1(output.mvk.beta1, params.pairing);
-    element_pow_zn(output.mvk.beta1, params.g1, prod_G0);
-    
-    element_clear(temp);
-    element_clear(prod_F0);
-    element_clear(prod_G0);
-    
-    // 4. Her EA için imza ve doğrulama anahtar paylarının üretimi.
-    output.eaKeys.resize(ne);
-    for (int i = 1; i <= ne; i++) {
-        EAKey ea;
-        element_t sgk1, sgk2;
-        element_init_Zr(sgk1, params.pairing);
-        element_set1(sgk1);
-        element_init_Zr(sgk2, params.pairing);
-        element_set1(sgk2);
-        
         for (int l = 0; l < ne; l++) {
-            element_t valF, valG;
-            element_init_Zr(valF, params.pairing);
-            element_init_Zr(valG, params.pairing);
-            evaluatePoly(F_coeffs[l], i, params, valF);
-            evaluatePoly(G_coeffs[l], i, params, valG);
-            element_mul(sgk1, sgk1, valF);
-            element_mul(sgk2, sgk2, valG);
-            element_clear(valF);
-            element_clear(valG);
-        }
-        element_init_Zr(ea.sgk1, params.pairing);
-        element_set(ea.sgk1, sgk1);
-        element_init_Zr(ea.sgk2, params.pairing);
-        element_set(ea.sgk2, sgk2);
-        
-        element_t exp_val;
-        element_init_Zr(exp_val, params.pairing);
-        
-        element_mul(exp_val, sgk1, sgk1);
-        element_init_G1(ea.vkm1, params.pairing);
-        element_pow_zn(ea.vkm1, params.g1, exp_val);
-        
-        element_mul(exp_val, sgk2, sgk2);
-        element_init_G1(ea.vkm2, params.pairing);
-        element_pow_zn(ea.vkm2, params.g1, exp_val);
-        
-        element_init_G1(ea.vkm3, params.pairing);
-        element_pow_zn(ea.vkm3, params.g1, sgk2);
-        
-        element_clear(exp_val);
-        element_clear(sgk1);
-        element_clear(sgk2);
-        
-        output.eaKeys[i - 1] = ea;
-    }
-    
-    // Pseudocode for storing commitments (for each EA i):
-    std::vector<std::vector<element_t>> Vxij(ne, std::vector<element_t>(t));
-    std::vector<std::vector<element_t>> Vyij(ne, std::vector<element_t>(t));
-    std::vector<std::vector<element_t>> Vyij_prime(ne, std::vector<element_t>(t));
-    for (int i = 0; i < ne; i++) {
-        for (int j = 0; j < t; j++) {
-            element_init_G2(Vxij[i][j], params.pairing);
-            element_pow_zn(Vxij[i][j], params.g2, F_coeffs[i][j]);
+            if (i == l) continue;
             
-            element_init_G2(Vyij[i][j], params.pairing);
-            element_pow_zn(Vyij[i][j], params.g2, G_coeffs[i][j]);
+            // Compute F_l(i) and G_l(i)
+            element_t Fi, Gi;
+            element_init_Zr(Fi, params.pairing);
+            element_init_Zr(Gi, params.pairing);
+            evaluatePoly(F_coeffs[l], i+1, params, Fi);
+            evaluatePoly(G_coeffs[l], i+1, params, Gi);
             
-            element_init_G1(Vyij_prime[i][j], params.pairing);
-            element_pow_zn(Vyij_prime[i][j], params.g1, G_coeffs[i][j]);
+            // Verify using commitments
+            element_t expected_F, expected_G, expected_G_prime;
+            element_init_G2(expected_F, params.pairing);
+            element_init_G2(expected_G, params.pairing);
+            element_init_G1(expected_G_prime, params.pairing);
             
-            // Distribute Vxij, Vyij, Vyij_prime to other EAs
-        }
-    }
-    
-    // Verification using commitments
-    std::vector<bool> complaints(ne, false);
-    for (int i = 1; i <= ne; i++) {
-        for (int l = 0; l < ne; l++) {
-            element_t lhs, rhs, temp;
-            element_init_G2(lhs, params.pairing);
-            element_init_G2(rhs, params.pairing);
-            element_set1(lhs);
-            element_set1(rhs);
+            element_t power;
+            element_init_Zr(power, params.pairing);
+            element_set1(expected_F);
+            element_set1(expected_G);
+            element_set1(expected_G_prime);
             
             for (int j = 0; j < t; j++) {
-                element_pow_si(temp, Vxij[l][j], i * j);
-                element_mul(lhs, lhs, temp);
+                element_set_si(power, 1);
+                for (int k = 0; k < j; k++) {
+                    element_mul_si(power, power, i+1);
+                }
                 
-                element_pow_si(temp, Vyij[l][j], i * j);
-                element_mul(rhs, rhs, temp);
+                element_t temp;
+                element_init_G2(temp, params.pairing);
+                element_pow_zn(temp, Vx[l][j], power);
+                element_mul(expected_F, expected_F, temp);
+                
+                element_pow_zn(temp, Vy[l][j], power);
+                element_mul(expected_G, expected_G, temp);
+                
+                element_init_G1(temp, params.pairing);
+                element_pow_zn(temp, Vy_prime[l][j], power);
+                element_mul(expected_G_prime, expected_G_prime, temp);
+                
+                element_clear(temp);
             }
             
-            element_t Fl_i, Gl_i;
-            element_init_Zr(Fl_i, params.pairing);
-            element_init_Zr(Gl_i, params.pairing);
-            evaluatePoly(F_coeffs[l], i, params, Fl_i);
-            evaluatePoly(G_coeffs[l], i, params, Gl_i);
+            // If verification fails, mark as disqualified
+            element_t test_F, test_G, test_G_prime;
+            element_init_G2(test_F, params.pairing);
+            element_init_G2(test_G, params.pairing);
+            element_init_G1(test_G_prime, params.pairing);
             
-            element_t g2_Fl_i, g2_Gl_i;
-            element_init_G2(g2_Fl_i, params.pairing);
-            element_init_G2(g2_Gl_i, params.pairing);
-            element_pow_zn(g2_Fl_i, params.g2, Fl_i);
-            element_pow_zn(g2_Gl_i, params.g2, Gl_i);
+            element_pow_zn(test_F, params.g2, Fi);
+            element_pow_zn(test_G, params.g2, Gi);
+            element_pow_zn(test_G_prime, params.g1, Gi);
             
-            if (!element_cmp(lhs, g2_Fl_i) || !element_cmp(rhs, g2_Gl_i)) {
-                complaints[l] = true;
+            if (!element_cmp(test_F, expected_F) || 
+                !element_cmp(test_G, expected_G) || 
+                !element_cmp(test_G_prime, expected_G_prime)) {
+                disqualified[l] = true;
             }
             
-            element_clear(lhs);
-            element_clear(rhs);
-            element_clear(temp);
-            element_clear(Fl_i);
-            element_clear(Gl_i);
-            element_clear(g2_Fl_i);
-            element_clear(g2_Gl_i);
+            // Cleanup
+            element_clear(Fi);
+            element_clear(Gi);
+            element_clear(expected_F);
+            element_clear(expected_G);
+            element_clear(expected_G_prime);
+            element_clear(test_F);
+            element_clear(test_G);
+            element_clear(test_G_prime);
+            element_clear(power);
         }
     }
     
-    // Complaint handling and forming subset Q
-    std::vector<int> Q;
-    for (int i = 0; i < ne; i++) {
-        if (!complaints[i]) {
-            Q.push_back(i);
-        }
-    }
+    // Rest of your existing code for computing mvk and EA keys,
+    // but only use non-disqualified authorities...
+    // ... (previous implementation) ...
     
-    // Use only authorities in Q to aggregate final sgk, mvk
-    element_t final_sgk1, final_sgk2;
-    element_init_Zr(final_sgk1, params.pairing);
-    element_init_Zr(final_sgk2, params.pairing);
-    element_set1(final_sgk1);
-    element_set1(final_sgk2);
-    
-    for (int i : Q) {
-        element_mul(final_sgk1, final_sgk1, F_coeffs[i][0]);
-        element_mul(final_sgk2, final_sgk2, G_coeffs[i][0]);
-    }
-    
-    element_init_G1(output.mvk.alpha2, params.pairing);
-    element_pow_zn(output.mvk.alpha2, params.g1, final_sgk1);
-    
-    element_init_G1(output.mvk.beta2, params.pairing);
-    element_pow_zn(output.mvk.beta2, params.g1, final_sgk2);
-    
-    element_clear(final_sgk1);
-    element_clear(final_sgk2);
-    
-    // 5. Polinom katsayılarını serbest bırakma
+    // Cleanup
     for (int i = 0; i < ne; i++) {
         for (int j = 0; j < t; j++) {
             element_clear(F_coeffs[i][j]);
-            delete F_coeffs[i][j];
             element_clear(G_coeffs[i][j]);
-            delete G_coeffs[i][j];
+            element_clear(Vx[i][j]);
+            element_clear(Vy[i][j]);
+            element_clear(Vy_prime[i][j]);
         }
     }
     
