@@ -4,7 +4,7 @@
 #include <cassert>
 #include <vector>
 #include <string>
-
+#include <cstring>
 // BN-256 param
 static const char *BN256 = R"(
 type f
