@@ -130,6 +130,98 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
         output.eaKeys[i - 1] = ea;
     }
     
+    // Pseudocode for storing commitments (for each EA i):
+    std::vector<std::vector<element_t>> Vxij(ne, std::vector<element_t>(t));
+    std::vector<std::vector<element_t>> Vyij(ne, std::vector<element_t>(t));
+    std::vector<std::vector<element_t>> Vyij_prime(ne, std::vector<element_t>(t));
+    for (int i = 0; i < ne; i++) {
+        for (int j = 0; j < t; j++) {
+            element_init_G2(Vxij[i][j], params.pairing);
+            element_pow_zn(Vxij[i][j], params.g2, F_coeffs[i][j]);
+            
+            element_init_G2(Vyij[i][j], params.pairing);
+            element_pow_zn(Vyij[i][j], params.g2, G_coeffs[i][j]);
+            
+            element_init_G1(Vyij_prime[i][j], params.pairing);
+            element_pow_zn(Vyij_prime[i][j], params.g1, G_coeffs[i][j]);
+            
+            // Distribute Vxij, Vyij, Vyij_prime to other EAs
+        }
+    }
+    
+    // Verification using commitments
+    std::vector<bool> complaints(ne, false);
+    for (int i = 1; i <= ne; i++) {
+        for (int l = 0; l < ne; l++) {
+            element_t lhs, rhs, temp;
+            element_init_G2(lhs, params.pairing);
+            element_init_G2(rhs, params.pairing);
+            element_set1(lhs);
+            element_set1(rhs);
+            
+            for (int j = 0; j < t; j++) {
+                element_pow_si(temp, Vxij[l][j], i * j);
+                element_mul(lhs, lhs, temp);
+                
+                element_pow_si(temp, Vyij[l][j], i * j);
+                element_mul(rhs, rhs, temp);
+            }
+            
+            element_t Fl_i, Gl_i;
+            element_init_Zr(Fl_i, params.pairing);
+            element_init_Zr(Gl_i, params.pairing);
+            evaluatePoly(F_coeffs[l], i, params, Fl_i);
+            evaluatePoly(G_coeffs[l], i, params, Gl_i);
+            
+            element_t g2_Fl_i, g2_Gl_i;
+            element_init_G2(g2_Fl_i, params.pairing);
+            element_init_G2(g2_Gl_i, params.pairing);
+            element_pow_zn(g2_Fl_i, params.g2, Fl_i);
+            element_pow_zn(g2_Gl_i, params.g2, Gl_i);
+            
+            if (!element_cmp(lhs, g2_Fl_i) || !element_cmp(rhs, g2_Gl_i)) {
+                complaints[l] = true;
+            }
+            
+            element_clear(lhs);
+            element_clear(rhs);
+            element_clear(temp);
+            element_clear(Fl_i);
+            element_clear(Gl_i);
+            element_clear(g2_Fl_i);
+            element_clear(g2_Gl_i);
+        }
+    }
+    
+    // Complaint handling and forming subset Q
+    std::vector<int> Q;
+    for (int i = 0; i < ne; i++) {
+        if (!complaints[i]) {
+            Q.push_back(i);
+        }
+    }
+    
+    // Use only authorities in Q to aggregate final sgk, mvk
+    element_t final_sgk1, final_sgk2;
+    element_init_Zr(final_sgk1, params.pairing);
+    element_init_Zr(final_sgk2, params.pairing);
+    element_set1(final_sgk1);
+    element_set1(final_sgk2);
+    
+    for (int i : Q) {
+        element_mul(final_sgk1, final_sgk1, F_coeffs[i][0]);
+        element_mul(final_sgk2, final_sgk2, G_coeffs[i][0]);
+    }
+    
+    element_init_G1(output.mvk.alpha2, params.pairing);
+    element_pow_zn(output.mvk.alpha2, params.g1, final_sgk1);
+    
+    element_init_G1(output.mvk.beta2, params.pairing);
+    element_pow_zn(output.mvk.beta2, params.g1, final_sgk2);
+    
+    element_clear(final_sgk1);
+    element_clear(final_sgk2);
+    
     // 5. Polinom katsayılarını serbest bırakma
     for (int i = 0; i < ne; i++) {
         for (int j = 0; j < t; j++) {
