@@ -1,35 +1,39 @@
-// keygen.h (örnek)
 #ifndef KEYGEN_H
 #define KEYGEN_H
 
+#include <vector>
 #include "setup.h"
 
+// EA (Yetkili Otorite) için anahtar çiftleri:
+// sgk: EA'nın imza anahtar payı
+// vkm: EA'nın doğrulama anahtar bileşenleri
 struct EAKey {
-    element_t x0, y0;        // sabit terimler
-    element_t sgk1, sgk2;    // local signing share
-    element_t vki1, vki2, vki3; // local verify share
-    element_t* Vx;          // commitments g2^(x_{ij})
-    element_t* Vy;          // commitments g2^(y_{ij})
-    element_t* Vyprime;     // commitments g1^(y_{ij})
+    element_t sgk1; // sgk1 = ∏_{l∈Q} F_l(i)
+    element_t sgk2; // sgk2 = ∏_{l∈Q} G_l(i)
+    element_t vkm1; // vkm1 = g1^(sgk1^2)
+    element_t vkm2; // vkm2 = g1^(sgk2^2)
+    element_t vkm3; // vkm3 = g1^(sgk2)
 };
 
+// Master doğrulama anahtarı (mvk)
+// mvk = (alpha2, beta2, beta1) = ( g1^(∏_{i∈Q} F_i(0)^2),
+//                                   g1^(∏_{i∈Q} G_i(0)^2),
+//                                   g1^(∏_{i∈Q} G_i(0)) )
 struct MasterVK {
-    element_t vk1; 
-    element_t vk2;
-    element_t vk3;
+    element_t alpha2;
+    element_t beta2;
+    element_t beta1;
 };
 
-struct MasterSK {
-    element_t sk1;
-    element_t sk2;
-};
-
+// Key Generation işleminin çıktı yapısı
 struct KeyGenOutput {
     MasterVK mvk;
-    MasterSK msgk;
-    EAKey* eaKeys;   // dizi [n] boyutunda
+    std::vector<EAKey> eaKeys; // EA otoritelerinin anahtar çiftleri (i = 1,..., ne)
 };
 
-KeyGenOutput keygen(TIACParams &params, int t, int n);
+// Coconut TTP’siz Anahtar Üretimi (Pedersen’s DKG) fonksiyonu
+// Girdi: params, t (eşik; polinom derecesi = t-1), ne (EA sayısı)
+// Çıktı: mvk ve her EA için (sgk, vkm)
+KeyGenOutput keygen(TIACParams &params, int t, int ne);
 
 #endif

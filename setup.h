@@ -4,28 +4,20 @@
 #include <pbc/pbc.h>
 #include <gmp.h>
 
-/**
- * Bilinear grup parametrelerini tutan yapı
- * (Tip-3 pairing: G1, G2, GT).
- */
+// TIAC/Coconut parametrelerini tutacak yapı
 struct TIACParams {
-    pairing_t pairing;    // Pairing yapısı
-    mpz_t prime_order;    // Asal mertebe p (== r)
-    element_t g1;         // G1 üzerinde üreteç
-    element_t h1;         // G1 üzerinde ikinci üreteç
-    element_t g2;         // G2 üzerinde üreteç
+    pairing_t pairing;   // PBC pairing objesi
+    mpz_t prime_order;   // Grubun mertebesi (p)
+    element_t g1;        // G1 üzerinde üreteç
+    element_t h1;        // G1 üzerinde ikinci üreteç
+    element_t g2;        // G2 üzerinde üreteç
 };
 
-/**
- * BN-256 parametresi yükler,
- * (g1, h1, g2) rastgele seçer,
- * e(g1, g2) != 1 kontrolü yapar.
- */
+// Kurulum fonksiyonumuz:
+// BN-256 parametresi kullanarak G1, G2 üreteçlerini ve mertebe p'yi oluşturur.
 TIACParams setupParams();
 
-/**
- * Parametreleri bellekten temizler.
- */
+// Oluşturulmuş parametreleri temizlemek için (bellek yönetimi)
 void clearParams(TIACParams &params);
 
-#endif // SETUP_H
+#endif
