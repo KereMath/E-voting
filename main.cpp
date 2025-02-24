@@ -9,7 +9,6 @@
 #include "didgen.h"
 #include "prepareblindsign.h"
 #include "blindsign.h"   // Alg.12
-#include "unblindsign.h" // Alg.13
 
 // Yardımcı fonksiyon: element'i kopyalamak için (non-const parametre kullanıyoruz)
 void my_element_dup(element_t dest, element_t src) {
