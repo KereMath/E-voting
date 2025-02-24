@@ -2,27 +2,41 @@
 #define PREPAREBLINDSIGN_H
 
 #include "setup.h"
-#include "DIDgen.h"  // DID yapısını içerir.
 #include <string>
 
-// Proof yapısı (Algorithm 5)
-struct Proof {
-    element_t c;   // Zₚ elemanı
-    element_t s1;  // Zₚ elemanı
-    element_t s2;  // Zₚ elemanı
-    element_t s3;  // Zₚ elemanı
+// KoRProof (πs): Temsil Bilgisinin İspatı
+//   c, s1, s2, s3 ∈ Zr
+struct KoRProof {
+    element_t c;
+    element_t s1;
+    element_t s2;
+    element_t s3;
 };
 
-// BlindSignOutput yapısı (Algorithm 4)
-struct BlindSignOutput {
-    element_t com;   // G₁ elemanı: blind commitment (adım 5)
-    element_t comi;  // G₁ elemanı: commitment from oᵢ (adım 2)
-    element_t h;     // G₁ elemanı: h = Hash(comi) (adım 3)
-    Proof pi_s;      // Proof: KoR ispatı (adım 6)
+// PrepareBlindSignOutput:
+//   - comi (G1) : İlk commitment
+//   - h (G1)    : comi'den hash fonksiyonu ile G1'e maplenen değer
+//   - com (G1)  : İkinci commitment (g1^o * h^DID)
+//   - pi_s      : KoRProof = (c, s1, s2, s3)
+struct PrepareBlindSignOutput {
+    element_t comi;
+    element_t h;
+    element_t com;
+    KoRProof  pi_s;
 };
 
-// prepareBlindSign: Verilen setup parametreleri ve seçmenin DID'i üzerinden
-// prepare blind sign mesajı ve kanıtı (BlindSignOutput) üretir.
-BlindSignOutput prepareBlindSign(TIACParams &params, const DID &did);
+// prepareBlindSign:
+//  Girdi : params (TIACParams), didStr (ör. SHA-512 hex string DID)
+//  Çıktı : PrepareBlindSignOutput
+//  
+//  Algoritma 4: Kör İmzalama Mesajının Oluşturulması
+//    1) Rastgele oi ∈ Zp
+//    2) comi = g1^oi * h1^DID
+//    3) h = HashInG1(comi) (örn. element_from_hash)
+//    4) Rastgele o ∈ Zp
+//    5) com = g1^o * h^DID
+//    6) πs = KoR(com, comi) (Algoritma 5)
+//    7) return (com, comi, h, πs)
+PrepareBlindSignOutput prepareBlindSign(const TIACParams &params, const std::string &didStr);
 
 #endif
