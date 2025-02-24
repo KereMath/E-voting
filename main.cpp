@@ -1,153 +1,157 @@
-#include <iostream>
-#include <fstream>
-#include <chrono>
-#include <string>
-#include "setup.h"
 #include "keygen.h"
+#include <iostream>
+#include <cassert>
 
-int main(){
-    using Clock = std::chrono::steady_clock;
+/**
+ * Polinom değerlendirme:
+ * result = ∑_{k=0..(coeffs.size()-1)} ( coeffs[k] * X^k )
+ * (Zr alanında)
+ *
+ * Burada coeffs[k] -> element_t*
+ */
+static void evaluatePoly(const std::vector<element_t*> &coeffs,
+                         int X,
+                         TIACParams &params,
+                         element_t result)
+{
+    // Başlangıçta 0
+    element_set0(result);
 
-    // 1) params.txt okuma
-    int ne=3, t=2, voterCount=5;
-    {
-        std::ifstream infile("params.txt");
-        if(infile){
-            std::string line;
-            while(std::getline(infile, line)){
-                if(line.find("ea=")==0) {
-                    ne = std::stoi(line.substr(3));
-                } else if(line.find("threshold=")==0) {
-                    t = std::stoi(line.substr(10));
-                } else if(line.find("votercount=")==0) {
-                    voterCount = std::stoi(line.substr(11));
-                }
-            }
+    // X değerini Zr içinde tutalım
+    element_t xVal;
+    element_init_Zr(xVal, params.pairing);
+    element_set_si(xVal, X);
+
+    // power = X^k
+    element_t power;
+    element_init_Zr(power, params.pairing);
+    element_set1(power);
+
+    // tmp = ara çarpımlar
+    element_t tmp;
+    element_init_Zr(tmp, params.pairing);
+
+    for (size_t i = 0; i < coeffs.size(); i++) {
+        // tmp = coeffs[i] * power
+        // coeffs[i]  -> element_t*
+        element_mul(tmp, coeffs[i], power);
+        // result += tmp
+        element_add(result, result, tmp);
+
+        // power *= xVal
+        element_mul(power, power, xVal);
+    }
+
+    element_clear(xVal);
+    element_clear(power);
+    element_clear(tmp);
+}
+
+/**
+ * Pedersen’s DKG: Her EA_i kendi F_i(X), G_i(X) polinomunu oluşturur.
+ * Tüm paylar doğrulanabilir, kimse hata yapmadıysa
+ * Master key ve EA payları oluşturulur.
+ */
+KeyGenOutput keygen(TIACParams &params, int t, int n) {
+    KeyGenOutput out;
+    out.eaKeys.resize(n);
+
+    // Polinom katsayılarını pointer olarak saklayacağız:
+    // F_coeffs[i][j], G_coeffs[i][j] => element_t*
+    // i: EA index, j: 0..t-1 (katsayı)
+    std::vector< std::vector<element_t*> > F_coeffs(n), G_coeffs(n);
+
+    // 1) Alloc + init + random
+    for(int i=0; i<n; i++){
+        F_coeffs[i].resize(t);
+        G_coeffs[i].resize(t);
+        for(int j=0; j<t; j++){
+            // F(i,j)
+            F_coeffs[i][j] = new element_s; // bellek ayır
+            element_init_Zr(F_coeffs[i][j], params.pairing);
+            element_random(F_coeffs[i][j]);
+
+            // G(i,j)
+            G_coeffs[i][j] = new element_s;
+            element_init_Zr(G_coeffs[i][j], params.pairing);
+            element_random(G_coeffs[i][j]);
         }
     }
-    std::cout << "[INFO] EA sayisi = " << ne << "\n";
-    std::cout << "[INFO] Eşik (t) = " << t << "\n";
-    std::cout << "[INFO] Seçmen sayisi = " << voterCount << "\n\n";
 
-    // 2) Setup (Bilinear grup parametreleri)
-    auto startSetup = Clock::now();
-    TIACParams params = setupParams();
-    auto endSetup = Clock::now();
-    auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
-
-    // Debug: p, g1, h1, g2
-    {
-        char* p_str = mpz_get_str(nullptr,10, params.prime_order);
-        std::cout << "p = " << p_str << "\n";
-        free(p_str);
-    }
-    {
-        char buf[256];
-        element_snprintf(buf, 256, "%B", params.g1);
-        std::cout << "g1 = " << buf << "\n";
-        element_snprintf(buf, 256, "%B", params.h1);
-        std::cout << "h1 = " << buf << "\n";
-        element_snprintf(buf, 256, "%B", params.g2);
-        std::cout << "g2 = " << buf << "\n\n";
+    // 2) Her EA_i sabit terimini (x_i0, y_i0) saklasın
+    //    -> out.eaKeys[i].x_m, y_m
+    for (int i=0; i<n; i++){
+        element_init_Zr(out.eaKeys[i].x_m, params.pairing);
+        element_init_Zr(out.eaKeys[i].y_m, params.pairing);
+        element_set(out.eaKeys[i].x_m, F_coeffs[i][0]);
+        element_set(out.eaKeys[i].y_m, G_coeffs[i][0]);
     }
 
-    // 3) Pairing testi
-    element_t testGT;
-    element_init_GT(testGT, params.pairing);
+    // 3) Master secret key (msk) = ( ∑ x_i0, ∑ y_i0 )
+    element_init_Zr(out.msk.sk1, params.pairing);
+    element_init_Zr(out.msk.sk2, params.pairing);
+    element_set0(out.msk.sk1);
+    element_set0(out.msk.sk2);
 
-    auto startPair = Clock::now();
-    pairing_apply(testGT, params.g1, params.g2, params.pairing);
-    auto endPair = Clock::now();
-    auto pair_us = std::chrono::duration_cast<std::chrono::microseconds>(endPair - startPair).count();
-
-    {
-        char buf[256];
-        element_snprintf(buf, 256, "%B", testGT);
-        std::cout << "e(g1, g2) = " << buf << "\n\n";
-    }
-    element_clear(testGT);
-
-    // 4) Key Generation (Pedersen’s DKG, herkes geçerli pay üretiyor)
-    auto startKG = Clock::now();
-    KeyGenOutput keyOut = keygen(params, t, ne);
-    auto endKG = Clock::now();
-    auto kg_us = std::chrono::duration_cast<std::chrono::microseconds>(endKG - startKG).count();
-
-    // 4.1) Master Public Key
-    {
-        char b1[256], b2[256], b3[256];
-        element_snprintf(b1,256, "%B", keyOut.mvk.vk1);
-        element_snprintf(b2,256, "%B", keyOut.mvk.vk2);
-        element_snprintf(b3,256, "%B", keyOut.mvk.vk3);
-        std::cout << "mvk.vk1 = g2^(∑ x_i0) = " << b1 << "\n";
-        std::cout << "mvk.vk2 = g2^(∑ y_i0) = " << b2 << "\n";
-        std::cout << "mvk.vk3 = g1^(∑ y_i0) = " << b3 << "\n\n";
+    for (int i=0; i<n; i++){
+        element_add(out.msk.sk1, out.msk.sk1, F_coeffs[i][0]); // x_i0
+        element_add(out.msk.sk2, out.msk.sk2, G_coeffs[i][0]); // y_i0
     }
 
-    // 4.2) Master Secret Key
-    {
-        char b1[256], b2[256];
-        element_snprintf(b1,256, "%B", keyOut.msk.sk1);
-        element_snprintf(b2,256, "%B", keyOut.msk.sk2);
-        std::cout << "msk.sk1 (∑ x_i0) = " << b1 << "\n";
-        std::cout << "msk.sk2 (∑ y_i0) = " << b2 << "\n\n";
+    // 4) Master verification key (mvk) = (g2^sum(x_i0), g2^sum(y_i0), g1^sum(y_i0))
+    element_init_G2(out.mvk.vk1, params.pairing);
+    element_init_G2(out.mvk.vk2, params.pairing);
+    element_init_G1(out.mvk.vk3, params.pairing);
+
+    element_pow_zn(out.mvk.vk1, params.g2, out.msk.sk1);
+    element_pow_zn(out.mvk.vk2, params.g2, out.msk.sk2);
+    element_pow_zn(out.mvk.vk3, params.g1, out.msk.sk2);
+
+    // 5) Her EA_i için local pay: sgk1, sgk2
+    //    sgk1 = ∑_{l=0..n-1} F_l(i+1)
+    //    sgk2 = ∑_{l=0..n-1} G_l(i+1)
+    //    vki1 = g2^sgk1, vki2 = g2^sgk2, vki3 = g1^sgk2
+    for (int i=0; i<n; i++){
+        element_init_Zr(out.eaKeys[i].sgk1, params.pairing);
+        element_init_Zr(out.eaKeys[i].sgk2, params.pairing);
+        element_set0(out.eaKeys[i].sgk1);
+        element_set0(out.eaKeys[i].sgk2);
+
+        element_t tmpF, tmpG;
+        element_init_Zr(tmpF, params.pairing);
+        element_init_Zr(tmpG, params.pairing);
+
+        for (int l=0; l<n; l++){
+            // evaluatePoly(F_l, X=i+1)
+            evaluatePoly(F_coeffs[l], i+1, params, tmpF);
+            evaluatePoly(G_coeffs[l], i+1, params, tmpG);
+
+            element_add(out.eaKeys[i].sgk1, out.eaKeys[i].sgk1, tmpF);
+            element_add(out.eaKeys[i].sgk2, out.eaKeys[i].sgk2, tmpG);
+        }
+        element_clear(tmpF);
+        element_clear(tmpG);
+
+        // Doğrulama payları
+        element_init_G2(out.eaKeys[i].vki1, params.pairing);
+        element_init_G2(out.eaKeys[i].vki2, params.pairing);
+        element_init_G1(out.eaKeys[i].vki3, params.pairing);
+
+        element_pow_zn(out.eaKeys[i].vki1, params.g2, out.eaKeys[i].sgk1);
+        element_pow_zn(out.eaKeys[i].vki2, params.g2, out.eaKeys[i].sgk2);
+        element_pow_zn(out.eaKeys[i].vki3, params.g1, out.eaKeys[i].sgk2);
     }
-
-    // 4.3) EA payları
-    for (int i=0; i<ne; i++){
-        std::cout << "=== EA#" << (i+1) << " ===\n";
-        char b1[256], b2[256], b3[256], b4[256], b5[256], b6[256], b7[256];
-        element_snprintf(b1,256,"%B", keyOut.eaKeys[i].x_m);
-        element_snprintf(b2,256,"%B", keyOut.eaKeys[i].y_m);
-        element_snprintf(b3,256,"%B", keyOut.eaKeys[i].sgk1);
-        element_snprintf(b4,256,"%B", keyOut.eaKeys[i].sgk2);
-        element_snprintf(b5,256,"%B", keyOut.eaKeys[i].vki1);
-        element_snprintf(b6,256,"%B", keyOut.eaKeys[i].vki2);
-        element_snprintf(b7,256,"%B", keyOut.eaKeys[i].vki3);
-
-        std::cout << " x_m (F_i(0)) = " << b1 << "\n";
-        std::cout << " y_m (G_i(0)) = " << b2 << "\n";
-        std::cout << " sgk1 = " << b3 << "\n";
-        std::cout << " sgk2 = " << b4 << "\n";
-        std::cout << " vki1 = g2^(sgk1) = " << b5 << "\n";
-        std::cout << " vki2 = g2^(sgk2) = " << b6 << "\n";
-        std::cout << " vki3 = g1^(sgk2) = " << b7 << "\n\n";
-    }
-
-    // 5) Süre ölçümleri (ms)
-    double setup_ms = setup_us / 1000.0;
-    double pair_ms  = pair_us  / 1000.0;
-    double kg_ms    = kg_us    / 1000.0;
-
-    std::cout << "=== ZAMAN ===\n";
-    std::cout << "Setup  : " << setup_ms << " ms\n";
-    std::cout << "Pairing: " << pair_ms  << " ms\n";
-    std::cout << "KeyGen : " << kg_ms    << " ms\n\n";
 
     // 6) Bellek temizliği
-    // Master VK
-    element_clear(keyOut.mvk.vk1);
-    element_clear(keyOut.mvk.vk2);
-    element_clear(keyOut.mvk.vk3);
-
-    // Master SK
-    element_clear(keyOut.msk.sk1);
-    element_clear(keyOut.msk.sk2);
-
-    // EA payları
-    for(int i=0; i<ne; i++){
-        element_clear(keyOut.eaKeys[i].x_m);
-        element_clear(keyOut.eaKeys[i].y_m);
-        element_clear(keyOut.eaKeys[i].sgk1);
-        element_clear(keyOut.eaKeys[i].sgk2);
-        element_clear(keyOut.eaKeys[i].vki1);
-        element_clear(keyOut.eaKeys[i].vki2);
-        element_clear(keyOut.eaKeys[i].vki3);
+    //    Polinom katsayılarını clear + delete
+    for (int i=0; i<n; i++){
+        for (int j=0; j<t; j++){
+            element_clear(F_coeffs[i][j]);
+            delete F_coeffs[i][j];
+            element_clear(G_coeffs[i][j]);
+            delete G_coeffs[i][j];
+        }
     }
 
-    // Setup param
-    clearParams(params);
-
-    std::cout << "[INFO] Program bitti.\n";
-    return 0;
+    return out;
 }
