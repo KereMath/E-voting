@@ -37,6 +37,25 @@ TIACParams setupParams() {
     element_random(params.h1);
     element_random(params.g2);
 
+    // Ek: Pairing tipini denetle
+    if (pairing_is_symmetric(params.pairing)) {
+        std::cerr << "[Uyari] Pairing symmetric olmus olabilir, BN-256 parametresi kontrol edin.\n";
+    }
+
+    // Ek: E(g1, g2) kontrolu
+    element_t testGT;
+    element_init_GT(testGT, params.pairing);
+    pairing_apply(testGT, params.g1, params.g2, params.pairing);
+    if (element_is1(testGT)) {
+        std::cerr << "[Uyari] g1 veya g2 kimlik elemani, tekrar rastgele seciliyor.\n";
+        do {
+            element_random(params.g1);
+            element_random(params.g2);
+            pairing_apply(testGT, params.g1, params.g2, params.pairing);
+        } while (element_is1(testGT));
+    }
+    element_clear(testGT);
+
     // Artık pbc_param_t'yi temizleyebiliriz
     pbc_param_clear(pbcParams);
 
