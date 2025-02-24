@@ -2,59 +2,47 @@
 #define BLINDSIGN_H
 
 #include "setup.h"
-#include "prepareblindsign.h"
-#include "keygen.h"  // EAKey => xm, ym
+#include "prepareblindsign.h" // KoRProof, PrepareBlindSignOutput
+#include "keygen.h"           // EAKey => sgk1, sgk2
+#include <vector>
 
 /*
-  CheckKoR (Algoritma 6) Girdi:
-   - params (G1, p, g1, h, h1)
-   - com, comi, pi_s (c, s1, s2, s3)
-  Çıktı: bool (true = πs=1, false = "Hata")
-
-  1) com''i = g1^s1 * h1^s2 * (comi^c)
-  2) com''  = g1^s3 * h^s2  * (com^c)
-  3) c' = Hash( g1, h, h1, com, com'', comi, com''i )
-  4) if c' != c => return false
-     else => return true
+  CheckKoR (Alg.6) - 
+   Girdi: 
+     - params (TIACParams &)
+     - com, comi, h (G1), pi_s=(c, s1, s2, s3)
+   Çıktı: bool (true => πs=1, false => hata)
 */
 bool CheckKoR(
     TIACParams &params,
-    const element_t com, 
-    const element_t comi,
-    const element_t h,   // needed for hashing
-    const KoRProof &pi_s // (c, s1, s2, s3)
+    element_t com,
+    element_t comi,
+    element_t h,
+    KoRProof &pi_s
 );
 
 /*
-  BlindSignature (Alg. 12 çıktısı):
-   - h (G1)
-   - cm (G1)
+  BlindSignature: Alg.12'nin çıktısı (h, cm)
 */
 struct BlindSignature {
-    element_t h; 
-    element_t cm;
+    element_t h;   // G1
+    element_t cm;  // G1
 };
 
 /*
-  blindSign (Algoritma 12):
+  blindSign (Alg.12):
    Girdi:
     - params
-    - PrepareBlindSignOutput (com, comi, h, pi_s)
-    - EA otoritesi gizli anahtarı (x_m, y_m) -> "sgk1 = xm, sgk2 = ym"
+    - PrepareBlindSignOutput: (com, comi, h, pi_s)
+    - xm, ym (mpz_t) => EA otoritesinin gizli anahtarı
    Çıktı:
     - (h, cm)
-
-   Adımlar (özet):
-    1) CheckKoR(...) = 1 değilse "Hata"
-    2) hash(comi) != h ise "Hata"
-    3) cm = h^xm * com^ym
-    4) return (h, cm)
 */
 BlindSignature blindSign(
     TIACParams &params,
-    const PrepareBlindSignOutput &bsOut, // (com, comi, h, pi_s)
-    const mpz_t xm,  // otoritenin gizli anahtarı 
-    const mpz_t ym   // otoritenin gizli anahtarı
+    PrepareBlindSignOutput &bsOut,
+    mpz_t xm,
+    mpz_t ym
 );
 
 #endif
