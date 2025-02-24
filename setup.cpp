@@ -49,10 +49,17 @@ TIACParams setupParams() {
     pairing_apply(testGT, params.g1, params.g2, params.pairing);
     if (element_is1(testGT)) {
         std::cerr << "[Uyari] g1 veya g2 kimlik elemani, tekrar rastgele seciliyor.\n";
+        int attemptCount = 0;
+        const int MAX_ATTEMPTS = 100;
         do {
             element_random(params.g1);
             element_random(params.g2);
             pairing_apply(testGT, params.g1, params.g2, params.pairing);
+            attemptCount++;
+            if (attemptCount > MAX_ATTEMPTS) {
+                std::cerr << "[Hata] " << MAX_ATTEMPTS << " defa denenmesine ragmen kimlik olmayan eleman bulunamadi.\n";
+                break;
+            }
         } while (element_is1(testGT));
     }
     element_clear(testGT);
