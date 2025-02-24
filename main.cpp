@@ -171,7 +171,7 @@ int main() {
         double idGen_ms = idGenDuration_us / 1000.0;
         std::cout << "[ZAMAN] ID Generation suresi: " << idGen_ms << " ms\n\n";
     }
-    double didGen_ms;
+
     // 7) DID Generation: Her seçmen için createDID çağır
     std::cout << "=== DID Generation (Hash of ID + x) ===\n";
     std::vector<DID> dids(voterCount);
@@ -196,6 +196,7 @@ int main() {
             std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
 
         double didGen_ms = didGenDuration_us / 1000.0;
+        std::cout << "[ZAMAN] DID Generation suresi: " << didGen_ms << " ms\n\n";
     }
 
     // 8) Bellek temizliği: keyOut
@@ -229,7 +230,6 @@ int main() {
     std::cout << "Setup suresi   : " << setup_ms   << " ms\n";
     std::cout << "Pairing suresi : " << pairing_ms << " ms\n";
     std::cout << "KeyGen suresi  : " << keygen_ms  << " ms\n";
-    std::cout << "DID Generation suresi: " << didGen_ms << " ms\n\n";
     std::cout << "\n=== Program Sonu ===\n";
 
     return 0;
