@@ -1,4 +1,3 @@
-bu da keygen cppsi
 #include "keygen.h"
 #include <pbc/pbc.h>
 #include <gmp.h>
