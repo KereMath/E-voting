@@ -8,11 +8,11 @@
 #include "keygen.h"
 #include "didgen.h"
 #include "prepareblindsign.h"
-#include "blindsign.h"   // BlindSign (Alg.12)
-#include "unblindsign.h" // UnblindSignature (Alg.13)
+#include "blindsign.h"   // Alg.12
+#include "unblindsign.h" // Alg.13
 
-// Helper function: Kopyalama işlemi
-void my_element_dup(element_t dest, const element_t src) {
+// Yardımcı fonksiyon: element'i kopyalamak için (non-const parametre kullanıyoruz)
+void my_element_dup(element_t dest, element_t src) {
     element_init_same_as(dest, src);
     element_set(dest, src);
 }
@@ -107,7 +107,7 @@ int main() {
     }
     for (int i = 0; i < ne; i++) {
         std::cout << "=== EA Authority " << (i+1) << " ===\n";
-        // EA anahtarlarının yazdırılması...
+        // EA anahtarları yazdırılıyor...
     }
     
     // 5) ID Generation
@@ -141,10 +141,8 @@ int main() {
     std::cout << "=== DID Generation ===\n";
     for (int i = 0; i < voterCount; i++) {
         char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
-        std::cout << "Secmen " << (i+1)
-                  << " icin x = " << x_str << "\n"
-                  << "Secmen " << (i+1)
-                  << " icin DID = " << dids[i].did << "\n\n";
+        std::cout << "Secmen " << (i+1) << " icin x = " << x_str << "\n"
+                  << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
         free(x_str);
     }
     
@@ -166,10 +164,10 @@ int main() {
     auto endBS = Clock::now();
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
     
-    // 8) BlindSign (Alg.12): EA partial signature üretimi
+    // 8) BlindSign (Alg.12): EA partial imza üretimi
     std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
-    // partialSigs[i][m] saklamak için: her seçmen için her EA'nın partial imzası
+    // Her seçmen için her EA'nın partial imzası saklanıyor
     std::vector< std::vector<BlindSignature> > partialSigs(voterCount, std::vector<BlindSignature>(ne));
     for (int i = 0; i < voterCount; i++) {
         std::cout << "Secmen " << (i+1) << " için EA partial imzaları:\n";
@@ -181,10 +179,9 @@ int main() {
             element_to_mpz(ym, keyOut.eaKeys[m].sgk2);
             try {
                 BlindSignature partSig = blindSign(params, bsOutputs[i], xm, ym);
-                // EA tarafından üretilen gerçek partial imza (σ′ₘ = (h, cm)) saklanıyor:
+                // EA'nın partial imzası, blindSign fonksiyonundan alınan gerçek değerlerdir.
                 my_element_dup(partialSigs[i][m].h, partSig.h);
                 my_element_dup(partialSigs[i][m].cm, partSig.cm);
-                // Yazdırma:
                 char bufH[2048], bufCM[2048];
                 element_snprintf(bufH, sizeof(bufH), "%B", partSig.h);
                 element_snprintf(bufCM, sizeof(bufCM), "%B", partSig.cm);
@@ -211,15 +208,15 @@ int main() {
         std::cout << "Secmen " << (i+1) << " için EA unblind imzaları:\n";
         for (int m = 0; m < ne; m++) {
             UnblindSignInput in;
-            // PrepareBlindSignOutput'dan alınan orijinal comi
+            // PrepareBlindSignOutput'dan alınan orijinal comi:
             element_init_G1(in.comi, params.pairing);
             element_set(in.comi, bsOutputs[i].comi);
-            // EA blindSign çıktısından partial imzadan alınan h ve cm (doğru partial imza)
+            // EA blindSign çıktısından alınan partial imza (blindSign) değerleri:
             element_init_G1(in.h, params.pairing);
             element_set(in.h, partialSigs[i][m].h);
             element_init_G1(in.cm, params.pairing);
             element_set(in.cm, partialSigs[i][m].cm);
-            // "o": prepareBlindSignOutput'da saklanan gerçek o
+            // "o": PrepareBlindSignOutput'da saklanan gerçek o:
             mpz_init(in.o);
             mpz_set(in.o, bsOutputs[i].o);
             // EA doğrulama anahtarları (vkm):
@@ -246,7 +243,7 @@ int main() {
                 std::cerr << "  [EA " << (m+1) << "] unblindsign error: " << ex.what() << "\n";
             }
             
-            // Temizlik UnblindSignInput
+            // Temizlik UnblindSignInput:
             element_clear(in.comi);
             element_clear(in.h);
             element_clear(in.cm);
@@ -264,18 +261,17 @@ int main() {
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
     element_clear(keyOut.mvk.beta1);
-    for (int i = 0; i < ne; i++){
+    for (int i = 0; i < ne; i++) {
         element_clear(keyOut.eaKeys[i].sgk1);
         element_clear(keyOut.eaKeys[i].sgk2);
         element_clear(keyOut.eaKeys[i].vkm1);
         element_clear(keyOut.eaKeys[i].vkm2);
         element_clear(keyOut.eaKeys[i].vkm3);
     }
-    // (DID ve PrepareBlindSignOutput temizliği)
-    for (int i = 0; i < voterCount; i++){
+    for (int i = 0; i < voterCount; i++) {
         mpz_clear(dids[i].x);
     }
-    for (int i = 0; i < voterCount; i++){
+    for (int i = 0; i < voterCount; i++) {
         element_clear(bsOutputs[i].comi);
         element_clear(bsOutputs[i].h);
         element_clear(bsOutputs[i].com);

@@ -27,6 +27,8 @@ struct PrepareBlindSignOutput {
     element_t h;
     element_t com;
     KoRProof  pi_s;
+    mpz_t o;  // Bu alan prepareBlindSign() içinde hesaplanıp saklanmalı.
+
 };
 
 /*
