@@ -8,12 +8,15 @@
 // sgk: EA'nın imza anahtar payı
 // vkm: EA'nın doğrulama anahtar bileşenleri
 struct EAKey {
-    element_t sgk1; // sgk1 = ∏_{l∈Q} F_l(i)
-    element_t sgk2; // sgk2 = ∏_{l∈Q} G_l(i)
-    element_t vkm1; // vkm1 = g1^(sgk1^2)
-    element_t vkm2; // vkm2 = g1^(sgk2^2)
-    element_t vkm3; // vkm3 = g1^(sgk2)
+    element_t sgk1;
+    element_t sgk2;
+    element_t vkm1;
+    element_t vkm2;
+    element_t vkm3;
+    element_t f0;   // secret x for this EA
+    element_t g0;   // secret y for this EA
 };
+
 
 // Master doğrulama anahtarı (mvk)
 // mvk = (alpha2, beta2, beta1) = ( g1^(∏_{i∈Q} F_i(0)^2),
