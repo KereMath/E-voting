@@ -83,7 +83,7 @@ element_init_G1(h_prime, params.pairing);
     element_t comi_norm;
     element_init_G1(comi_norm, params.pairing);
     element_set(comi_norm, blindOut.comi);
-    elemet_to_mpz(comi_norm); // Normalize et
+    element_to_mpz(comi_norm); // Normalize et
     std::string comiHex = canonicalElementToHex(comi_norm);
     hashToG1(comiHex, params, h_prime);
     element_clear(comi_norm);
