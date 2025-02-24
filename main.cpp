@@ -168,7 +168,7 @@ int main() {
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
     
     // 8) BlindSign (Alg.12): EA partial imza üretimi
-    std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
+    cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
     // Her seçmen için her EA'nın partial imzası saklanıyor
     std::vector< std::vector<BlindSignature> > partialSigs(voterCount, std::vector<BlindSignature>(ne));
