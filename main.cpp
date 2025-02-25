@@ -12,6 +12,7 @@
 #include "unblindsign.h" // Alg.13
 #include <thread>
 #include <future>  // std::async ve std::future için
+#include "ctpl_stl.h"   // ctpl_stl kütüphanesini dahil edin
 
 // Yardımcı fonksiyon: element kopyalamak için (const kullanmıyoruz)
 void my_element_dup(element_t dest, element_t src) {
@@ -149,17 +150,36 @@ int main() {
     // }
     
   // 7) Prepare Blind Sign (Alg.4) - OpenMP ile paralelize edilmiş
-auto startBS = Clock::now();
-std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
-bsOutputs.reserve(voterCount);  // Belleği önceden ayır
+  auto startBS = Clock::now();
 
-#pragma omp parallel for schedule(dynamic)
-for (int i = 0; i < voterCount; i++) {
-    bsOutputs[i] = prepareBlindSign(params, dids[i].did);
-}
-
-auto endBS = Clock::now();
-auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
+  // Önce sonuçları depolamak için yeterli alan ayırıyoruz
+  std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
+  bsOutputs.reserve(voterCount);
+  
+  // Kullanılacak thread sayısını belirleyin (CPU çekirdek sayısı veya varsayılan 4)
+  unsigned int numThreads = std::thread::hardware_concurrency();
+  if (numThreads == 0) numThreads = 4;
+  
+  // ctpl_stl thread pool oluşturuyoruz
+  ctpl::thread_pool pool(numThreads);
+  
+  std::vector<std::future<PrepareBlindSignOutput>> futures;
+  futures.reserve(voterCount);
+  
+  // Tüm prepareBlindSign çağrılarını thread havuzuna ekleyin
+  for (int i = 0; i < voterCount; i++) {
+      futures.push_back(pool.push([&, i](int /*thread_id*/) -> PrepareBlindSignOutput {
+          return prepareBlindSign(params, dids[i].did);
+      }));
+  }
+  
+  // Tüm görevler tamamlanana kadar bekleyip sonuçları toplayın
+  for (int i = 0; i < voterCount; i++) {
+      bsOutputs[i] = futures[i].get();
+  }
+  
+  auto endBS = Clock::now();
+  auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
 
     // Sonuçları yazdır
     // for (int i = 0; i < voterCount; i++) {
