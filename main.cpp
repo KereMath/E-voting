@@ -148,26 +148,19 @@ int main() {
     //     free(x_str);
     // }
     
-    // 7) Prepare Blind Sign (Alg.4)
-    auto startBS = Clock::now();
-    std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
-    bsOutputs.reserve(voterCount);  // Belleği önceden ayır
-    
-    std::vector<std::future<void>> futures;
-    for (int i = 0; i < voterCount; i++) {
-        futures.push_back(std::async(std::launch::async, [&](int idx) {
-            bsOutputs[idx] = prepareBlindSign(params, dids[idx].did);
-        }, i));
-    }
-    
-    // Tüm async işlemlerin bitmesini bekle
-    for (auto &f : futures) {
-        f.get();
-    }
-    
-    auto endBS = Clock::now();
-    auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
-    
+  // 7) Prepare Blind Sign (Alg.4) - OpenMP ile paralelize edilmiş
+auto startBS = Clock::now();
+std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
+bsOutputs.reserve(voterCount);  // Belleği önceden ayır
+
+#pragma omp parallel for schedule(dynamic)
+for (int i = 0; i < voterCount; i++) {
+    bsOutputs[i] = prepareBlindSign(params, dids[i].did);
+}
+
+auto endBS = Clock::now();
+auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
+
     // Sonuçları yazdır
     // for (int i = 0; i < voterCount; i++) {
     //     char bufComi[2048], bufH[1024], bufCom[2048];
