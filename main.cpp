@@ -169,19 +169,19 @@ int main() {
     auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
     
     // Sonuçları yazdır
-    for (int i = 0; i < voterCount; i++) {
-        char bufComi[2048], bufH[1024], bufCom[2048];
-        element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
-        element_snprintf(bufH, sizeof(bufH), "%B", bsOutputs[i].h);
-        element_snprintf(bufCom, sizeof(bufCom), "%B", bsOutputs[i].com);
-        std::cout << "Secmen " << (i+1) << " Prepare Blind Sign:\n"
-                  << "comi = " << bufComi << "\n"
-                  << "h    = " << bufH    << "\n"
-                  << "com  = " << bufCom  << "\n";
-        char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
-        std::cout << "o    = " << o_str << "\n\n";
-        free(o_str);
-    }
+    // for (int i = 0; i < voterCount; i++) {
+    //     char bufComi[2048], bufH[1024], bufCom[2048];
+    //     element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
+    //     element_snprintf(bufH, sizeof(bufH), "%B", bsOutputs[i].h);
+    //     element_snprintf(bufCom, sizeof(bufCom), "%B", bsOutputs[i].com);
+    //     std::cout << "Secmen " << (i+1) << " Prepare Blind Sign:\n"
+    //               << "comi = " << bufComi << "\n"
+    //               << "h    = " << bufH    << "\n"
+    //               << "com  = " << bufCom  << "\n";
+    //     char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
+    //     std::cout << "o    = " << o_str << "\n\n";
+    //     free(o_str);
+    // }
     
     // 8) BlindSign (Alg.12): EA partial imza üretimi
     std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
