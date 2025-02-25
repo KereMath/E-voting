@@ -235,52 +235,58 @@ int main() {
     // Her seçmen için, tüm 3 admin sunucusunu temsil eden kaynaklar vardır.
     // Dinamik olarak, boşta olanlardan (aynı seçmen için aynı admin birden fazla imza vermeyecek şekilde)
     // ilk 2 onay toplanır.
+        // 8) BlindSign (Alg.12): Admin imzalama işlemi
+    // Her seçmen için 3 admin sunucusundan dinamik olarak, boş olanlardan yalnızca threshold (t=2) adet admin görevi atayacağız.
     std::cout << "=== BlindSign (Admin Imzalama) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
     std::vector< std::vector<BlindSignature> > finalSigs(voterCount);
-    const int adminCount = 3; // 3 admin sunucusu
-    // Global admin sunucularını temsil eden mutexler
+    const int adminCount = 3; // Toplam admin sunucusu sayısı
+    // Admin sunucularını temsil eden global mutexler (her biri bir adminin sabit thread havuzunu simüle eder)
     std::vector<std::mutex> adminMutex(adminCount);
     for (int i = 0; i < voterCount; i++) {
         std::cout << "Secmen " << (i+1) << " icin admin imzalama islemi basladi.\n";
-        std::vector<std::future<BlindSignature>> futures;
-        // Her seçmen için hangi adminin kullanıldığını takip etmek üzere
-        std::vector<bool> used(adminCount, false);
-        // Dinamik atama: boşta olan adminlerden (aynı seçmen için aynı admin yalnızca bir kez) imza alınana kadar döngü
-        while (futures.size() < static_cast<size_t>(t)) {
-            for (int admin = 0; admin < adminCount; admin++) {
-                if (!used[admin]) {
-                    if (adminMutex[admin].try_lock()) {
-                        used[admin] = true;
-                        futures.push_back(std::async(std::launch::async, [&, i, admin]() -> BlindSignature {
-                            logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
-                                             " sign task started on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                            mpz_t xm, ym;
-                            mpz_init(xm);
-                            mpz_init(ym);
-                            element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
-                            element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
-                            BlindSignature sig = blindSign(params, bsOutputs[i], xm, ym);
-                            mpz_clear(xm);
-                            mpz_clear(ym);
-                            logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
-                                             " sign task finished on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                            adminMutex[admin].unlock();
-                            return sig;
-                        }));
-                    }
+        std::vector<std::future<BlindSignature>> adminFutures;
+        int scheduled = 0;
+        // Dinamik admin ataması: boşta olan adminlerden threshold kadar görevi atayalım.
+        while (scheduled < t) {
+            bool scheduledThisRound = false;
+            for (int admin = 0; admin < adminCount && scheduled < t; admin++) {
+                // Eğer bu admin daha önce kullanılmadı ve boşsa, görevi ata.
+                if (adminMutex[admin].try_lock()) {
+                    // Atama başarılı, bu admin için görev başlatılıyor.
+                    adminFutures.push_back(std::async(std::launch::async, [&, i, admin]() -> BlindSignature {
+                        logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
+                                         " - Admin " + std::to_string(admin+1) +
+                                         " sign task started on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+                        mpz_t xm, ym;
+                        mpz_init(xm);
+                        mpz_init(ym);
+                        element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
+                        element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
+                        BlindSignature sig = blindSign(params, bsOutputs[i], xm, ym);
+                        mpz_clear(xm);
+                        mpz_clear(ym);
+                        logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
+                                         " - Admin " + std::to_string(admin+1) +
+                                         " sign task finished on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+                        adminMutex[admin].unlock();
+                        return sig;
+                    }));
+                    scheduled++;
+                    scheduledThisRound = true;
                 }
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (!scheduledThisRound) {
+                // Hiçbir admin boş değilse, biraz bekleyip tekrar dene.
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
         }
-        // Bekleme: İlk 2 onay alınana kadar futures'dan sonuç toplanır.
+        // Bekle: Atanan admin görevlerinin tamamlanmasını sağla.
         std::vector<BlindSignature> collected;
-        for (auto &f : futures) {
+        for (auto &f : adminFutures) {
             try {
                 BlindSignature sig = f.get();
                 collected.push_back(sig);
-                if (collected.size() == static_cast<size_t>(t))
-                    break;
             } catch (const std::exception &ex) {
                 std::cerr << "Secmen " << (i+1) << " sign error: " << ex.what() << "\n";
             }
@@ -290,7 +296,7 @@ int main() {
     }
     auto endFinalSign = Clock::now();
     auto finalSign_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
-    
+
     // 9) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
