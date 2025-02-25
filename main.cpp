@@ -42,35 +42,35 @@ int main() {
         }
         infile.close();
     }
-    // std::cout << "EA sayisi (ne) = " << ne << "\n";
-    // std::cout << "Esik degeri (t) = " << t << "\n";
-    // std::cout << "Secmen sayisi (voterCount) = " << voterCount << "\n\n";
+    std::cout << "EA sayisi (ne) = " << ne << "\n";
+    std::cout << "Esik degeri (t) = " << t << "\n";
+    std::cout << "Secmen sayisi (voterCount) = " << voterCount << "\n\n";
     
     // 2) Setup (Alg.1)
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
     auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
-    // {
-    //     char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
-    //     std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
-    //     free(p_str);
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.g1);
-    //     std::cout << "g1 =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.h1);
-    //     std::cout << "h1 =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.g2);
-    //     std::cout << "g2 =\n" << buf << "\n\n";
-    // }
+    {
+        char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
+        std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
+        free(p_str);
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", params.g1);
+        std::cout << "g1 =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", params.h1);
+        std::cout << "h1 =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", params.g2);
+        std::cout << "g2 =\n" << buf << "\n\n";
+    }
     
     // 3) Pairing testi
     element_t pairingTest;
@@ -79,39 +79,39 @@ int main() {
     pairing_apply(pairingTest, params.g1, params.g2, params.pairing);
     auto endPairing = Clock::now();
     auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", pairingTest);
-    //     std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairing_us << " microseconds\n";
-    //     std::cout << "e(g1, g2) =\n" << buf << "\n\n";
-    // }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", pairingTest);
+        std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairing_us << " microseconds\n";
+        std::cout << "e(g1, g2) =\n" << buf << "\n\n";
+    }
     element_clear(pairingTest);
     
     // 4) KeyGen (Alg.2)
-    // std::cout << "=== TTP ile Anahtar Uretimi (KeyGen) ===\n";
+    std::cout << "=== TTP ile Anahtar Uretimi (KeyGen) ===\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
-    //     std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
-    //     std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
-    //     std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
-    // }
-    // for (int i = 0; i < ne; i++) {
-    //     std::cout << "=== EA Authority " << (i+1) << " ===\n";
-    //     // EA anahtarları yazdırılıyor (detaylar eklenebilir)
-    // }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
+        std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
+        std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
+        std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
+    }
+    for (int i = 0; i < ne; i++) {
+        std::cout << "=== EA Authority " << (i+1) << " ===\n";
+        // EA anahtarları yazdırılıyor (detaylar eklenebilir)
+    }
     
     // 5) ID Generation
     auto startIDGen = Clock::now();
@@ -127,11 +127,11 @@ int main() {
     }
     auto endIDGen = Clock::now();
     auto idGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endIDGen - startIDGen).count();
-    // std::cout << "=== ID Generation ===\n";
+    std::cout << "=== ID Generation ===\n";
     for (int i = 0; i < voterCount; i++) {
-        // std::cout << "Secmen " << (i+1) << " ID = " << voterIDs[i] << "\n";
+        std::cout << "Secmen " << (i+1) << " ID = " << voterIDs[i] << "\n";
     }
-    // std::cout << "\n";
+    std::cout << "\n";
     
     // 6) DID Generation
     auto startDIDGen = Clock::now();
@@ -141,13 +141,13 @@ int main() {
     }
     auto endDIDGen = Clock::now();
     auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
-    // std::cout << "=== DID Generation ===\n";
-    // for (int i = 0; i < voterCount; i++) {
-    //     char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
-    //     std::cout << "Secmen " << (i+1) << " icin x = " << x_str << "\n"
-    //               << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
-    //     free(x_str);
-    // }
+    std::cout << "=== DID Generation ===\n";
+    for (int i = 0; i < voterCount; i++) {
+        char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
+        std::cout << "Secmen " << (i+1) << " icin x = " << x_str << "\n"
+                  << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
+        free(x_str);
+    }
     
   // 7) Prepare Blind Sign (Alg.4) - OpenMP ile paralelize edilmiş
   auto startBS = Clock::now();
@@ -171,47 +171,47 @@ int main() {
   
   auto endBS = Clock::now();
   auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
-    // Sonuçları yazdır
-    // for (int i = 0; i < voterCount; i++) {
-    //     char bufComi[2048], bufH[1024], bufCom[2048];
-    //     element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
-    //     element_snprintf(bufH, sizeof(bufH), "%B", bsOutputs[i].h);
-    //     element_snprintf(bufCom, sizeof(bufCom), "%B", bsOutputs[i].com);
-    //     std::cout << "Secmen " << (i+1) << " Prepare Blind Sign:\n"
-    //               << "comi = " << bufComi << "\n"
-    //               << "h    = " << bufH    << "\n"
-    //               << "com  = " << bufCom  << "\n";
-    //     char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
-    //     std::cout << "o    = " << o_str << "\n\n";
-    //     free(o_str);
-    // }
+    Sonuçları yazdır
+    for (int i = 0; i < voterCount; i++) {
+        char bufComi[2048], bufH[1024], bufCom[2048];
+        element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
+        element_snprintf(bufH, sizeof(bufH), "%B", bsOutputs[i].h);
+        element_snprintf(bufCom, sizeof(bufCom), "%B", bsOutputs[i].com);
+        std::cout << "Secmen " << (i+1) << " Prepare Blind Sign:\n"
+                  << "comi = " << bufComi << "\n"
+                  << "h    = " << bufH    << "\n"
+                  << "com  = " << bufCom  << "\n";
+        char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
+        std::cout << "o    = " << o_str << "\n\n";
+        free(o_str);
+    }
     
-    // 8) BlindSign (Alg.12): EA partial imza üretimi
-    // std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
+    8) BlindSign (Alg.12): EA partial imza üretimi
+    std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
     std::vector< std::vector<BlindSignature> > partialSigs(voterCount, std::vector<BlindSignature>(ne));
     for (int i = 0; i < voterCount; i++) {
-        // std::cout << "Secmen " << (i+1) << " için EA partial imzaları:\n";
+        std::cout << "Secmen " << (i+1) << " için EA partial imzaları:\n";
         for (int m = 0; m < ne; m++) {
             mpz_t xm, ym;
             mpz_init(xm);
             mpz_init(ym);
             element_to_mpz(xm, keyOut.eaKeys[m].sgk1);
             element_to_mpz(ym, keyOut.eaKeys[m].sgk2);
-            // try {
-            //     BlindSignature partSig = blindSign(params, bsOutputs[i], xm, ym);
-            //     my_element_dup(partialSigs[i][m].h, partSig.h);
-            //     my_element_dup(partialSigs[i][m].cm, partSig.cm);
-            //     char bufH[2048], bufCM[2048];
-            //     element_snprintf(bufH, sizeof(bufH), "%B", partSig.h);
-            //     element_snprintf(bufCM, sizeof(bufCM), "%B", partSig.cm);
-            //     std::cout << "  [EA " << (m+1) << "] => h=" << bufH << "\n"
-            //               << "              cm=" << bufCM << "\n\n";
-            //     element_clear(partSig.h);
-            //     element_clear(partSig.cm);
-            // } catch (const std::exception &ex) {
-            //     std::cerr << "  [EA " << (m+1) << "] blindSign error: " << ex.what() << "\n";
-            // }
+            try {
+                BlindSignature partSig = blindSign(params, bsOutputs[i], xm, ym);
+                my_element_dup(partialSigs[i][m].h, partSig.h);
+                my_element_dup(partialSigs[i][m].cm, partSig.cm);
+                char bufH[2048], bufCM[2048];
+                element_snprintf(bufH, sizeof(bufH), "%B", partSig.h);
+                element_snprintf(bufCM, sizeof(bufCM), "%B", partSig.cm);
+                std::cout << "  [EA " << (m+1) << "] => h=" << bufH << "\n"
+                          << "              cm=" << bufCM << "\n\n";
+                element_clear(partSig.h);
+                element_clear(partSig.cm);
+            } catch (const std::exception &ex) {
+                std::cerr << "  [EA " << (m+1) << "] blindSign error: " << ex.what() << "\n";
+            }
             mpz_clear(xm);
             mpz_clear(ym);
         }
