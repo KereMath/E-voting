@@ -4,7 +4,6 @@
 #include <random>
 #include <stdexcept>
 #include <tbb/parallel_for.h>
-#include <tbb/blocked_range.h>
 #include <tbb/global_control.h>
 
 // [0, p-1] aralığında rastgele mpz üretir
@@ -45,6 +44,7 @@ static void evalPolynomial(mpz_t result, const std::vector<mpz_t> &poly,
     mpz_init_set_ui(xPow, 1); // x^0 = 1
 
     for (size_t k = 0; k < poly.size(); k++) {
+        // term = poly[k] * (xValue^k)
         mpz_mul(term, poly[k], xPow);
         mpz_add(result, result, term);
         mpz_mod(result, result, p);
@@ -59,9 +59,6 @@ static void evalPolynomial(mpz_t result, const std::vector<mpz_t> &poly,
 
 // Algoritma 2: Coconut TTP ile Anahtar Üretimi
 KeyGenOutput keygen(TIACParams &params, int t, int ne) {
-    // Global concurrency kontrolü: donanım thread sayısı kadar thread kullanılabilir
-    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, std::thread::hardware_concurrency());
-
     KeyGenOutput keyOut;
     keyOut.eaKeys.resize(ne);
 
@@ -94,42 +91,43 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     element_pow_zn(keyOut.mvk.beta1, params.g1, expY);
 
     // EA otoriteleri anahtar üretimi için paralel döngü (m = 1..ne)
-    int grain_size = 5; // Deneyerek en uygun değeri seçin
-    tbb::parallel_for(tbb::blocked_range<int>(1, ne + 1, grain_size),
-        [&](const tbb::blocked_range<int>& range) {
-            for (int m = range.begin(); m < range.end(); ++m) {
-                element_init_Zr(keyOut.eaKeys[m - 1].sgk1, params.pairing);
-                element_init_Zr(keyOut.eaKeys[m - 1].sgk2, params.pairing);
-                element_init_G2(keyOut.eaKeys[m - 1].vkm1, params.pairing);
-                element_init_G2(keyOut.eaKeys[m - 1].vkm2, params.pairing);
-                element_init_G1(keyOut.eaKeys[m - 1].vkm3, params.pairing);
+    tbb::parallel_for(1, ne + 1, [&](int m) {
+        // keyOut.eaKeys[m-1]'i başlat
+        element_init_Zr(keyOut.eaKeys[m - 1].sgk1, params.pairing);
+        element_init_Zr(keyOut.eaKeys[m - 1].sgk2, params.pairing);
+        element_init_G2(keyOut.eaKeys[m - 1].vkm1, params.pairing);
+        element_init_G2(keyOut.eaKeys[m - 1].vkm2, params.pairing);
+        element_init_G1(keyOut.eaKeys[m - 1].vkm3, params.pairing);
 
-                mpz_t xm, ym;
-                mpz_init(xm);
-                mpz_init(ym);
+        mpz_t xm, ym;
+        mpz_init(xm);
+        mpz_init(ym);
 
-                evalPolynomial(xm, vPoly, m, params.prime_order);
-                evalPolynomial(ym, wPoly, m, params.prime_order);
+        // v(m) ve w(m) hesaplaması
+        evalPolynomial(xm, vPoly, m, params.prime_order);
+        evalPolynomial(ym, wPoly, m, params.prime_order);
 
-                element_set_mpz(keyOut.eaKeys[m - 1].sgk1, xm);
-                element_set_mpz(keyOut.eaKeys[m - 1].sgk2, ym);
+        // sgk = (xm, ym)
+        element_set_mpz(keyOut.eaKeys[m - 1].sgk1, xm);
+        element_set_mpz(keyOut.eaKeys[m - 1].sgk2, ym);
 
-                element_t expXm, expYm;
-                element_init_Zr(expXm, params.pairing);
-                element_init_Zr(expYm, params.pairing);
-                element_set_mpz(expXm, xm);
-                element_set_mpz(expYm, ym);
+        element_t expXm, expYm;
+        element_init_Zr(expXm, params.pairing);
+        element_init_Zr(expYm, params.pairing);
+        element_set_mpz(expXm, xm);
+        element_set_mpz(expYm, ym);
 
-                element_pow_zn(keyOut.eaKeys[m - 1].vkm1, params.g2, expXm);
-                element_pow_zn(keyOut.eaKeys[m - 1].vkm2, params.g2, expYm);
-                element_pow_zn(keyOut.eaKeys[m - 1].vkm3, params.g1, expYm);
+        // vkm1 = g2^(xm), vkm2 = g2^(ym), vkm3 = g1^(ym)
+        element_pow_zn(keyOut.eaKeys[m - 1].vkm1, params.g2, expXm);
+        element_pow_zn(keyOut.eaKeys[m - 1].vkm2, params.g2, expYm);
+        element_pow_zn(keyOut.eaKeys[m - 1].vkm3, params.g1, expYm);
 
-                element_clear(expXm);
-                element_clear(expYm);
-                mpz_clear(xm);
-                mpz_clear(ym);
-            }
-        });
+        // Temizlik
+        element_clear(expXm);
+        element_clear(expYm);
+        mpz_clear(xm);
+        mpz_clear(ym);
+    });
 
     // Polinom katsayılarının temizliği
     for (int i = 0; i < t; i++) {
