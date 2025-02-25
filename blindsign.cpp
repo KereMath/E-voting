@@ -5,7 +5,6 @@
 #include <iomanip>
 #include <stdexcept>
 
-// --- Aşağıdaki fonksiyonlar değiştirilmedi, sadece loglama eklenebilir ---
 static std::string elemToStrG1(element_s *g1Ptr) {
     int len = element_length_in_bytes(g1Ptr);
     std::vector<unsigned char> buf(len);

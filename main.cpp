@@ -56,7 +56,7 @@ int main() {
         }
         infile.close();
     }
-    // Simülasyon için: admin sayısı 3 ve threshold 2 olacak şekilde düzenleniyor.
+    // Simülasyon için: admin sayısını 3 ve threshold'ü 2 olarak ayarlıyoruz.
     ne = 3;
     t = 2;
     
@@ -201,7 +201,6 @@ int main() {
     auto startBS = Clock::now();
     std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
     {
-        // TBB global kontrolü ile 6 thread kullanılıyor.
         tbb::global_control gcPrep(tbb::global_control::max_allowed_parallelism, 6);
         tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
             [&](const tbb::blocked_range<int>& range) {
@@ -233,63 +232,61 @@ int main() {
     }
     
     // 8) BlindSign (Alg.12): Admin imzalama işlemi
-    // Her seçmen için, tüm 3 admin görevi eşzamanlı başlatılır.
-    // Final sonuç, ilk 2 tamamlanan (threshold=2) admin imza sonucu ile elde edilir.
+    // Her seçmen için, tüm 3 admin sunucusunu temsil eden kaynaklar vardır.
+    // Dinamik olarak, boşta olanlardan (aynı seçmen için aynı admin birden fazla imza vermeyecek şekilde)
+    // ilk 2 onay toplanır.
     std::cout << "=== BlindSign (Admin Imzalama) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
     std::vector< std::vector<BlindSignature> > finalSigs(voterCount);
-    const int adminCount = 3; // Tüm admin görevleri başlatılıyor.
+    const int adminCount = 3; // 3 admin sunucusu
+    // Global admin sunucularını temsil eden mutexler
+    std::vector<std::mutex> adminMutex(adminCount);
     for (int i = 0; i < voterCount; i++) {
         std::cout << "Secmen " << (i+1) << " icin admin imzalama islemi basladi.\n";
-        std::vector<std::future<BlindSignature>> adminFutures;
-        // Tüm admin görevleri başlatılıyor
-        for (int admin = 0; admin < adminCount; admin++) {
-            adminFutures.push_back(std::async(std::launch::async, [&, i, admin]() -> BlindSignature {
-                logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
-                                 " sign task started on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                mpz_t xm, ym;
-                mpz_init(xm);
-                mpz_init(ym);
-                element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
-                element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
-                BlindSignature sig = blindSign(params, bsOutputs[i], xm, ym);
-                mpz_clear(xm);
-                mpz_clear(ym);
-                logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
-                                 " sign task finished on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                return sig;
-            }));
-        }
-        // Bekleme: Threshold onayı (t=2) elde edilene kadar döngü.
-        std::vector<BlindSignature> collected;
-        while (collected.size() < static_cast<size_t>(t)) {
+        std::vector<std::future<BlindSignature>> futures;
+        // Her seçmen için hangi adminin kullanıldığını takip etmek üzere
+        std::vector<bool> used(adminCount, false);
+        // Dinamik atama: boşta olan adminlerden (aynı seçmen için aynı admin yalnızca bir kez) imza alınana kadar döngü
+        while (futures.size() < static_cast<size_t>(t)) {
             for (int admin = 0; admin < adminCount; admin++) {
-                // Eğer bu admin görevi henüz toplanmadıysa kontrol et
-                if (adminFutures[admin].valid()) {
-                    if (adminFutures[admin].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
-                        try {
-                            BlindSignature sig = adminFutures[admin].get();
-                            collected.push_back(sig);
-                        } catch (const std::exception &ex) {
-                            std::cerr << "Secmen " << (i+1) << ", Admin " << (admin+1)
-                                      << " sign error: " << ex.what() << "\n";
-                        }
+                if (!used[admin]) {
+                    if (adminMutex[admin].try_lock()) {
+                        used[admin] = true;
+                        futures.push_back(std::async(std::launch::async, [&, i, admin]() -> BlindSignature {
+                            logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
+                                             " sign task started on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+                            mpz_t xm, ym;
+                            mpz_init(xm);
+                            mpz_init(ym);
+                            element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
+                            element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
+                            BlindSignature sig = blindSign(params, bsOutputs[i], xm, ym);
+                            mpz_clear(xm);
+                            mpz_clear(ym);
+                            logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
+                                             " sign task finished on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+                            adminMutex[admin].unlock();
+                            return sig;
+                        }));
                     }
                 }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        finalSigs[i] = collected;
-        std::cout << "Secmen " << (i+1) << " icin " << collected.size() << " admin onayi alindi.\n\n";
-        // Geri kalan admin görevleri bitmişse, sonuçları almak (temizlik) için çağırılır.
-        for (int admin = 0; admin < adminCount; admin++) {
-            if (adminFutures[admin].valid()) {
-                try {
-                    // Sonuçlar zaten alındıysa get çağrısı hata vermez, ama değeri kullanılmayacak.
-                    adminFutures[admin].get();
-                } catch (...) {}
+        // Bekleme: İlk 2 onay alınana kadar futures'dan sonuç toplanır.
+        std::vector<BlindSignature> collected;
+        for (auto &f : futures) {
+            try {
+                BlindSignature sig = f.get();
+                collected.push_back(sig);
+                if (collected.size() == static_cast<size_t>(t))
+                    break;
+            } catch (const std::exception &ex) {
+                std::cerr << "Secmen " << (i+1) << " sign error: " << ex.what() << "\n";
             }
         }
+        finalSigs[i] = collected;
+        std::cout << "Secmen " << (i+1) << " icin " << collected.size() << " admin onayi alindi.\n\n";
     }
     auto endFinalSign = Clock::now();
     auto finalSign_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
