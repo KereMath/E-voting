@@ -18,7 +18,8 @@
 #include <mutex>
 #include <limits>
 #include <algorithm>
-#include <semaphore>  // C++20 semaphores
+#include <semaphore>    // C++20 semaphores
+#include <memory>       // std::unique_ptr
 
 using Clock = std::chrono::steady_clock;
 
@@ -217,13 +218,15 @@ int main() {
     // PrepareBlindSign aşaması TBB ile aynı anda maksimum 6 thread çalışacak şekilde paralel yürütülecek.
     // BlindSign aşamasında ise her admin için 2 paralel görev çalışabilsin diye std::counting_semaphore kullanıyoruz.
     
-    // Her admin için 2 izne (token) sahip semafor (toplamda 3 admin => 6 paralel görev) oluşturuluyor.
+    // Her admin için 2 izne (token) sahip semaphor oluşturuluyor.
     const int adminCount = 3;
-    std::vector<std::counting_semaphore<>> adminSemaphores;
+    // Semaphor nesnelerini vector içinde unique_ptr ile saklıyoruz.
+    std::vector<std::unique_ptr<std::counting_semaphore<>>> adminSemaphores;
     for (int i = 0; i < adminCount; i++) {
-        adminSemaphores.emplace_back(2);
+        adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(2));
     }
     
+    // Pipeline sonuçlarını tutacak vector
     std::vector<PipelineResult> pipelineResults(voterCount);
     
     // TBB global kontrolü ile prepare aşamasında maksimum 6 thread kullanımı sağlanıyor.
@@ -245,8 +248,8 @@ int main() {
         while (scheduled < t) {
             for (int offset = 0; offset < adminCount && scheduled < t; offset++) {
                 int admin = (startIdx + offset) % adminCount;
-                // Her admin için 2 paralel görev izni var
-                if (adminSemaphores[admin].try_acquire()) {
+                // Her admin için 2 paralel görev izni var; semaphor unique_ptr üzerinden erişiliyor.
+                if (adminSemaphores[admin]->try_acquire()) {
                     logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
                                    " - Admin " + std::to_string(admin+1) +
                                    " sign task started on thread " +
@@ -263,7 +266,7 @@ int main() {
                                    " - Admin " + std::to_string(admin+1) +
                                    " sign task finished on thread " +
                                    std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                    adminSemaphores[admin].release();
+                    adminSemaphores[admin]->release();
                     collected.push_back(sig);
                     scheduled++;
                 }
