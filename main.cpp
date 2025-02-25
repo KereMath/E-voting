@@ -301,7 +301,7 @@ int main() {
     double didGen_ms    = didGen_us   / 1000.0;
     double bs_ms        = bs_us       / 1000.0;
     double finalSign_ms = finalSign_us/ 1000.0;
-    double unblind_ms   = unblind_us  / 1000.0;
+    // double unblind_ms   = unblind_us  / 1000.0;
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi       : " << setup_ms     << " ms\n";
     std::cout << "Pairing suresi     : " << pairing_ms   << " ms\n";
@@ -310,7 +310,7 @@ int main() {
     std::cout << "DID Generation     : " << didGen_ms    << " ms\n";
     std::cout << "Prepare Blind Sign : " << bs_ms        << " ms\n";
     std::cout << "Final Blind Sign   : " << finalSign_ms << " ms\n";
-    std::cout << "Unblind Signature  : " << unblind_ms   << " ms\n\n";
+    // std::cout << "Unblind Signature  : " << unblind_ms   << " ms\n\n";
     
     std::cout << "\n=== Program Sonu ===\n";
     return 0;
