@@ -230,7 +230,7 @@ int main() {
     std::vector<PipelineResult> pipelineResults(voterCount);
     
     // TBB global kontrolü ile prepare aşamasında maksimum 6 thread kullanımı sağlanıyor.
-    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 6);
+    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 12);
     
     tbb::parallel_for(0, voterCount, [&](int i) {
         PipelineResult result;
