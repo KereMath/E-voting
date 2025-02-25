@@ -6,7 +6,7 @@
 #include <tbb/parallel_for.h>
 #include <tbb/global_control.h>
 
-// Simple wrapper class for mpz_t to allow storage in std::vector.
+// MPZWrapper: mpz_t’yi RAII biçiminde yöneten basit wrapper.
 class MPZWrapper {
 public:
     mpz_t value;
@@ -47,7 +47,6 @@ static void randomPolynomial(std::vector<MPZWrapper> &poly, int t, const mpz_t p
 }
 
 // poly(x) = sum_{k=0}^{t-1} [ poly[k] * x^k ] mod p.
-// poly[k] tipimiz MPZWrapper'dır; mpz_t değerine poly[k].value ile erişiyoruz.
 static void evalPolynomial(mpz_t result, const std::vector<MPZWrapper> &poly, int xValue, const mpz_t p) {
     mpz_set_ui(result, 0);
     mpz_t term, xPow;
@@ -66,18 +65,10 @@ static void evalPolynomial(mpz_t result, const std::vector<MPZWrapper> &poly, in
 
 // Algoritma 2: Coconut TTP ile Anahtar Üretimi
 KeyGenOutput keygen(TIACParams &params, int t, int ne) {
-    /*
-      1) Derecesi (t-1) olan iki polinom v(x), w(x) seç (katsayılar rastgele).
-      2) Ana gizli (x, y) = (v(0), w(0)).
-      3) Her m için (1..ne):
-             sgkm = (xm, ym) = (v(m), w(m))
-             vkm = (g2^(xm), g2^(ym), g1^(ym))
-      4) mvk = (g2^x, g2^y, g1^y).
-    */
     KeyGenOutput keyOut;
     keyOut.eaKeys.resize(ne);
 
-    // Polinom katsayılarını üret: vPoly ve wPoly.
+    // vPoly ve wPoly polinom katsayılarını üret.
     std::vector<MPZWrapper> vPoly, wPoly;
     randomPolynomial(vPoly, t, params.prime_order);
     randomPolynomial(wPoly, t, params.prime_order);
@@ -101,12 +92,11 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     element_set_mpz(expX, x);
     element_set_mpz(expY, y);
 
-    // mvk.alpha2 = g2^x, mvk.beta2 = g2^y, mvk.beta1 = g1^y.
     element_pow_zn(keyOut.mvk.alpha2, params.g2, expX);
     element_pow_zn(keyOut.mvk.beta2, params.g2, expY);
     element_pow_zn(keyOut.mvk.beta1, params.g1, expY);
 
-    // Paralel hesaplama: EA otoriteleri için döngü.
+    // EA otoriteleri hesaplamasını paralelleştiriyoruz.
     unsigned int numThreads = std::thread::hardware_concurrency();
     if (numThreads == 0) numThreads = 4;
     tbb::global_control gc(tbb::global_control::max_allowed_parallelism, numThreads);
@@ -115,13 +105,10 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
         mpz_t xm, ym;
         mpz_init(xm);
         mpz_init(ym);
-        // v(m), w(m) hesaplanıyor.
         evalPolynomial(xm, vPoly, m, params.prime_order);
         evalPolynomial(ym, wPoly, m, params.prime_order);
-        // sgk = (xm, ym)
         element_set_mpz(keyOut.eaKeys[m_index].sgk1, xm);
         element_set_mpz(keyOut.eaKeys[m_index].sgk2, ym);
-        // vkm hesaplamaları:
         element_t expXm, expYm;
         element_init_Zr(expXm, params.pairing);
         element_init_Zr(expYm, params.pairing);
@@ -136,7 +123,7 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
         mpz_clear(ym);
     });
 
-    // Polinom katsayılarını temizlemek için, MPZWrapper'lar otomatik temizlenecek.
+    // Temizlik: MPZWrapper'lar otomatik temizlenecek.
     mpz_clear(x);
     mpz_clear(y);
     element_clear(expX);
