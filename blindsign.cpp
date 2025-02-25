@@ -108,7 +108,7 @@ bool CheckKoR(
 
     bool ok = (element_cmp(cprime, pi_s.c) == 0);
     element_clear(cprime);
-    return 0;
+    return ok;
 }
 
 BlindSignature blindSign(
