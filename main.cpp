@@ -17,7 +17,7 @@
 #include <tbb/global_control.h>
 #include <mutex>
 
-// Yardımcı fonksiyon: element kopyalamak için (const kullanmıyoruz)
+// Yardımcı fonksiyon: element kopyalamak için (const kullanılmıyor)
 void my_element_dup(element_t dest, element_t src) {
     element_init_same_as(dest, src);
     element_set(dest, src);
@@ -233,21 +233,20 @@ int main() {
     }
     
     // 8) BlindSign (Alg.12): Admin imzalama işlemi
-    // Simülasyonda, her seçmen için admin imzalama işlemi yalnızca threshold (t=2) onayı alındığında tamamlanacaktır.
+    // Her seçmen için, tüm 3 admin görevi eşzamanlı başlatılır.
+    // Final sonuç, ilk 2 tamamlanan (threshold=2) admin imza sonucu ile elde edilir.
     std::cout << "=== BlindSign (Admin Imzalama) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
-    // Her seçmen için nihai imzaları tutmak üzere
     std::vector< std::vector<BlindSignature> > finalSigs(voterCount);
-    const int adminCount = 3; // Simüle edilen admin sunucusu sayısı (ancak threshold=2 olduğundan yalnızca 2 görev yeterli)
+    const int adminCount = 3; // Tüm admin görevleri başlatılıyor.
     for (int i = 0; i < voterCount; i++) {
         std::cout << "Secmen " << (i+1) << " icin admin imzalama islemi basladi.\n";
         std::vector<std::future<BlindSignature>> adminFutures;
-        // Yalnızca ilk t (threshold) admin görevi başlatılıyor.
-        for (int admin = 0; admin < t; admin++) {
+        // Tüm admin görevleri başlatılıyor
+        for (int admin = 0; admin < adminCount; admin++) {
             adminFutures.push_back(std::async(std::launch::async, [&, i, admin]() -> BlindSignature {
                 logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
                                  " sign task started on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                // admin imzalama işlemi: keyOut.eaKeys[admin] kullanılarak blindSign çağrısı
                 mpz_t xm, ym;
                 mpz_init(xm);
                 mpz_init(ym);
@@ -261,17 +260,36 @@ int main() {
                 return sig;
             }));
         }
-        int approvals = 0;
-        for (int admin = 0; admin < adminFutures.size(); admin++) {
-            try {
-                BlindSignature sig = adminFutures[admin].get();
-                finalSigs[i].push_back(sig);
-                approvals++;
-            } catch (const std::exception &ex) {
-                std::cerr << "Secmen " << (i+1) << ", Admin " << (admin+1) << " sign error: " << ex.what() << "\n";
+        // Bekleme: Threshold onayı (t=2) elde edilene kadar döngü.
+        std::vector<BlindSignature> collected;
+        while (collected.size() < static_cast<size_t>(t)) {
+            for (int admin = 0; admin < adminCount; admin++) {
+                // Eğer bu admin görevi henüz toplanmadıysa kontrol et
+                if (adminFutures[admin].valid()) {
+                    if (adminFutures[admin].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+                        try {
+                            BlindSignature sig = adminFutures[admin].get();
+                            collected.push_back(sig);
+                        } catch (const std::exception &ex) {
+                            std::cerr << "Secmen " << (i+1) << ", Admin " << (admin+1)
+                                      << " sign error: " << ex.what() << "\n";
+                        }
+                    }
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        finalSigs[i] = collected;
+        std::cout << "Secmen " << (i+1) << " icin " << collected.size() << " admin onayi alindi.\n\n";
+        // Geri kalan admin görevleri bitmişse, sonuçları almak (temizlik) için çağırılır.
+        for (int admin = 0; admin < adminCount; admin++) {
+            if (adminFutures[admin].valid()) {
+                try {
+                    // Sonuçlar zaten alındıysa get çağrısı hata vermez, ama değeri kullanılmayacak.
+                    adminFutures[admin].get();
+                } catch (...) {}
             }
         }
-        std::cout << "Secmen " << (i+1) << " icin " << approvals << " admin onayi alindi.\n\n";
     }
     auto endFinalSign = Clock::now();
     auto finalSign_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
