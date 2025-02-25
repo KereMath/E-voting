@@ -10,6 +10,7 @@
 #include "prepareblindsign.h"
 #include "blindsign.h"   // Alg.12
 #include "unblindsign.h" // Alg.13
+#include <thread>
 
 // Yardımcı fonksiyon: element kopyalamak için (const kullanmıyoruz)
 void my_element_dup(element_t dest, element_t src) {
@@ -149,22 +150,49 @@ int main() {
     // 7) Prepare Blind Sign (Alg.4)
     auto startBS = Clock::now();
     std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
-    for (int i = 0; i < voterCount; i++) {
+
+// İşlemci çekirdek sayısını al
+unsigned int numThreads = std::thread::hardware_concurrency();
+numThreads = (numThreads == 0) ? 4 : numThreads;  // Eğer 0 dönerse, varsayılan olarak 4 thread kullan
+
+std::vector<std::thread> threads;
+int chunkSize = voterCount / numThreads;  // Her thread için kaç seçmen işlenecek
+
+auto parallel_prepare = [&](int start, int end) {
+    for (int i = start; i < end; i++) {
         bsOutputs[i] = prepareBlindSign(params, dids[i].did);
-        char bufComi[2048], bufH[1024], bufCom[2048];
-        element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
-        element_snprintf(bufH, sizeof(bufH), "%B", bsOutputs[i].h);
-        element_snprintf(bufCom, sizeof(bufCom), "%B", bsOutputs[i].com);
-        std::cout << "Secmen " << (i+1) << " Prepare Blind Sign:\n"
-                  << "comi = " << bufComi << "\n"
-                  << "h    = " << bufH    << "\n"
-                  << "com  = " << bufCom  << "\n";
-        char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
-        std::cout << "o    = " << o_str << "\n\n";
-        free(o_str);
     }
-    auto endBS = Clock::now();
-    auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
+};
+
+// Thread'leri başlat
+for (unsigned int t = 0; t < numThreads; ++t) {
+    int start = t * chunkSize;
+    int end = (t == numThreads - 1) ? voterCount : (start + chunkSize);
+    threads.emplace_back(parallel_prepare, start, end);
+}
+
+// Thread'leri bekle
+for (auto& th : threads) {
+    th.join();
+}
+
+auto endBS = Clock::now();
+auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
+
+// Sonuçları yazdır
+for (int i = 0; i < voterCount; i++) {
+    char bufComi[2048], bufH[1024], bufCom[2048];
+    element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
+    element_snprintf(bufH, sizeof(bufH), "%B", bsOutputs[i].h);
+    element_snprintf(bufCom, sizeof(bufCom), "%B", bsOutputs[i].com);
+    std::cout << "Secmen " << (i+1) << " Prepare Blind Sign:\n"
+              << "comi = " << bufComi << "\n"
+              << "h    = " << bufH    << "\n"
+              << "com  = " << bufCom  << "\n";
+    char* o_str = mpz_get_str(nullptr, 10, bsOutputs[i].o);
+    std::cout << "o    = " << o_str << "\n\n";
+    free(o_str);
+}
     
     // 8) BlindSign (Alg.12): EA partial imza üretimi
     std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
