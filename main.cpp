@@ -8,7 +8,7 @@
 #include "keygen.h"
 #include "didgen.h"
 #include "prepareblindsign.h"
-#include "blindsign.h"   // Alg.12
+#include "blindsign.h"   // Alg.50
 #include "unblindsign.h" // Alg.13
 #include <thread>
 #include <future>
@@ -223,14 +223,14 @@ int main() {
     // Semaphor nesnelerini vector içinde unique_ptr ile saklıyoruz.
     std::vector<std::unique_ptr<std::counting_semaphore<>>> adminSemaphores;
     for (int i = 0; i < adminCount; i++) {
-        adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(12));
+        adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(50));
     }
     
     // Pipeline sonuçlarını tutacak vector
     std::vector<PipelineResult> pipelineResults(voterCount);
     
     // TBB global kontrolü ile prepare aşamasında maksimum 6 thread kullanımı sağlanıyor.
-    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 12);
+    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
     
     tbb::parallel_for(0, voterCount, [&](int i) {
         PipelineResult result;
