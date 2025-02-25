@@ -93,6 +93,9 @@ int main() {
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
+    
+    std::cout << "Key generation time: " << keygen_us << " microseconds\n\n";
+
     {
         char buf[1024];
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
@@ -108,11 +111,37 @@ int main() {
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
         std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
     }
-    for (int i = 0; i < ne; i++) {
-        std::cout << "=== EA Authority " << (i+1) << " ===\n";
-        // EA anahtarları yazdırılıyor (detaylar eklenebilir)
-    }
     
+    // EA Authority'lerin detaylı yazdırılması
+    for (int i = 0; i < ne; i++) {
+        std::cout << "=== EA Authority " << (i + 1) << " ===\n";
+        {
+            char buf[1024];
+            element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].sgk1);
+            std::cout << "sgk1 (x_m degeri) = " << buf << "\n";
+        }
+        {
+            char buf[1024];
+            element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].sgk2);
+            std::cout << "sgk2 (y_m degeri) = " << buf << "\n";
+        }
+        {
+            char buf[1024];
+            element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].vkm1);
+            std::cout << "vkm1 = g2^(x_m) = " << buf << "\n";
+        }
+        {
+            char buf[1024];
+            element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].vkm2);
+            std::cout << "vkm2 = g2^(y_m) = " << buf << "\n";
+        }
+        {
+            char buf[1024];
+            element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].vkm3);
+            std::cout << "vkm3 = g1^(y_m) = " << buf << "\n";
+        }
+        std::cout << "\n";
+    }
     // 5) ID Generation
     auto startIDGen = Clock::now();
     std::vector<std::string> voterIDs(voterCount);
