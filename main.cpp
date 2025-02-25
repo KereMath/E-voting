@@ -56,7 +56,7 @@ int main() {
         }
         infile.close();
     }
-    // Simülasyon için: admin sayısını 3 ve threshold'ü 2 olarak ayarlıyoruz.
+    // Simülasyon için: admin sayısı 3 ve threshold 2 olacak şekilde düzenleniyor.
     ne = 3;
     t = 2;
     
@@ -197,7 +197,7 @@ int main() {
     }
     
     // 7) Prepare Blind Sign (Alg.4)
-    // PrepareBlindSign sunucusu: sabit 6 thread kullanarak istekleri paralel işliyoruz.
+    // PrepareBlindSign sunucusu: sabit 6 thread kullanılarak istekler paralel işleniyor.
     auto startBS = Clock::now();
     std::vector<PrepareBlindSignOutput> bsOutputs(voterCount);
     {
@@ -232,20 +232,18 @@ int main() {
         free(o_str);
     }
     
-    // 8) BlindSign (Alg.12): Admin sunucuları (3 adet, her biri 2 thread) üzerinden imzalama
-    // Simülasyonda her voter için, admin sunucularına ait 3 ayrı imza isteği gönderip,
-    // threshold (2) onay elde edildikten sonra işlemi tamamlıyoruz.
+    // 8) BlindSign (Alg.12): Admin imzalama işlemi
+    // Simülasyonda, her seçmen için admin imzalama işlemi yalnızca threshold (t=2) onayı alındığında tamamlanacaktır.
     std::cout << "=== BlindSign (Admin Imzalama) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
-    // Her voter için toplanan imzaları tutmak için
-    std::vector< std::vector<BlindSignature> > finalSigs(voterCount);  
-    const int adminCount = 3; // sabit
+    // Her seçmen için nihai imzaları tutmak üzere
+    std::vector< std::vector<BlindSignature> > finalSigs(voterCount);
+    const int adminCount = 3; // Simüle edilen admin sunucusu sayısı (ancak threshold=2 olduğundan yalnızca 2 görev yeterli)
     for (int i = 0; i < voterCount; i++) {
-        std::cout << "Secmen " << (i+1) << " için admin imzalama islemi basladi.\n";
-        // Admin imzalama görevlerini başlatmak için vector of futures
+        std::cout << "Secmen " << (i+1) << " icin admin imzalama islemi basladi.\n";
         std::vector<std::future<BlindSignature>> adminFutures;
-        for (int admin = 0; admin < adminCount; admin++) {
-            // Her admin, kendi sabit 2 thread'lik havuzda (simüle edilmiş olarak) imza verecek
+        // Yalnızca ilk t (threshold) admin görevi başlatılıyor.
+        for (int admin = 0; admin < t; admin++) {
             adminFutures.push_back(std::async(std::launch::async, [&, i, admin]() -> BlindSignature {
                 logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) + " - Admin " + std::to_string(admin+1) +
                                  " sign task started on thread " + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
@@ -263,19 +261,14 @@ int main() {
                 return sig;
             }));
         }
-        // Bekle: Threshold onay (t=2) elde edildikten sonra diğerlerini iptal etmek yerine, tamamlanmış olanları kullanıyoruz.
         int approvals = 0;
-        for (int admin = 0; admin < adminCount; admin++) {
-            // Bu örnekte, tüm adminlerin sonucu alınır ve ilk t adet imza kullanılır.
+        for (int admin = 0; admin < adminFutures.size(); admin++) {
             try {
                 BlindSignature sig = adminFutures[admin].get();
                 finalSigs[i].push_back(sig);
                 approvals++;
-                if (approvals >= t) {
-                    break; // threshold sağlandı
-                }
             } catch (const std::exception &ex) {
-                std::cerr << "Voter " << (i+1) << ", Admin " << (admin+1) << " sign error: " << ex.what() << "\n";
+                std::cerr << "Secmen " << (i+1) << ", Admin " << (admin+1) << " sign error: " << ex.what() << "\n";
             }
         }
         std::cout << "Secmen " << (i+1) << " icin " << approvals << " admin onayi alindi.\n\n";
