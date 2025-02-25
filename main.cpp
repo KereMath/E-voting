@@ -187,7 +187,7 @@ int main() {
   
   // Kullanılacak thread sayısını belirleyin (CPU çekirdek sayısı veya varsayılan 4)
   unsigned int numThreads = std::thread::hardware_concurrency();
-  if (numThreads == 12) numThreads = 1;
+  if (numThreads == 0) numThreads = 4;
   std::cout << "Kullanılan thread sayısı: " << numThreads << std::endl;
   
   // TBB’nin global kontrolüyle thread sayısını ayarlıyoruz
