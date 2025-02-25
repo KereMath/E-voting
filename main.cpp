@@ -216,38 +216,52 @@ int main() {
     }
     
     // 8) BlindSign (Alg.12): EA partial imza üretimi
-    std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
-    auto startFinalSign = Clock::now();
-    std::vector< std::vector<BlindSignature> > partialSigs(voterCount, std::vector<BlindSignature>(ne));
-    for (int i = 0; i < voterCount; i++) {
-        std::cout << "Secmen " << (i+1) << " için EA partial imzaları:\n";
-        for (int m = 0; m < ne; m++) {
-            mpz_t xm, ym;
-            mpz_init(xm);
-            mpz_init(ym);
-            element_to_mpz(xm, keyOut.eaKeys[m].sgk1);
-            element_to_mpz(ym, keyOut.eaKeys[m].sgk2);
-            try {
-                BlindSignature partSig = blindSign(params, bsOutputs[i], xm, ym);
-                my_element_dup(partialSigs[i][m].h, partSig.h);
-                my_element_dup(partialSigs[i][m].cm, partSig.cm);
-                char bufH[2048], bufCM[2048];
-                element_snprintf(bufH, sizeof(bufH), "%B", partSig.h);
-                element_snprintf(bufCM, sizeof(bufCM), "%B", partSig.cm);
-                std::cout << "  [EA " << (m+1) << "] => h=" << bufH << "\n"
-                          << "              cm=" << bufCM << "\n\n";
-                element_clear(partSig.h);
-                element_clear(partSig.cm);
-            } catch (const std::exception &ex) {
-                std::cerr << "  [EA " << (m+1) << "] blindSign error: " << ex.what() << "\n";
-            }
-            mpz_clear(xm);
-            mpz_clear(ym);
+    // 8) BlindSign (Alg.12): EA partial imza üretimi
+std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
+auto startFinalSign = Clock::now();
+
+// partialSigs vektörünü önceden seçmen sayısı ve EA sayısı boyutunda ayarlıyoruz.
+std::vector< std::vector<BlindSignature> > partialSigs(voterCount, std::vector<BlindSignature>(ne));
+
+// TBB paralel döngüsü: Her seçmen için EA partial imzalarını paralel hesaplıyoruz.
+tbb::parallel_for(0, voterCount, [&](int i) {
+    // Her seçmen için, her EA otoritesi için blindSign hesaplanıyor.
+    for (int m = 0; m < ne; m++) {
+        mpz_t xm, ym;
+        mpz_init(xm);
+        mpz_init(ym);
+        element_to_mpz(xm, keyOut.eaKeys[m].sgk1);
+        element_to_mpz(ym, keyOut.eaKeys[m].sgk2);
+        try {
+            BlindSignature partSig = blindSign(params, bsOutputs[i], xm, ym);
+            // partialSigs'a sonucu kopyalıyoruz.
+            my_element_dup(partialSigs[i][m].h, partSig.h);
+            my_element_dup(partialSigs[i][m].cm, partSig.cm);
+            element_clear(partSig.h);
+            element_clear(partSig.cm);
+        } catch (const std::exception &ex) {
+            // Hata yönetimini burada ele alabilirsiniz.
+            // Örneğin, partialSigs[i][m]'ye varsayılan değer atayabilirsiniz.
         }
+        mpz_clear(xm);
+        mpz_clear(ym);
     }
-    auto endFinalSign = Clock::now();
-    auto finalSign_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
-    
+});
+auto endFinalSign = Clock::now();
+auto finalSign_us = std::chrono::duration_cast<std::chrono::microseconds>(endFinalSign - startFinalSign).count();
+
+// Hesaplanan imza sonuçlarını seri olarak yazdırıyoruz.
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "Secmen " << (i+1) << " için EA partial imzaları:\n";
+    for (int m = 0; m < ne; m++) {
+        char bufH[2048], bufCM[2048];
+        element_snprintf(bufH, sizeof(bufH), "%B", partialSigs[i][m].h);
+        element_snprintf(bufCM, sizeof(bufCM), "%B", partialSigs[i][m].cm);
+        std::cout << "  [EA " << (m+1) << "] => h=" << bufH << "\n"
+                  << "              cm=" << bufCM << "\n\n";
+    }
+}
+
     // 9) Unblind Signature (Alg.13)
     // std::cout << "=== Unblind Signature (Algoritma 13) ===\n";
     // auto startUnblind = Clock::now();
