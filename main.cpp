@@ -17,6 +17,7 @@
 #include <tbb/global_control.h>
 #include <mutex>
 #include <limits>
+#include <algorithm>
 
 using Clock = std::chrono::steady_clock;
 
@@ -115,7 +116,7 @@ int main() {
     {
         char buf[1024];
         element_snprintf(buf, sizeof(buf), "%B", pairingTest);
-        std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairing_us << " microseconds\n";
+        std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairing_us << " µs\n";
         std::cout << "e(g1, g2) =\n" << buf << "\n\n";
     }
     element_clear(pairingTest);
@@ -127,7 +128,7 @@ int main() {
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
     
-    std::cout << "Key generation time: " << keygen_us << " microseconds\n\n";
+    std::cout << "Key generation time: " << keygen_us/1000.0 << " ms\n\n";
     {
         char buf[1024];
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
@@ -268,10 +269,21 @@ int main() {
         });
     }
     std::vector<PipelineResult> pipelineResults(voterCount);
+    // Toplam hazırlık ve blind sürelerinin toplamsal (cumulative) ölçümünü hesaplamak için
+    long long cumulativePrep_us = 0;
+    long long cumulativeBlind_us = 0;
     for (int i = 0; i < voterCount; i++) {
         try {
             pipelineResults[i] = pipelineFutures[i].get();
             std::cout << "Secmen " << (i+1) << " icin " << pipelineResults[i].signatures.size() << " admin onayi alindi.\n";
+            auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
+            auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
+            cumulativePrep_us += prep_time;
+            cumulativeBlind_us += blind_time;
+            std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time/1000.0 
+                      << " ms, BlindSign time = " << blind_time/1000.0 << " ms\n";
         } catch (const std::exception &ex) {
             std::cerr << "Secmen " << (i+1) << " pipeline error: " << ex.what() << "\n";
         }
@@ -279,17 +291,7 @@ int main() {
     auto endPipeline = Clock::now();
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(endPipeline - startPipeline).count();
     
-    // Ek zaman ölçümleri:
-    // Her seçmen için prepare ve blind sürelerini ayrı ayrı yazdıralım.
-    for (int i = 0; i < voterCount; i++) {
-        auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
-        auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
-        std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time 
-                  << " µs, BlindSign time = " << blind_time << " µs\n";
-    }
-    // Toplam prepare süresi: en erken prep_start ile en geç prep_end arasındaki fark
+    // Global ölçüm: en erken prepare start ve en geç prepare end, blind için de
     auto global_prep_start = Clock::time_point::max();
     auto global_prep_end = Clock::time_point::min();
     auto global_blind_start = Clock::time_point::max();
@@ -304,8 +306,10 @@ int main() {
     auto total_blind_us = std::chrono::duration_cast<std::chrono::microseconds>(global_blind_end - global_blind_start).count();
     
     std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = " << pipeline_us/1000.0 << " ms ===\n";
-    std::cout << "Global Prepare: " << total_prep_us << " µs (first start to last end)\n";
-    std::cout << "Global Blind  : " << total_blind_us << " µs (first start to last end)\n";
+    std::cout << "Global Prepare (first start to last end): " << total_prep_us/1000.0 << " ms\n";
+    std::cout << "Global Blind  (first start to last end): " << total_blind_us/1000.0 << " ms\n";
+    std::cout << "Cumulative Prepare time (sum of all tasks): " << cumulativePrep_us/1000.0 << " ms\n";
+    std::cout << "Cumulative BlindSign time (sum of all tasks): " << cumulativeBlind_us/1000.0 << " ms\n";
     
     // 8) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
