@@ -16,6 +16,9 @@
 #include <tbb/blocked_range.h>
 #include <tbb/global_control.h>
 #include <mutex>
+#include <algorithm>
+
+using Clock = std::chrono::steady_clock;
 
 // Yardımcı fonksiyon: element kopyalamak için (const kullanılmıyor)
 void my_element_dup(element_t dest, element_t src) {
@@ -29,14 +32,26 @@ std::ofstream threadLog("threads.txt");
 
 void logThreadUsage(const std::string &phase, const std::string &msg) {
     std::lock_guard<std::mutex> lock(logMutex);
-    auto now = std::chrono::steady_clock::now();
+    auto now = Clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     threadLog << "[" << ms << " ms] " << phase << ": " << msg << "\n";
 }
 
+// Pipeline zaman ölçümü için yapı
+struct PipelineTiming {
+    Clock::time_point prep_start;
+    Clock::time_point prep_end;
+    Clock::time_point blind_start;
+    Clock::time_point blind_end;
+};
+
+// Pipeline sonucu: BlindSign imzaları ve zaman ölçümleri
+struct PipelineResult {
+    std::vector<BlindSignature> signatures;
+    PipelineTiming timing;
+};
+
 int main() {
-    using Clock = std::chrono::steady_clock;
-    
     // 1) params.txt'den EA sayısı, eşik ve seçmen sayısı okunuyor.
     int ne = 0, t = 0, voterCount = 0;
     {
@@ -197,19 +212,23 @@ int main() {
     }
     
     // 7) Pipeline: PrepareBlindSign ve BlindSign (Admin Imzalama)
-    // Her seçmen için ayrı bir asenkron görev başlatılıyor; 
-    // PrepareBlindSign çıktısı elde edilir elde edilmez blindSign işlemi başlıyor.
+    // Her seçmen için ayrı bir asenkron pipeline görevi başlatılıyor;
+    // PrepareBlindSign çıktısı elde edilir elde edilmez BlindSign işlemi başlıyor.
     auto startPipeline = Clock::now();
-    std::vector<std::future<std::vector<BlindSignature>>> pipelineFutures(voterCount);
+    std::vector<std::future<PipelineResult>> pipelineFutures(voterCount);
     // Global admin mutexler
     const int adminCount_global = 3;
     std::vector<std::mutex> adminMutex(adminCount_global);
     for (int i = 0; i < voterCount; i++) {
-        pipelineFutures[i] = std::async(std::launch::async, [&, i]() -> std::vector<BlindSignature> {
-            // PrepareBlindSign işlemi
+        pipelineFutures[i] = std::async(std::launch::async, [&, i]() -> PipelineResult {
+            PipelineResult result;
+            result.timing.prep_start = Clock::now();
             PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
+            result.timing.prep_end = Clock::now();
             logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
-            // BlindSign işlemi: adminler round-robin (i mod 3) bazlı kontrol ediliyor.
+            
+            result.timing.blind_start = Clock::now();
+            // BlindSign işlemi: adminler round‑robin (i mod 3) bazlı kontrol ediliyor.
             std::vector<BlindSignature> collected;
             std::vector<bool> used(adminCount_global, false);
             int scheduled = 0;
@@ -243,20 +262,31 @@ int main() {
                 if (scheduled < t)
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
-            return collected;
+            result.timing.blind_end = Clock::now();
+            result.signatures = collected;
+            return result;
         });
     }
-    std::vector< std::vector<BlindSignature> > finalSigs(voterCount);
+    std::vector<PipelineResult> pipelineResults(voterCount);
     for (int i = 0; i < voterCount; i++) {
         try {
-            finalSigs[i] = pipelineFutures[i].get();
-            std::cout << "Secmen " << (i+1) << " icin " << finalSigs[i].size() << " admin onayi alindi.\n";
+            pipelineResults[i] = pipelineFutures[i].get();
+            std::cout << "Secmen " << (i+1) << " icin " << pipelineResults[i].signatures.size() << " admin onayi alindi.\n";
         } catch (const std::exception &ex) {
             std::cerr << "Secmen " << (i+1) << " pipeline error: " << ex.what() << "\n";
         }
     }
     auto endPipeline = Clock::now();
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(endPipeline - startPipeline).count();
+    
+    // Pipeline zaman ölçüm sonuçları
+    for (int i = 0; i < voterCount; i++) {
+        auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
+        auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
+        std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time << " µs, BlindSign time = " << blind_time << " µs\n";
+    }
+    
+    std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = " << pipeline_us/1000.0 << " ms ===\n";
     
     // 8) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
@@ -272,8 +302,6 @@ int main() {
     for (int i = 0; i < voterCount; i++) {
         mpz_clear(dids[i].x);
     }
-    // prepareBlindSign ve blindSign aşamasında kullanılan diğer kaynakların temizliği
-    // (örneğin, bsOutputs kullanılmadığı için cleanup kısmından kaldırıldı)
     clearParams(params);
     
     // 9) Zaman ölçümleri (ms)
