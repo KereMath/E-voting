@@ -22,6 +22,19 @@ struct KoRProof {
     - com (G1)
     - pi_s (KoRProof)
 */
+// KoR Proof hesaplama fonksiyonu (Önceden tanımlanmamıştı, eklenmesi gerekiyor!)
+KoRProof computeKoR(
+  TIACParams &params,
+  element_t com,   // G1
+  element_t comi,  // G1
+  element_t g1,    // G1
+  element_t h1,    // G1
+  element_t h,     // G1
+  mpz_t oi,        
+  mpz_t did,
+  mpz_t o
+);
+
 struct PrepareBlindSignOutput {
     element_t comi;
     element_t h;
