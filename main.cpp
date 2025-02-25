@@ -16,7 +16,7 @@
 #include <tbb/blocked_range.h>
 #include <tbb/global_control.h>
 #include <mutex>
-#include <algorithm>
+#include <limits>
 
 using Clock = std::chrono::steady_clock;
 
@@ -212,7 +212,7 @@ int main() {
     }
     
     // 7) Pipeline: PrepareBlindSign ve BlindSign (Admin Imzalama)
-    // Her seçmen için ayrı bir asenkron pipeline görevi başlatılıyor;
+    // Her seçmen için ayrı bir asenkron pipeline görevi başlatılıyor; 
     // PrepareBlindSign çıktısı elde edilir elde edilmez BlindSign işlemi başlıyor.
     auto startPipeline = Clock::now();
     std::vector<std::future<PipelineResult>> pipelineFutures(voterCount);
@@ -228,7 +228,7 @@ int main() {
             logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
             
             result.timing.blind_start = Clock::now();
-            // BlindSign işlemi: adminler round‑robin (i mod 3) bazlı kontrol ediliyor.
+            // BlindSign işlemi: adminler round-robin (i mod 3) bazlı kontrol ediliyor.
             std::vector<BlindSignature> collected;
             std::vector<bool> used(adminCount_global, false);
             int scheduled = 0;
@@ -279,14 +279,33 @@ int main() {
     auto endPipeline = Clock::now();
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(endPipeline - startPipeline).count();
     
-    // Pipeline zaman ölçüm sonuçları
+    // Ek zaman ölçümleri:
+    // Her seçmen için prepare ve blind sürelerini ayrı ayrı yazdıralım.
     for (int i = 0; i < voterCount; i++) {
-        auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
-        auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
-        std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time << " µs, BlindSign time = " << blind_time << " µs\n";
+        auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
+            pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
+        auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
+            pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
+        std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time 
+                  << " µs, BlindSign time = " << blind_time << " µs\n";
     }
+    // Toplam prepare süresi: en erken prep_start ile en geç prep_end arasındaki fark
+    auto global_prep_start = Clock::time_point::max();
+    auto global_prep_end = Clock::time_point::min();
+    auto global_blind_start = Clock::time_point::max();
+    auto global_blind_end = Clock::time_point::min();
+    for (int i = 0; i < voterCount; i++) {
+        global_prep_start = std::min(global_prep_start, pipelineResults[i].timing.prep_start);
+        global_prep_end = std::max(global_prep_end, pipelineResults[i].timing.prep_end);
+        global_blind_start = std::min(global_blind_start, pipelineResults[i].timing.blind_start);
+        global_blind_end = std::max(global_blind_end, pipelineResults[i].timing.blind_end);
+    }
+    auto total_prep_us = std::chrono::duration_cast<std::chrono::microseconds>(global_prep_end - global_prep_start).count();
+    auto total_blind_us = std::chrono::duration_cast<std::chrono::microseconds>(global_blind_end - global_blind_start).count();
     
     std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = " << pipeline_us/1000.0 << " ms ===\n";
+    std::cout << "Global Prepare: " << total_prep_us << " µs (first start to last end)\n";
+    std::cout << "Global Blind  : " << total_blind_us << " µs (first start to last end)\n";
     
     // 8) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
