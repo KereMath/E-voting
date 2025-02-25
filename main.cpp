@@ -18,6 +18,7 @@
 #include <mutex>
 #include <limits>
 #include <algorithm>
+#include <semaphore>  // C++20 semaphores
 
 using Clock = std::chrono::steady_clock;
 
@@ -213,101 +214,87 @@ int main() {
     }
     
     // 7) Pipeline: PrepareBlindSign ve BlindSign (Admin Imzalama)
-    // Her seçmen için ayrı bir asenkron pipeline görevi başlatılıyor; 
-    // PrepareBlindSign çıktısı elde edilir elde edilmez BlindSign işlemi başlıyor.
-    auto startPipeline = Clock::now();
-    std::vector<std::future<PipelineResult>> pipelineFutures(voterCount);
-    // Global admin mutexler
-    const int adminCount_global = 3;
-    std::vector<std::mutex> adminMutex(adminCount_global);
-    for (int i = 0; i < voterCount; i++) {
-        pipelineFutures[i] = std::async(std::launch::async, [&, i]() -> PipelineResult {
-            PipelineResult result;
-            result.timing.prep_start = Clock::now();
-            PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
-            result.timing.prep_end = Clock::now();
-            logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
-            
-            result.timing.blind_start = Clock::now();
-            // BlindSign işlemi: adminler round-robin (i mod 3) bazlı kontrol ediliyor.
-            std::vector<BlindSignature> collected;
-            std::vector<bool> used(adminCount_global, false);
-            int scheduled = 0;
-            int startIdx = i % adminCount_global;
-            while (scheduled < t) {
-                for (int offset = 0; offset < adminCount_global && scheduled < t; offset++) {
-                    int admin = (startIdx + offset) % adminCount_global;
-                    if (!used[admin] && adminMutex[admin].try_lock()) {
-                        used[admin] = true;
-                        logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
-                                         " - Admin " + std::to_string(admin+1) +
-                                         " sign task started on thread " +
-                                         std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                        mpz_t xm, ym;
-                        mpz_init(xm);
-                        mpz_init(ym);
-                        element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
-                        element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
-                        BlindSignature sig = blindSign(params, bsOut, xm, ym);
-                        mpz_clear(xm);
-                        mpz_clear(ym);
-                        logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
-                                         " - Admin " + std::to_string(admin+1) +
-                                         " sign task finished on thread " +
-                                         std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
-                        adminMutex[admin].unlock();
-                        collected.push_back(sig);
-                        scheduled++;
-                    }
-                }
-                if (scheduled < t)
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-            result.timing.blind_end = Clock::now();
-            result.signatures = collected;
-            return result;
-        });
+    // PrepareBlindSign aşaması TBB ile aynı anda maksimum 6 thread çalışacak şekilde paralel yürütülecek.
+    // BlindSign aşamasında ise her admin için 2 paralel görev çalışabilsin diye std::counting_semaphore kullanıyoruz.
+    
+    // Her admin için 2 izne (token) sahip semafor (toplamda 3 admin => 6 paralel görev) oluşturuluyor.
+    const int adminCount = 3;
+    std::vector<std::counting_semaphore<>> adminSemaphores;
+    for (int i = 0; i < adminCount; i++) {
+        adminSemaphores.emplace_back(2);
     }
+    
     std::vector<PipelineResult> pipelineResults(voterCount);
-    // Toplam hazırlık ve blind sürelerinin toplamsal (cumulative) ölçümünü hesaplamak için
+    
+    // TBB global kontrolü ile prepare aşamasında maksimum 6 thread kullanımı sağlanıyor.
+    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 6);
+    
+    tbb::parallel_for(0, voterCount, [&](int i) {
+        PipelineResult result;
+        result.timing.prep_start = Clock::now();
+        PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
+        result.timing.prep_end = Clock::now();
+        logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
+        
+        result.timing.blind_start = Clock::now();
+        // BlindSign işlemi: Her voter için adminlerden threshold (t) kadar imza alınması gerekiyor.
+        std::vector<BlindSignature> collected;
+        int scheduled = 0;
+        // Round-robin başlangıç indeksi
+        int startIdx = i % adminCount;
+        while (scheduled < t) {
+            for (int offset = 0; offset < adminCount && scheduled < t; offset++) {
+                int admin = (startIdx + offset) % adminCount;
+                // Her admin için 2 paralel görev izni var
+                if (adminSemaphores[admin].try_acquire()) {
+                    logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
+                                   " - Admin " + std::to_string(admin+1) +
+                                   " sign task started on thread " +
+                                   std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+                    mpz_t xm, ym;
+                    mpz_init(xm);
+                    mpz_init(ym);
+                    element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
+                    element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
+                    BlindSignature sig = blindSign(params, bsOut, xm, ym);
+                    mpz_clear(xm);
+                    mpz_clear(ym);
+                    logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
+                                   " - Admin " + std::to_string(admin+1) +
+                                   " sign task finished on thread " +
+                                   std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+                    adminSemaphores[admin].release();
+                    collected.push_back(sig);
+                    scheduled++;
+                }
+            }
+            if (scheduled < t)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        result.timing.blind_end = Clock::now();
+        result.signatures = collected;
+        pipelineResults[i] = result;
+    });
+    
+    // Pipeline sonuçlarının yazdırılması ve zaman ölçümlerinin hesaplanması
     long long cumulativePrep_us = 0;
     long long cumulativeBlind_us = 0;
     for (int i = 0; i < voterCount; i++) {
-        try {
-            pipelineResults[i] = pipelineFutures[i].get();
-            std::cout << "Secmen " << (i+1) << " icin " << pipelineResults[i].signatures.size() << " admin onayi alindi.\n";
-            auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
-                pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
-            auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
-                pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
-            cumulativePrep_us += prep_time;
-            cumulativeBlind_us += blind_time;
-            std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time/1000.0 
-                      << " ms, BlindSign time = " << blind_time/1000.0 << " ms\n";
-        } catch (const std::exception &ex) {
-            std::cerr << "Secmen " << (i+1) << " pipeline error: " << ex.what() << "\n";
-        }
+        std::cout << "Secmen " << (i+1) << " icin " << pipelineResults[i].signatures.size() << " admin onayi alindi.\n";
+        auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
+            pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
+        auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
+            pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
+        cumulativePrep_us += prep_time;
+        cumulativeBlind_us += blind_time;
+        std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time/1000.0 
+                  << " ms, BlindSign time = " << blind_time/1000.0 << " ms\n";
     }
+    // Toplam pipeline süresi
     auto endPipeline = Clock::now();
-    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(endPipeline - startPipeline).count();
-    
-    // Global ölçüm: en erken prepare start ve en geç prepare end, blind için de
-    auto global_prep_start = Clock::time_point::max();
-    auto global_prep_end = Clock::time_point::min();
-    auto global_blind_start = Clock::time_point::max();
-    auto global_blind_end = Clock::time_point::min();
-    for (int i = 0; i < voterCount; i++) {
-        global_prep_start = std::min(global_prep_start, pipelineResults[i].timing.prep_start);
-        global_prep_end = std::max(global_prep_end, pipelineResults[i].timing.prep_end);
-        global_blind_start = std::min(global_blind_start, pipelineResults[i].timing.blind_start);
-        global_blind_end = std::max(global_blind_end, pipelineResults[i].timing.blind_end);
-    }
-    auto total_prep_us = std::chrono::duration_cast<std::chrono::microseconds>(global_prep_end - global_prep_start).count();
-    auto total_blind_us = std::chrono::duration_cast<std::chrono::microseconds>(global_blind_end - global_blind_start).count();
+    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(endPipeline - pipelineResults[0].timing.prep_start).count();
     
     std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = " << pipeline_us/1000.0 << " ms ===\n";
-    std::cout << "Global Prepare (first start to last end): " << total_prep_us/1000.0 << " ms\n";
-    std::cout << "Global Blind  (first start to last end): " << total_blind_us/1000.0 << " ms\n";
     std::cout << "Cumulative Prepare time (sum of all tasks): " << cumulativePrep_us/1000.0 << " ms\n";
     std::cout << "Cumulative BlindSign time (sum of all tasks): " << cumulativeBlind_us/1000.0 << " ms\n";
     
