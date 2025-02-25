@@ -171,7 +171,7 @@ int main() {
   
   auto endBS = Clock::now();
   auto bs_us = std::chrono::duration_cast<std::chrono::microseconds>(endBS - startBS).count();
-    Sonuçları yazdır
+    // Sonuçları yazdır
     for (int i = 0; i < voterCount; i++) {
         char bufComi[2048], bufH[1024], bufCom[2048];
         element_snprintf(bufComi, sizeof(bufComi), "%B", bsOutputs[i].comi);
@@ -186,7 +186,7 @@ int main() {
         free(o_str);
     }
     
-    8) BlindSign (Alg.12): EA partial imza üretimi
+    // 8) BlindSign (Alg.12): EA partial imza üretimi
     std::cout << "=== Kör İmzalama (BlindSign) (Algoritma 12) ===\n";
     auto startFinalSign = Clock::now();
     std::vector< std::vector<BlindSignature> > partialSigs(voterCount, std::vector<BlindSignature>(ne));
