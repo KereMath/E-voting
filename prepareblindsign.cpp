@@ -5,11 +5,8 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
-#include <future>  // std::async için
 
-////////////////////////////////////
 // Yardımcı Fonksiyonlar (değişmedi)
-////////////////////////////////////
 
 static void randomZr(element_t zr, TIACParams &params) {
     element_random(zr);  
@@ -58,7 +55,7 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<elem
 }
 
 ////////////////////////////////////
-// 3) computeKoR (Güncellenmiş: Paralel üstel hesaplama)
+// 3) computeKoR (Sıralı Hesaplama)
 ////////////////////////////////////
 static KoRProof computeKoR(
     TIACParams &params,
@@ -83,19 +80,11 @@ static KoRProof computeKoR(
     // comi' = g1^r1 * h1^r2 hesaplaması:
     element_t comi_prime;
     element_init_G1(comi_prime, params.pairing);
-    // Önceden allocate ediyoruz:
     element_t g1_r1, h1_r2;
     element_init_G1(g1_r1, params.pairing);
     element_init_G1(h1_r2, params.pairing);
-    // Paralel hesaplama:
-    std::future<void> fut_g1_r1 = std::async(std::launch::async, [&]() {
-        element_pow_zn(g1_r1, g1, r1);
-    });
-    std::future<void> fut_h1_r2 = std::async(std::launch::async, [&]() {
-        element_pow_zn(h1_r2, h1, r2);
-    });
-    fut_g1_r1.get();
-    fut_h1_r2.get();
+    element_pow_zn(g1_r1, g1, r1);
+    element_pow_zn(h1_r2, h1, r2);
     element_mul(comi_prime, g1_r1, h1_r2);
     element_clear(g1_r1);
     element_clear(h1_r2);
@@ -106,14 +95,8 @@ static KoRProof computeKoR(
     element_t g1_r3, h_r2;
     element_init_G1(g1_r3, params.pairing);
     element_init_G1(h_r2, params.pairing);
-    std::future<void> fut_g1_r3 = std::async(std::launch::async, [&]() {
-        element_pow_zn(g1_r3, g1, r3);
-    });
-    std::future<void> fut_h_r2 = std::async(std::launch::async, [&]() {
-        element_pow_zn(h_r2, h, r2);
-    });
-    fut_g1_r3.get();
-    fut_h_r2.get();
+    element_pow_zn(g1_r3, g1, r3);
+    element_pow_zn(h_r2, h, r2);
     element_mul(com_prime, g1_r3, h_r2);
     element_clear(g1_r3);
     element_clear(h_r2);
@@ -175,14 +158,14 @@ static KoRProof computeKoR(
 }
 
 ////////////////////////////////////
-// 4) prepareBlindSign (Güncellenmiş: Paralel üstel hesaplamalar)
+// 4) prepareBlindSign (Sıralı hesaplama)
 ////////////////////////////////////
 PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &didStr) {
     PrepareBlindSignOutput out;
     mpz_t oi, o;
     mpz_inits(oi, o, NULL);
 
-    // Tek bir geçici element kullanarak random değerler hesaplıyoruz:
+    // Random değerleri sıralı olarak hesapla:
     element_t tmp;
     element_init_Zr(tmp, params.pairing);
     element_random(tmp);
@@ -201,22 +184,20 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     element_t g1_oi, h1_did;
     element_init_G1(g1_oi, params.pairing);
     element_init_G1(h1_did, params.pairing);
-    std::future<void> fut1 = std::async(std::launch::async, [&]() {
+    {
         element_t exp;
         element_init_Zr(exp, params.pairing);
         element_set_mpz(exp, oi);
         element_pow_zn(g1_oi, params.g1, exp);
         element_clear(exp);
-    });
-    std::future<void> fut2 = std::async(std::launch::async, [&]() {
+    }
+    {
         element_t exp;
         element_init_Zr(exp, params.pairing);
         element_set_mpz(exp, didInt);
         element_pow_zn(h1_did, params.h1, exp);
         element_clear(exp);
-    });
-    fut1.get();
-    fut2.get();
+    }
     element_mul(out.comi, g1_oi, h1_did);
     element_clear(g1_oi);
     element_clear(h1_did);
@@ -230,27 +211,25 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     element_t g1_o, h_did;
     element_init_G1(g1_o, params.pairing);
     element_init_G1(h_did, params.pairing);
-    std::future<void> fut3 = std::async(std::launch::async, [&]() {
+    {
         element_t exp;
         element_init_Zr(exp, params.pairing);
         element_set_mpz(exp, o);
         element_pow_zn(g1_o, params.g1, exp);
         element_clear(exp);
-    });
-    std::future<void> fut4 = std::async(std::launch::async, [&]() {
+    }
+    {
         element_t exp;
         element_init_Zr(exp, params.pairing);
         element_set_mpz(exp, didInt);
         element_pow_zn(h_did, out.h, exp);
         element_clear(exp);
-    });
-    fut3.get();
-    fut4.get();
+    }
     element_mul(out.com, g1_o, h_did);
     element_clear(g1_o);
     element_clear(h_did);
 
-    // (6) pi_s = computeKoR(...) kullanarak hesaplanıyor:
+    // (6) pi_s = computeKoR(...) hesaplaması:
     out.pi_s = computeKoR(
         params,
         out.com,
@@ -263,7 +242,7 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         o
     );
 
-    // "o" alanını output yapısına ekliyoruz
+    // "o" alanını output yapısına ekle
     mpz_init(out.o);
     mpz_set(out.o, o);
 
