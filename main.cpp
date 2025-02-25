@@ -223,7 +223,7 @@ int main() {
     // Semaphor nesnelerini vector içinde unique_ptr ile saklıyoruz.
     std::vector<std::unique_ptr<std::counting_semaphore<>>> adminSemaphores;
     for (int i = 0; i < adminCount; i++) {
-        adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(2));
+        adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(12));
     }
     
     // Pipeline sonuçlarını tutacak vector
