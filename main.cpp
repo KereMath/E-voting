@@ -196,29 +196,29 @@ int main() {
         free(x_str);
     }
     
-    // 7) Pipeline: Prepare Blind Sign ve BlindSign (Admin Imzalama)
-    // Her seçmen için ayrı bir asenkron görev (pipeline) başlatılıyor.
+    // 7) Pipeline: PrepareBlindSign ve BlindSign (Admin Imzalama)
+    // Her seçmen için ayrı bir asenkron görev başlatılıyor; 
+    // PrepareBlindSign çıktısı elde edilir elde edilmez blindSign işlemi başlıyor.
     auto startPipeline = Clock::now();
     std::vector<std::future<std::vector<BlindSignature>>> pipelineFutures(voterCount);
     // Global admin mutexler
-    const int adminCount = 3;
-    std::vector<std::mutex> adminMutex(adminCount);
+    const int adminCount_global = 3;
+    std::vector<std::mutex> adminMutex(adminCount_global);
     for (int i = 0; i < voterCount; i++) {
         pipelineFutures[i] = std::async(std::launch::async, [&, i]() -> std::vector<BlindSignature> {
-            // PrepareBlindSign işlemi: sabit 6 thread kullanılarak
+            // PrepareBlindSign işlemi
             PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
             logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
-            // BlindSign işlemi: Admin kaynakları kontrol edilerek dinamik atama.
+            // BlindSign işlemi: adminler round-robin (i mod 3) bazlı kontrol ediliyor.
             std::vector<BlindSignature> collected;
-            std::vector<bool> used(adminCount, false);
+            std::vector<bool> used(adminCount_global, false);
             int scheduled = 0;
-            int startIdx = i % adminCount;
+            int startIdx = i % adminCount_global;
             while (scheduled < t) {
-                for (int offset = 0; offset < adminCount && scheduled < t; offset++) {
-                    int admin = (startIdx + offset) % adminCount;
+                for (int offset = 0; offset < adminCount_global && scheduled < t; offset++) {
+                    int admin = (startIdx + offset) % adminCount_global;
                     if (!used[admin] && adminMutex[admin].try_lock()) {
                         used[admin] = true;
-                        // BlindSign işlemini senkron olarak başlatıyoruz
                         logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
                                          " - Admin " + std::to_string(admin+1) +
                                          " sign task started on thread " +
@@ -246,7 +246,6 @@ int main() {
             return collected;
         });
     }
-    // Toplam pipeline süresini bekle
     std::vector< std::vector<BlindSignature> > finalSigs(voterCount);
     for (int i = 0; i < voterCount; i++) {
         try {
@@ -273,16 +272,8 @@ int main() {
     for (int i = 0; i < voterCount; i++) {
         mpz_clear(dids[i].x);
     }
-    for (int i = 0; i < voterCount; i++) {
-        element_clear(bsOutputs[i].comi);
-        element_clear(bsOutputs[i].h);
-        element_clear(bsOutputs[i].com);
-        element_clear(bsOutputs[i].pi_s.c);
-        element_clear(bsOutputs[i].pi_s.s1);
-        element_clear(bsOutputs[i].pi_s.s2);
-        element_clear(bsOutputs[i].pi_s.s3);
-        mpz_clear(bsOutputs[i].o);
-    }
+    // prepareBlindSign ve blindSign aşamasında kullanılan diğer kaynakların temizliği
+    // (örneğin, bsOutputs kullanılmadığı için cleanup kısmından kaldırıldı)
     clearParams(params);
     
     // 9) Zaman ölçümleri (ms)
@@ -291,7 +282,6 @@ int main() {
     double keygen_ms    = keygen_us    / 1000.0;
     double idGen_ms     = idGen_us     / 1000.0;
     double didGen_ms    = didGen_us    / 1000.0;
-    double bs_ms        = bs_us        / 1000.0;
     double pipeline_ms  = pipeline_us  / 1000.0;
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi       : " << setup_ms     << " ms\n";
@@ -299,7 +289,6 @@ int main() {
     std::cout << "KeyGen suresi      : " << keygen_ms    << " ms\n";
     std::cout << "ID Generation      : " << idGen_ms     << " ms\n";
     std::cout << "DID Generation     : " << didGen_ms    << " ms\n";
-    std::cout << "Prepare Blind Sign : " << bs_ms        << " ms\n";
     std::cout << "Pipeline (Prep+Blind): " << pipeline_ms  << " ms\n";
     
     threadLog.close();
