@@ -161,23 +161,28 @@ int main() {
         std::cout << "Secmen " << (i+1) << " ID = " << voterIDs[i] << "\n";
     }
     std::cout << "\n";
-    
-    // 6) DID Generation
     auto startDIDGen = Clock::now();
-    std::vector<DID> dids(voterCount);
-    for (int i = 0; i < voterCount; i++) {
-        dids[i] = createDID(params, voterIDs[i]);
+std::vector<DID> dids(voterCount);
+
+// TBB blocked_range ile paralel DID üretimi
+tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
+    [&](const tbb::blocked_range<int>& range) {
+        for (int i = range.begin(); i < range.end(); i++) {
+            dids[i] = createDID(params, voterIDs[i]);
+        }
     }
-    auto endDIDGen = Clock::now();
-    auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
-    std::cout << "=== DID Generation ===\n";
-    for (int i = 0; i < voterCount; i++) {
-        char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
-        std::cout << "Secmen " << (i+1) << " icin x = " << x_str << "\n"
-                  << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
-        free(x_str);
-    }
-    
+);
+
+auto endDIDGen = Clock::now();
+auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
+
+std::cout << "=== DID Generation ===\n";
+for (int i = 0; i < voterCount; i++) {
+    char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
+    std::cout << "Secmen " << (i + 1) << " icin x = " << x_str << "\n"
+              << "Secmen " << (i + 1) << " icin DID = " << dids[i].did << "\n\n";
+    free(x_str);
+}
   // 7) Prepare Blind Sign (Alg.4) - OpenMP ile paralelize edilmiş
   auto startBS = Clock::now();
 
