@@ -69,6 +69,12 @@
         "list": "cpp",
         "mutex": "cpp",
         "unordered_map": "cpp",
-        "xhash": "cpp"
+        "xhash": "cpp",
+        "array": "cpp",
+        "deque": "cpp",
+        "memory_resource": "cpp",
+        "queue": "cpp",
+        "semaphore": "cpp",
+        "span": "cpp"
     }
 }
