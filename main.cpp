@@ -483,8 +483,8 @@ int main() {
 
     std::cout << "UnblindSignature total time: "
               << (unblind_us / 1000.0) << " ms\n";
-    std::cout << "AggregateSignatures total time: "
-              << (agg_us / 1000.0) << " ms\n";
+    // std::cout << "AggregateSignatures total time: "
+    //           << (agg_us / 1000.0) << " ms\n";
 
     threadLog.close();
     std::cout << "\n=== Program Sonu ===\n";
