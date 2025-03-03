@@ -353,8 +353,9 @@ std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
 tbb::parallel_for(0, voterCount, [&](int i) {
     unblindResults[i].resize(t);
     for (int j = 0; j < t; j++) {
-        UnblindSignInput in;
-        // comi and o come from preparedOutputs[i]
+        int adminId = pipelineResults[i].signatures[j].adminId;
+
+        UnblindSignInput in;        // comi and o come from preparedOutputs[i]
         element_init_G1(in.comi, params.pairing);
         element_set(in.comi, preparedOutputs[i].comi);
         mpz_init(in.o);
@@ -368,11 +369,11 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 
         // Use the MASTER public key (not the partial EA keys)
         element_init_G2(in.alpha2, params.pairing);
-        element_set(in.alpha2, keyOut.mvk.alpha2); // <-- FIX: use master alpha2
+        element_set(in.alpha2, keyOut.eaKeys[adminId].vkm1); // EA's alpha2,m
         element_init_G2(in.beta2, params.pairing);
-        element_set(in.beta2, keyOut.mvk.beta2);   // <-- FIX: use master beta2
+        element_set(in.beta2, keyOut.eaKeys[adminId].vkm2);  // EA's beta2,m
         element_init_G1(in.beta1, params.pairing);
-        element_set(in.beta1, keyOut.mvk.beta1);     // <-- FIX: use master beta1
+        element_set(in.beta1, keyOut.eaKeys[adminId].vkm3);  // EA's beta1,m 
 
         // DID from the voter (dids[i].x)
         mpz_init(in.DIDi);
