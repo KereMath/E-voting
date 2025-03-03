@@ -12,7 +12,7 @@
 #include <queue>
 #include <atomic>
 #include <semaphore>    // C++20 semaphores
-#include <memory>       // std::unique_ptr
+#include <memory>       // std::unique_ptr>
 
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
@@ -235,10 +235,6 @@ int main() {
         free(x_str);
     }
 
-    // Burada, PrepareBlindSignOutput değerlerini saklayacağımız bir vektör ekliyoruz:
-    // Her seçmen için "prepare" sonucu:
-    std::vector<PrepareBlindSignOutput> prepareOutputs(voterCount);
-
     // 7) Pipeline hazırlığı
     pipelineResults.resize(voterCount);
 
@@ -250,15 +246,22 @@ int main() {
         // Her seçmenin prepare zamanını ölçelim
         tbb::parallel_for(0, voterCount, [&](int i) {
             pipelineResults[i].timing.prep_start = Clock::now();
-            // Her seçmen .did'i verip prepare
+            // Her seçmen .did'i verip prepare'lesin
             PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
             pipelineResults[i].timing.prep_end = Clock::now();
 
-            // Kaydet
-            prepareOutputs[i] = bsOut;
+            // Bu bsOut'u saklayacağız, çünkü BlindSign'da lazım
+            // Şimdilik vektörde DID saklamıyoruz ama pipeline'a koymamız gerekebilir
+            // Onun yerine DID struct'ına ekleyebilirdik. Fakat basit olsun diye
+            // pipelineResults[i] bu veriyi saklamıyor; alt aşamada queue'ye atacağız.
 
             // Log
             logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
+
+            // Hazırlık biterken DID struct'ına (veya ayrık bir vektöre) bsOut kaydedebilirsiniz
+            // Örneğin DID'e ek alan açabilirsiniz.
+            // Burada basitçe DID'e ekliyoruz:
+            dids[i].bsOut = bsOut;
         });
     }
 
@@ -278,7 +281,7 @@ int main() {
             for (int j = 0; j < t; j++) {
                 SignRequest req;
                 req.voterId = i;
-                req.bsOut   = prepareOutputs[i]; // Artık dids[i].bsOut yerine burada
+                req.bsOut   = dids[i].bsOut; // prepare'de sakladığımız bsOut
                 requestQueue.push(req);
             }
         }
@@ -336,6 +339,8 @@ int main() {
 
             // Sonucu pipelineResults'e kaydet
             {
+                // Tek seçmene yazdığımız için normalde race riskini threshold>1'de dahi minimal
+                // ama yine de emniyet için bir lock kullanabiliriz
                 static std::mutex resultMutex;
                 std::lock_guard<std::mutex> lk(resultMutex);
                 pipelineResults[job.voterId].signatures.push_back(sig);
