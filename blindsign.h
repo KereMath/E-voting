@@ -2,47 +2,26 @@
 #define BLINDSIGN_H
 
 #include "setup.h"
-#include "prepareblindsign.h" // KoRProof, PrepareBlindSignOutput
-#include "keygen.h"           // EAKey => sgk1, sgk2
+#include "prepareblindsign.h" // For PrepareBlindSignOutput and KoRProof
+#include "keygen.h"           // For EAKey (if needed)
 #include <vector>
 
 /*
-  CheckKoR (Alg.6) - 
-   Girdi: 
-     - params (TIACParams &)
-     - com, comi, h (G1), pi_s=(c, s1, s2, s3)
-   Çıktı: bool (true => πs=1, false => hata)
-*/
-bool CheckKoR(
-    TIACParams &params,
-    element_t com,
-    element_t comi,
-    element_t h,
-    KoRProof &pi_s
-);
-
-/*
-  BlindSignature: Alg.12'nin çıktısı (h, cm)
+  BlindSignature (Algorithm 12 output): σ′ₘ = (h, cm)
+  Here, we set h = Hash(comi) and compute cm = (com_blind)^(xₘ).
+  (Note: In this minimal fix we use only the EA’s sgk1 (xₘ).)
 */
 struct BlindSignature {
     element_t h;   // G1
     element_t cm;  // G1
+    // Optionally, you might add an adminId field here if desired.
 };
 
-/*
-  blindSign (Alg.12):
-   Girdi:
-    - params
-    - PrepareBlindSignOutput: (com, comi, h, pi_s)
-    - xm, ym (mpz_t) => EA otoritesinin gizli anahtarı
-   Çıktı:
-    - (h, cm)
-*/
 BlindSignature blindSign(
     TIACParams &params,
     PrepareBlindSignOutput &bsOut,
-    mpz_t xm,
-    mpz_t ym
+    mpz_t xm, // EA's secret xₘ
+    mpz_t ym  // EA's secret yₘ (currently not used)
 );
 
-#endif
+#endif // BLINDSIGN_H

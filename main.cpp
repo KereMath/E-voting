@@ -65,12 +65,12 @@ int main() {
             return 1;
         }
         std::string line;
-        while(std::getline(infile, line)) {
-            if(line.rfind("ea=", 0)==0)
+        while (std::getline(infile, line)) {
+            if (line.rfind("ea=", 0) == 0)
                 ne = std::stoi(line.substr(3));
-            else if(line.rfind("threshold=", 0)==0)
+            else if (line.rfind("threshold=", 0) == 0)
                 t = std::stoi(line.substr(10));
-            else if(line.rfind("votercount=", 0)==0)
+            else if (line.rfind("votercount=", 0) == 0)
                 voterCount = std::stoi(line.substr(11));
         }
         infile.close();
@@ -84,7 +84,6 @@ int main() {
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
     auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
-
     {
         char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
         std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
@@ -127,7 +126,7 @@ int main() {
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
-    std::cout << "Key generation time: " << keygen_us/1000.0 << " ms\n\n";
+    std::cout << "Key generation time: " << keygen_us / 1000.0 << " ms\n\n";
     {
         char buf[1024];
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
@@ -146,7 +145,7 @@ int main() {
 
     // Print EA Authorities
     for (int i = 0; i < ne; i++) {
-        std::cout << "=== EA Authority " << (i+1) << " ===\n";
+        std::cout << "=== EA Authority " << (i + 1) << " ===\n";
         {
             char buf[1024];
             element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].sgk1);
@@ -211,7 +210,7 @@ int main() {
         free(x_str);
     }
 
-    // 7) Pipeline: for each voter, run prepareBlindSign in parallel
+    // 7) Pipeline: Run prepareBlindSign in parallel for each voter
     std::vector<PipelineResult> pipelineResults(voterCount);
     auto pipelineStart = Clock::now();
     tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
@@ -229,7 +228,7 @@ int main() {
         preparedOutputs[i] = bsOut;
     });
 
-    // 8) Build sign tasks for each voter: choose T distinct admin for each voter
+    // 8) Build sign tasks for each voter: choose T distinct EA for each voter
     struct SignTask {
         int voterId;
         int indexInVoter;
@@ -317,15 +316,17 @@ int main() {
         unblindResults[i].resize(t);
         for (int j = 0; j < t; j++) {
             UnblindSignInput in;
+            // (comi, o) from preparedOutputs[i]
             element_init_G1(in.comi, params.pairing);
             element_set(in.comi, preparedOutputs[i].comi);
             mpz_init(in.o);
             mpz_set(in.o, preparedOutputs[i].o);
+            // h and cm from partial blind signature
             element_init_G1(in.h, params.pairing);
             element_set(in.h, pipelineResults[i].signatures[j].h);
             element_init_G1(in.cm, params.pairing);
             element_set(in.cm, pipelineResults[i].signatures[j].cm);
-            // Use the MASTER public key instead of the partial EA keys:
+            // Use the MASTER public key for unblinding:
             element_init_G2(in.alpha2, params.pairing);
             element_set(in.alpha2, keyOut.mvk.alpha2);
             element_init_G2(in.beta2, params.pairing);
@@ -357,8 +358,7 @@ int main() {
     //
     // ********** AGGREGATION PHASE (Alg.14) **********
     //
-    // (Aggregation phase is commented out; if you wish to combine the partial unblinded signatures,
-    // you can uncomment this block.)
+    // (Aggregation phase is commented out; uncomment if needed.)
     /*
     auto aggStart = Clock::now();
     std::vector<AggregateOutput> finalSignatures(voterCount);
