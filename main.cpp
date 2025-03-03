@@ -30,7 +30,9 @@ std::ofstream threadLog("threads.txt");
 void logThreadUsage(const std::string &phase, const std::string &msg) {
     std::lock_guard<std::mutex> lock(logMutex);
     auto now = Clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  now.time_since_epoch())
+                  .count();
     threadLog << "[" << ms << " ms] " << phase << ": " << msg << "\n";
 }
 
@@ -85,7 +87,9 @@ int main() {
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
-    auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
+    auto setup_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup)
+            .count();
 
     {
         char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
@@ -114,7 +118,9 @@ int main() {
     auto startPairing = Clock::now();
     pairing_apply(pairingTest, params.g1, params.g2, params.pairing);
     auto endPairing = Clock::now();
-    auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
+    auto pairing_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing)
+            .count();
     {
         char buf[1024];
         element_snprintf(buf, sizeof(buf), "%B", pairingTest);
@@ -128,9 +134,11 @@ int main() {
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
-    auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
+    auto keygen_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen)
+            .count();
 
-    std::cout << "Key generation time: " << keygen_us/1000.0 << " ms\n\n";
+    std::cout << "Key generation time: " << keygen_us / 1000.0 << " ms\n\n";
     {
         char buf[1024];
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
@@ -184,17 +192,20 @@ int main() {
     {
         std::random_device rd;
         std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<unsigned long long> dist(10000000000ULL, 99999999999ULL);
+        std::uniform_int_distribution<unsigned long long> dist(
+            10000000000ULL, 99999999999ULL);
         for (int i = 0; i < voterCount; i++) {
             unsigned long long id = dist(gen);
             voterIDs[i] = std::to_string(id);
         }
     }
     auto endIDGen = Clock::now();
-    auto idGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endIDGen - startIDGen).count();
+    auto idGen_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(endIDGen - startIDGen)
+            .count();
     std::cout << "=== ID Generation ===\n";
     for (int i = 0; i < voterCount; i++) {
-        std::cout << "Secmen " << (i+1) << " ID = " << voterIDs[i] << "\n";
+        std::cout << "Secmen " << (i + 1) << " ID = " << voterIDs[i] << "\n";
     }
     std::cout << "\n";
 
@@ -205,12 +216,14 @@ int main() {
         dids[i] = createDID(params, voterIDs[i]);
     }
     auto endDIDGen = Clock::now();
-    auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
+    auto didGen_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen)
+            .count();
     std::cout << "=== DID Generation ===\n";
     for (int i = 0; i < voterCount; i++) {
         char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
-        std::cout << "Secmen " << (i+1) << " icin x   = " << x_str << "\n"
-                  << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
+        std::cout << "Secmen " << (i + 1) << " icin x   = " << x_str << "\n"
+                  << "Secmen " << (i + 1) << " icin DID = " << dids[i].did << "\n\n";
         free(x_str);
     }
 
@@ -226,18 +239,19 @@ int main() {
     // 7) Tüm seçmenler için prepareBlindSign (paralelde)
     std::vector<PrepareBlindSignOutput> preparedOutputs(voterCount);
 
-    tbb::parallel_for(0, voterCount, [&](int i){
+    tbb::parallel_for(0, voterCount, [&](int i) {
         // Prepare start
         pipelineResults[i].timing.prep_start = Clock::now();
         PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
         pipelineResults[i].timing.prep_end = Clock::now();
 
         // Debug log: bu seçmen prepare işi bitti
-        logThreadUsage("Pipeline",
-            "Voter " + std::to_string(i+1) +
-            " prepareBlindSign finished on thread " +
-            std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-        );
+        logThreadUsage(
+            "Pipeline",
+            "Voter " + std::to_string(i + 1) +
+                " prepareBlindSign finished on thread " +
+                std::to_string(std::hash<std::thread::id>()(
+                    std::this_thread::get_id())));
 
         preparedOutputs[i] = bsOut;
     });
@@ -252,8 +266,8 @@ int main() {
     tasks.reserve(voterCount * t);
 
     // Rastgele admin subset'i seçimi için
-    std::random_device rd;
-    std::mt19937 rng(rd());
+    std::random_device rd2;
+    std::mt19937 rng(rd2());
 
     // Admin indekslerinin [0..ne-1] aralığını tutan dizi
     std::vector<int> adminIndices(ne);
@@ -270,29 +284,28 @@ int main() {
 
         for (int j = 0; j < t; j++) {
             SignTask st;
-            st.voterId      = i;
+            st.voterId = i;
             st.indexInVoter = j;
-            st.adminId      = adminIndices[j]; // T farklı admin
+            st.adminId = adminIndices[j]; // T farklı admin
             tasks.push_back(st);
         }
     }
 
     // 9) Şimdi bu tasks havuzunu paralelde koşturuyoruz
     tbb::parallel_for(
-        0, (int)tasks.size(),
-        [&](int idx) {
-            const SignTask &st = tasks[idx];
+        0, (int)tasks.size(), [&](int idx) {
+            const SignTask& st = tasks[idx];
             int vId = st.voterId;
             int j   = st.indexInVoter;
             int aId = st.adminId;
 
             // Log: started
-            logThreadUsage("BlindSign",
-                "Voter " + std::to_string(vId+1) +
-                " - Admin " + std::to_string(aId+1) +
-                " sign task started on thread " +
-                std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-            );
+            logThreadUsage(
+                "BlindSign",
+                "Voter " + std::to_string(vId + 1) + " - Admin " +
+                    std::to_string(aId + 1) + " sign task started on thread " +
+                    std::to_string(std::hash<std::thread::id>()(
+                        std::this_thread::get_id())));
 
             mpz_t xm, ym;
             mpz_init(xm);
@@ -301,23 +314,24 @@ int main() {
             element_to_mpz(xm, keyOut.eaKeys[aId].sgk1);
             element_to_mpz(ym, keyOut.eaKeys[aId].sgk2);
 
-            BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym);
+            BlindSignature sig =
+                blindSign(params, preparedOutputs[vId], xm, ym);
 
             mpz_clear(xm);
             mpz_clear(ym);
 
             // Log: finished
-            logThreadUsage("BlindSign",
-                "Voter " + std::to_string(vId+1) +
-                " - Admin " + std::to_string(aId+1) +
-                " sign task finished on thread " +
-                std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-            );
+            logThreadUsage(
+                "BlindSign",
+                "Voter " + std::to_string(vId + 1) + " - Admin " +
+                    std::to_string(aId + 1) +
+                    " sign task finished on thread " +
+                    std::to_string(std::hash<std::thread::id>()(
+                        std::this_thread::get_id())));
 
             // Sonucu ilgili seçmenin j. imzası olarak saklayalım
             pipelineResults[vId].signatures[j] = sig;
-        }
-    );
+        });
 
     // 10) Kör imzalar bittiğinde pipelineEnd
     auto pipelineEnd = Clock::now();
@@ -326,7 +340,9 @@ int main() {
     }
 
     // 11) Pipeline süresi
-    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
+    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                           pipelineEnd - pipelineStart)
+                           .count();
 
     // Sonuçları ekrana basalım
     long long cumulativePrep_us  = 0;
@@ -334,24 +350,107 @@ int main() {
 
     for (int i = 0; i < voterCount; i++) {
         int gotCount = (int)pipelineResults[i].signatures.size();
-        std::cout << "Secmen " << (i+1) << " icin " << gotCount
+        std::cout << "Secmen " << (i + 1) << " icin " << gotCount
                   << " adet imza alindi.\n";
 
         auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start
-        ).count();
+            pipelineResults[i].timing.prep_end -
+            pipelineResults[i].timing.prep_start)
+                             .count();
 
         auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start
-        ).count();
+            pipelineResults[i].timing.blind_end -
+            pipelineResults[i].timing.blind_start)
+                              .count();
 
         cumulativePrep_us  += prep_time;
         cumulativeBlind_us += blind_time;
 
-        std::cout << "Voter " << (i+1)
+        std::cout << "Voter " << (i + 1)
                   << ": Prepare time = " << (prep_time / 1000.0)
-                  << " ms, BlindSign time = " << (blind_time / 1000.0) << " ms\n\n";
+                  << " ms, BlindSign time = " << (blind_time / 1000.0)
+                  << " ms\n\n";
     }
+
+    //
+    //    **********  NEW UNBLIND PHASE (Algorithm 13)  **********
+    //
+
+    // Start the unblinding timer
+    auto unblindStart = Clock::now();
+
+    // We create a structure to hold final unblinded signatures
+    // Each voter has T partial signatures from T distinct EAs,
+    // but here we'll just do unblinding on each partial signature individually,
+    // to demonstrate usage. (In threshold, you'd normally combine them first.)
+    std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
+
+    tbb::parallel_for(0, voterCount, [&](int i) {
+        unblindResults[i].resize(t);  // store T unblinded sigs
+
+        for (int j = 0; j < t; j++) {
+            // Prepare input for unblindSignature
+            UnblindSignInput in;
+
+            // (comi, o) from preparedOutputs[i]
+            element_init_G1(in.comi, params.pairing);
+            element_set(in.comi, preparedOutputs[i].comi);
+
+            mpz_init(in.o);
+            mpz_set(in.o, preparedOutputs[i].o);
+
+            // h, cm from partial blind signature
+            element_init_G1(in.h, params.pairing);
+            element_set(in.h, pipelineResults[i].signatures[j].h);
+
+            element_init_G1(in.cm, params.pairing);
+            element_set(in.cm, pipelineResults[i].signatures[j].cm);
+
+            // alpha2, beta2, beta1 from EAKey => partial version
+            // If you want the master version, you'd do keyOut.mvk.alpha2 etc
+            element_init_G2(in.alpha2, params.pairing);
+            element_set(in.alpha2, keyOut.eaKeys[j].vkm1); // g2^(x_m)
+
+            element_init_G2(in.beta2, params.pairing);
+            element_set(in.beta2, keyOut.eaKeys[j].vkm2); // g2^(y_m)
+
+            element_init_G1(in.beta1, params.pairing);
+            element_set(in.beta1, keyOut.eaKeys[j].vkm3); // g1^(y_m)
+
+            // DID
+            mpz_init(in.DIDi);
+            mpz_set(in.DIDi, dids[i].x);
+
+            // unblind
+            try {
+                UnblindSignature usig = unblindSignature(params, in);
+                unblindResults[i][j] = usig; // store
+                // can print success message
+            } catch (const std::exception &ex) {
+                std::cerr << "[ERROR] UnblindSignature failed for voter " << i
+                          << " partialSig " << j << ": " << ex.what() << std::endl;
+            }
+
+            // cleanup
+            element_clear(in.comi);
+            element_clear(in.h);
+            element_clear(in.cm);
+            element_clear(in.alpha2);
+            element_clear(in.beta2);
+            element_clear(in.beta1);
+            mpz_clear(in.o);
+            mpz_clear(in.DIDi);
+        }
+    });
+
+    auto unblindEnd = std::chrono::steady_clock::now();
+    long long unblind_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart)
+            .count();
+
+    //
+    //    **********  END of Unblind Phase  **********
+    //
 
     // 12) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
@@ -378,17 +477,21 @@ int main() {
     double pipeline_ms = pipeline_us / 1000.0;
 
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
-    std::cout << "Setup suresi       : " << setup_ms    << " ms\n";
-    std::cout << "Pairing suresi     : " << pairing_ms  << " ms\n";
-    std::cout << "KeyGen suresi      : " << keygen_ms   << " ms\n";
-    std::cout << "ID Generation      : " << idGen_ms    << " ms\n";
-    std::cout << "DID Generation     : " << didGen_ms   << " ms\n";
+    std::cout << "Setup suresi       : " << setup_ms   << " ms\n";
+    std::cout << "Pairing suresi     : " << pairing_ms << " ms\n";
+    std::cout << "KeyGen suresi      : " << keygen_ms  << " ms\n";
+    std::cout << "ID Generation      : " << idGen_ms   << " ms\n";
+    std::cout << "DID Generation     : " << didGen_ms  << " ms\n";
     std::cout << "Pipeline (Prep+Blind): " << pipeline_ms << " ms\n";
 
     std::cout << "\nToplam hazirlama (sum) = "
               << (cumulativePrep_us / 1000.0) << " ms\n";
     std::cout << "Toplam kör imza (sum)  = "
               << (cumulativeBlind_us / 1000.0) << " ms\n";
+
+    // Print unblind time:
+    std::cout << "UnblindSignature total time: "
+              << (unblind_us / 1000.0) << " ms\n";
 
     // threads.txt dosyasını kapat
     threadLog.close();

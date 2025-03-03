@@ -2,50 +2,49 @@
 #define UNBLINDSIGN_H
 
 #include "setup.h"
+#include "blindsign.h"
 
-/* 
-  UnblindSignInput: Algoritma 13 girdileri
-  - comi: PrepareBlindSignOutput'dan alınan orijinal comi (G1)
-  - h: EA’nın blindSign (partial signature) çıktısından alınan h (G1)
-  - cm: EA’nın blindSign çıktısından alınan cm (G1)
-  - o: PrepareBlindSignOutput’da hesaplanıp saklanan o (mpz_t)
-  - alpha2, beta2, beta1: EA'nın doğrulama anahtarları (vkm); 
-       alpha2 = g2^(xm), beta2 = g2^(ym), beta1 = g1^(ym)
-  - DIDi: Seçmenin DID’inin (mod p) mpz_t temsili (örneğin dids[i].x)
+/*
+  UnblindSignInput: the inputs to Alg.13
+   - comi (G1) : from prepareBlindSign (the DID commitment)
+   - h    (G1) : from BlindSignature (should match Hash(comi))
+   - cm   (G1) : from BlindSignature
+   - o    (mpz_t) : the random 'o' used in prepareBlindSign
+   - alpha2 (G2): = g2^(x_m)  [ or combined / or master key alpha2 = g2^x ]
+   - beta2  (G2): = g2^(y_m)  [ or combined / or master key beta2 = g2^y ]
+   - beta1  (G1): = g1^(y_m)  [ or combined / or master key beta1 = g1^y ]
+   - DIDi   (mpz_t) : the DID integer (from createDID)
 */
 struct UnblindSignInput {
-    element_t comi;    // G1
-    element_t h;       // G1
-    element_t cm;      // G1
-    mpz_t o;           // Rastgele seçilen o (PrepareBlindSignOutput'dan)
-    element_t alpha2;  // EA doğrulama anahtarından: g2^(xm)
-    element_t beta2;   // EA doğrulama anahtarından: g2^(ym)
-    element_t beta1;   // EA doğrulama anahtarından: g1^(ym)
-    mpz_t DIDi;        // Seçmenin DID (mod p)
+    element_t comi;  // G1
+    element_t h;     // G1
+    element_t cm;    // G1
+    mpz_t     o;     // random factor from prepareBlindSign
+    element_t alpha2;// G2
+    element_t beta2; // G2
+    element_t beta1; // G1
+    mpz_t     DIDi;  // Zr
 };
 
-/* 
-  UnblindSignature output: Algoritma 13 çıktısı
-  - h: (G1) – orijinal h değeri
-  - sm: (G1) – unblind edilmiş imza (cm · (beta1)^(–o))
+/*
+  UnblindSignature: output of Alg.13
+   - h  (G1) same as input
+   - sm (G1) unblinded signature
 */
 struct UnblindSignature {
-    element_t h;
+    element_t h; 
     element_t sm;
 };
 
 /*
-  Algoritma 13: TIAC Körleştirme Faktörünün Çıkarılması
-  Girdi: UnblindSignInput in
-  İşlem:
-    1. Eğer Hash(comi) ≠ h ise hata.
-    2. sm = cm · (beta1)^(–o) hesapla.
-    3. Eğer pairing doğrulaması: e(h, alpha2 · (beta2)^(DIDi)) == e(sm, g2) sağlanıyorsa,
-       (h, sm) döndür; aksi halde hata.
+  unblindSignature (Alg.13):
+    1) if Hash(comi) != h => "Hata"
+    2) sm = cm * (beta1^(-o))
+    3) if e(h, alpha2 * (beta2^DIDi)) == e(sm, g2) => return (h, sm) else "Hata"
 */
 UnblindSignature unblindSignature(
     TIACParams &params,
     UnblindSignInput &in
 );
 
-#endif
+#endif // UNBLINDSIGN_H
