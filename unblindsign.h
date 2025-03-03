@@ -27,9 +27,6 @@ UnblindSignature unblindSignature(
     TIACParams &params,
     UnblindSignInput &in
 );
-struct BlindSignature {
-  element_t h;   // G1
-  element_t cm;  // G1
-};
+
 
 #endif
