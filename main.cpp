@@ -518,14 +518,12 @@ int main() {
     double keygen_ms = keygen_us / 1000.0;
     double idGen_ms = idGen_us / 1000.0;
     double didGen_ms = didGen_us / 1000.0;
-    double pipeline_ms = pipeline_us / 1000.0;
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi       : " << setup_ms << " ms\n";
     std::cout << "Pairing suresi     : " << pairing_ms << " ms\n";
     std::cout << "KeyGen suresi      : " << keygen_ms << " ms\n";
     std::cout << "ID Generation      : " << idGen_ms << " ms\n";
     std::cout << "DID Generation     : " << didGen_ms << " ms\n";
-    std::cout << "Pipeline (Prep+Blind): " << pipeline_ms << " ms\n";
     std::cout << "\nToplam hazirlama (sum) = " << (cumulativePrep_us / 1000.0) << " ms\n";
     std::cout << "Toplam kör imza (sum)  = " << (cumulativeBlind_us / 1000.0) << " ms\n";
     // std::cout << "AggregateSignatures total time: " << (agg_us / 1000.0) << " ms\n";
