@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <algorithm>    // std::shuffle
 #include "setup.h"
 #include "keygen.h"
 #include "didgen.h"
@@ -17,7 +18,6 @@
 #include <tbb/global_control.h>
 #include <mutex>
 #include <limits>
-#include <algorithm>
 #include <semaphore>    // C++20 semaphores
 #include <memory>       // std::unique_ptr
 
@@ -219,6 +219,7 @@ int main() {
     const int adminCount = ne;
     std::vector<std::unique_ptr<std::counting_semaphore<>>> adminSemaphores;
     for (int i = 0; i < adminCount; i++) {
+        // Her admin aynı anda 2 imzaya kadar çalışabiliyor (50 diyorsan çok daha fazla da olabilir)
         adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(50));
     }
 
@@ -228,26 +229,49 @@ int main() {
     // TBB global kontrolü ile prepare aşamasında maksimum 6 thread kullanımı sağlanıyor.
     tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
 
+    // Rastgele admin seçimi için her thread kendi local RNG'sini kullanacak
     tbb::parallel_for(0, voterCount, [&](int i) {
+        // Hazırlık (Prepare)
         PipelineResult result;
         result.timing.prep_start = Clock::now();
         PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
         result.timing.prep_end = Clock::now();
+
         logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
 
+        // Şimdi BlindSign
         result.timing.blind_start = Clock::now();
-        // BlindSign işlemi: Her voter için adminlerden threshold (t) kadar imza alınması gerekiyor.
 
         std::vector<BlindSignature> collected;
+        collected.reserve(t);  // threshold kadar imza toplanacak
+
+        // Eşik sayıda (t) imza toplanana kadar rastgele admin dene
         int scheduled = 0;
 
-        // === DEĞİŞTİRİLEN KISIM: Round-robin yerine "hangisi boşsa onu kullan" ===
+        // Her voter için ayrı RNG
+        std::random_device rd;
+        std::mt19937 rng(rd());
+
+        // 0..(adminCount-1) aralığını tutan bir vector
+        std::vector<int> adminIndices(adminCount);
+        for (int k = 0; k < adminCount; k++) {
+            adminIndices[k] = k;
+        }
+
         while (scheduled < t) {
-            bool foundAny = false;
-            // Tüm admin'leri sırayla dene, hangisi müsaitse "try_acquire()" ile al
-            for (int admin = 0; admin < adminCount && scheduled < t; admin++) {
+            // 1) adminIndices'i karıştır
+            std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
+
+            bool usedAny = false;
+            // 2) Karıştırılmış sırada admin'leri dene
+            for (int admin : adminIndices) {
+                // threshold dolduysa çık
+                if (scheduled >= t) break;
+
+                // Müsaitse imzala
                 if (adminSemaphores[admin]->try_acquire()) {
-                    foundAny = true;
+                    usedAny = true;
+
                     logThreadUsage("BlindSign",
                         "Voter " + std::to_string(i+1) + 
                         " - Admin " + std::to_string(admin+1) +
@@ -261,6 +285,7 @@ int main() {
                     element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
                     element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
 
+                    // Kör imza fonksiyonu
                     BlindSignature sig = blindSign(params, bsOut, xm, ym);
 
                     mpz_clear(xm);
@@ -273,30 +298,32 @@ int main() {
                         std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
                     );
 
+                    // Semaforu sal
                     adminSemaphores[admin]->release();
+
                     collected.push_back(sig);
                     scheduled++;
                 }
             }
-            // Bu turda hiç admin boşta bulunamadıysa biraz bekle
-            if (!foundAny && scheduled < t) {
+            // Bu turda hiç admin bulunamadıysa 1 ms bekle
+            if (!usedAny && scheduled < t) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
-        // === DEĞİŞTİRİLEN KISIM SONU ===
 
         result.timing.blind_end = Clock::now();
         result.signatures = collected;
         pipelineResults[i] = result;
     });
 
-    // Pipeline sonuçlarının yazdırılması ve zaman ölçümlerinin hesaplanması
+    // Pipeline sonuçlarının yazdırılması
     long long cumulativePrep_us = 0;
     long long cumulativeBlind_us = 0;
     for (int i = 0; i < voterCount; i++) {
-        std::cout << "Secmen " << (i+1) << " icin " 
-                  << pipelineResults[i].signatures.size() 
+        std::cout << "Secmen " << (i+1) << " icin "
+                  << pipelineResults[i].signatures.size()
                   << " admin onayi alindi.\n";
+
         auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
             pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
         auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -305,21 +332,22 @@ int main() {
         cumulativePrep_us += prep_time;
         cumulativeBlind_us += blind_time;
 
-        std::cout << "Voter " << (i+1) 
+        std::cout << "Voter " << (i+1)
                   << ": Prepare time = " << prep_time/1000.0
                   << " ms, BlindSign time = " << blind_time/1000.0 << " ms\n";
     }
+
     // Toplam pipeline süresi
     auto endPipeline = Clock::now();
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                           endPipeline - pipelineResults[0].timing.prep_start
-                       ).count();
+        endPipeline - pipelineResults[0].timing.prep_start
+    ).count();
 
-    std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = " 
+    std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = "
               << pipeline_us/1000.0 << " ms ===\n";
-    std::cout << "Cumulative Prepare time (sum of all tasks): " 
+    std::cout << "Cumulative Prepare time (sum of all tasks): "
               << cumulativePrep_us/1000.0 << " ms\n";
-    std::cout << "Cumulative BlindSign time (sum of all tasks): " 
+    std::cout << "Cumulative BlindSign time (sum of all tasks): "
               << cumulativeBlind_us/1000.0 << " ms\n";
 
     // 8) Bellek temizliği
