@@ -42,11 +42,12 @@ BlindSignature blindSign(
     element_set(sig.h, h);
     element_clear(h);
 
-    // Compute cm = (bsOut.com_blind)^(xₘ)
+    // Compute cm = (bsOut.com)^(xₘ)
     element_t expX;
     element_init_Zr(expX, params.pairing);
-    element_set_mpz(expX, xm);
-    element_pow_zn(sig.cm, bsOut.com_blind, expX);
+    element_set_mpz(expX, xm); // use xₘ
+    // *** Changed from bsOut.com_blind to bsOut.com ***
+    element_pow_zn(sig.cm, bsOut.com, expX);
     element_clear(expX);
 
     return sig;
