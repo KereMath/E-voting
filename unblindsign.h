@@ -47,7 +47,7 @@ struct UnblindSignature {
 */
 UnblindSignature unblindSignature(
     TIACParams &params,
-    const UnblindSignInput &in
+    UnblindSignInput &in  // NOTE: no 'const' here
 );
 
 #endif // UNBLINDSIGN_H

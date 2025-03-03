@@ -5,8 +5,8 @@
 #include <openssl/sha.h>
 
 /*
-  hashToG1: comi'yi (G1 elemanı) tekrar string'e çevirip, 
-            element_from_hash ile G1'e mapler.
+  hashComiToG1: comi'yi (G1 elemanı) tekrar string'e çevirip, 
+                element_from_hash ile G1'e mapler.
   Bu fonksiyon, prepareBlindSign'daki mantığa eşdeğer olmalı.
 */
 static void hashComiToG1(element_t outG1, TIACParams &params, element_t comi)
@@ -16,15 +16,13 @@ static void hashComiToG1(element_t outG1, TIACParams &params, element_t comi)
     std::vector<unsigned char> buf(len);
     element_to_bytes(buf.data(), comi);
 
-    // 2) Bu baytları bir string olarak ele al
-    std::string data;
-    data.reserve(len * 2);
+    // 2) Bu baytları hex string olarak oluştur
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
     for (auto c : buf) {
         oss << std::setw(2) << (unsigned int)c;
     }
-    data = oss.str();
+    std::string data = oss.str();
 
     // 3) element_from_hash: data'yı G1'e yansıtır
     element_from_hash(outG1, data.data(), data.size());
@@ -32,7 +30,7 @@ static void hashComiToG1(element_t outG1, TIACParams &params, element_t comi)
 
 UnblindSignature unblindSignature(
     TIACParams &params,
-    const UnblindSignInput &in
+    UnblindSignInput &in  // Removed 'const'
 ) {
     // 1) Hash kontrolü: Hash(comi) ?= h
     element_t hcheck;
@@ -52,7 +50,7 @@ UnblindSignature unblindSignature(
 
     element_t exp_o;
     element_init_Zr(exp_o, params.pairing);
-    element_set_mpz(exp_o, in.o);
+    element_set_mpz(exp_o, in.o);   // in.o is now non-const
 
     element_pow_zn(beta1_pow_o, in.beta1, exp_o);
 
@@ -63,11 +61,12 @@ UnblindSignature unblindSignature(
 
     //    c) sm
     UnblindSignature result;
-    element_init_G1(result.h,  params.pairing); // h, output'ta saklanacak
+    element_init_G1(result.h,  params.pairing); 
     element_init_G1(result.sm, params.pairing);
 
-    element_set(result.h, in.h);  // h aynen çıktıya kopyalanır
-
+    // kopyala h => result.h
+    element_set(result.h, in.h);  
+    // sm = cm * (beta1^(-o))
     element_mul(result.sm, in.cm, inv_beta1_pow_o);
 
     // Temizlik
@@ -83,7 +82,7 @@ UnblindSignature unblindSignature(
 
     element_t exp_did;
     element_init_Zr(exp_did, params.pairing);
-    element_set_mpz(exp_did, in.DIDi);
+    element_set_mpz(exp_did, in.DIDi);   // in.DIDi is now non-const
 
     element_pow_zn(beta2_pow_did, in.beta2, exp_did);
 
@@ -97,19 +96,17 @@ UnblindSignature unblindSignature(
     element_init_GT(left,  params.pairing);
     element_init_GT(right, params.pairing);
 
-    pairing_apply(left,  result.h,    combined_key, params.pairing);
-    pairing_apply(right, result.sm,   params.g2,    params.pairing);
+    pairing_apply(left,  result.h,  combined_key, params.pairing);
+    pairing_apply(right, result.sm, params.g2,    params.pairing);
 
-    // Karşılaştırma
     if (element_cmp(left, right) != 0) {
-        // Bellek temizliği
+        // Hata => temizlik
         element_clear(beta2_pow_did);
         element_clear(combined_key);
         element_clear(left);
         element_clear(right);
         element_clear(exp_did);
 
-        // sm de clear edilmeli, result içinde
         element_clear(result.h);
         element_clear(result.sm);
 
