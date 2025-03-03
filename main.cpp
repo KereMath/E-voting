@@ -218,7 +218,7 @@ int main() {
     // BlindSign aşamasında ise her admin için 2 paralel görev çalışabilsin diye std::counting_semaphore kullanıyoruz.
 
     // Her admin için 2 izne (token) sahip semaphor oluşturuluyor.
-    const int adminCount = ne;
+    const int adminCount = 2;
     // Semaphor nesnelerini vector içinde unique_ptr ile saklıyoruz.
     std::vector<std::unique_ptr<std::counting_semaphore<>>> adminSemaphores;
     for (int i = 0; i < adminCount; i++) {
