@@ -406,43 +406,43 @@ int main() {
     //
     // ********** AGGREGATION PHASE (Alg.14) **********
     //
-    auto aggStart = std::chrono::steady_clock::now();
+    // auto aggStart = std::chrono::steady_clock::now();
 
-    std::vector<AggregateOutput> finalSignatures(voterCount);
+    // std::vector<AggregateOutput> finalSignatures(voterCount);
 
-    for (int i = 0; i < voterCount; i++) {
-        // gather partial unblinded sigs => unblindResults[i][0..t-1]
-        AggregateInput aggIn;
-        for (int j = 0; j < t; j++) {
-            aggIn.partials.push_back(unblindResults[i][j]);
-        }
+    // for (int i = 0; i < voterCount; i++) {
+    //     // gather partial unblinded sigs => unblindResults[i][0..t-1]
+    //     AggregateInput aggIn;
+    //     for (int j = 0; j < t; j++) {
+    //         aggIn.partials.push_back(unblindResults[i][j]);
+    //     }
 
-        // the MASTER public key
-        element_init_G2(aggIn.alpha2, params.pairing);
-        element_set(aggIn.alpha2, keyOut.mvk.alpha2);
+    //     // the MASTER public key
+    //     element_init_G2(aggIn.alpha2, params.pairing);
+    //     element_set(aggIn.alpha2, keyOut.mvk.alpha2);
 
-        element_init_G2(aggIn.beta2, params.pairing);
-        element_set(aggIn.beta2, keyOut.mvk.beta2);
+    //     element_init_G2(aggIn.beta2, params.pairing);
+    //     element_set(aggIn.beta2, keyOut.mvk.beta2);
 
-        element_init_G1(aggIn.beta1, params.pairing);
-        element_set(aggIn.beta1, keyOut.mvk.beta1);
+    //     element_init_G1(aggIn.beta1, params.pairing);
+    //     element_set(aggIn.beta1, keyOut.mvk.beta1);
 
-        mpz_init(aggIn.DIDi);
-        mpz_set(aggIn.DIDi, dids[i].x);
+    //     mpz_init(aggIn.DIDi);
+    //     mpz_set(aggIn.DIDi, dids[i].x);
 
-        AggregateOutput aggOut = aggregateSignatures(params, aggIn);
-        finalSignatures[i] = aggOut;
+    //     AggregateOutput aggOut = aggregateSignatures(params, aggIn);
+    //     finalSignatures[i] = aggOut;
 
-        // cleanup
-        element_clear(aggIn.alpha2);
-        element_clear(aggIn.beta2);
-        element_clear(aggIn.beta1);
-        mpz_clear(aggIn.DIDi);
-    }
+    //     // cleanup
+    //     element_clear(aggIn.alpha2);
+    //     element_clear(aggIn.beta2);
+    //     element_clear(aggIn.beta1);
+    //     mpz_clear(aggIn.DIDi);
+    // }
 
-    auto aggEnd = std::chrono::steady_clock::now();
-    long long agg_us = std::chrono::duration_cast<std::chrono::microseconds>(
-        aggEnd - aggStart).count();
+    // auto aggEnd = std::chrono::steady_clock::now();
+    // long long agg_us = std::chrono::duration_cast<std::chrono::microseconds>(
+    //     aggEnd - aggStart).count();
 
     // 12) cleanup
     element_clear(keyOut.mvk.alpha2);
