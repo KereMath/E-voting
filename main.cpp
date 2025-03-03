@@ -5,25 +5,21 @@
 #include <vector>
 #include <random>
 #include <algorithm>    // std::shuffle
-#include <thread>
-#include <future>
-#include <mutex>
-#include <condition_variable>
-#include <queue>
-#include <atomic>
-#include <semaphore>    // C++20 semaphores
-#include <memory>       // std::unique_ptr
-
-#include <tbb/parallel_for.h>
-#include <tbb/blocked_range.h>
-#include <tbb/global_control.h>
-
 #include "setup.h"
 #include "keygen.h"
 #include "didgen.h"
 #include "prepareblindsign.h"
 #include "blindsign.h"   // Alg.50
 #include "unblindsign.h" // Alg.13
+#include <thread>
+#include <future>
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#include <tbb/global_control.h>
+#include <mutex>
+#include <limits>
+#include <semaphore>    // C++20 semaphores
+#include <memory>       // std::unique_ptr
 
 using Clock = std::chrono::steady_clock;
 
@@ -58,106 +54,9 @@ struct PipelineResult {
     PipelineTiming timing;
 };
 
-// --- SignRequest: Her bir imza talebi için kuyruk nesnesi ---
-struct SignRequest {
-    int voterId;                      // Hangi seçmenin isteği
-    PrepareBlindSignOutput bsOut;     // Kör imza ön verisi
-};
-
-// Global paylaşılacak: pipelineResults
-std::vector<PipelineResult> pipelineResults;
-
-// Kuyruk ve senkronizasyon yapıları
-std::queue<SignRequest> requestQueue;
-std::mutex queueMutex;
-std::condition_variable queueCV;
-std::atomic<int> remainingJobs;  // Kaç tane imza işi kaldı (voterCount * t)
-
-// keyOut, params gibi yapıları admin thread'lerde de kullanacağız
-// Global olarak saklayalım (örnek basitlik için)
-KeyGenOutput keyOut;
-TIACParams params;
-
-// Kaç seçmen, kaç threshold, kaç admin
-int ne = 0;           // admin (EA sayısı)
-int t  = 0;           // threshold
-int voterCount = 0;   // seçmen sayısı
-
-// Admin thread'lerinin ana fonksiyonu
-void adminWorker(int adminIndex) {
-    for (;;) {
-        SignRequest job;
-        {
-            std::unique_lock<std::mutex> ul(queueMutex);
-
-            // Kuyruk boş ve hala iş varsa bekle
-            queueCV.wait(ul, [&]{
-                return (!requestQueue.empty() || remainingJobs <= 0);
-            });
-
-            if (remainingJobs <= 0) {
-                // Tüm işler bitti
-                return;
-            }
-            // Aksi halde kuyruğun boş olmadığını garanti ediyoruz
-            job = requestQueue.front();
-            requestQueue.pop();
-        }
-        // Şimdi queueMutex'i bıraktık, imzalama yapabiliriz
-        // Log: started
-        logThreadUsage("BlindSign",
-           "Voter " + std::to_string(job.voterId+1) +
-           " - Admin " + std::to_string(adminIndex+1) +
-           " sign task started on thread " +
-           std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-        );
-
-        // İmzalama:
-        mpz_t xm, ym;
-        mpz_init(xm);
-        mpz_init(ym);
-        element_to_mpz(xm, keyOut.eaKeys[adminIndex].sgk1);
-        element_to_mpz(ym, keyOut.eaKeys[adminIndex].sgk2);
-
-        BlindSignature sig = blindSign(params, job.bsOut, xm, ym);
-
-        mpz_clear(xm);
-        mpz_clear(ym);
-
-        // Log: finished
-        logThreadUsage("BlindSign",
-           "Voter " + std::to_string(job.voterId+1) +
-           " - Admin " + std::to_string(adminIndex+1) +
-           " sign task finished on thread " +
-           std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-        );
-
-        // Sonucu pipelineResults'e kaydet
-        {
-            static std::mutex resultMutex;
-            std::lock_guard<std::mutex> lk(resultMutex);
-            pipelineResults[job.voterId].signatures.push_back(sig);
-
-            // Her imza bitişinde, blind_end'i son imza zamanı olarak güncelleriz
-            auto nowT = Clock::now();
-            // Sadece en son biten zaman kalsın diye max kullanıyoruz
-            if (nowT > pipelineResults[job.voterId].timing.blind_end) {
-                pipelineResults[job.voterId].timing.blind_end = nowT;
-            }
-        }
-
-        // Bir iş bitti
-        int r = --remainingJobs;
-        if (r <= 0) {
-            // Tüm işler bitti => diğer thread'leri uyandır ki çıkabilsinler
-            queueCV.notify_all();
-            return;
-        }
-    }
-}
-
 int main() {
     // 1) params.txt'den EA sayısı, eşik ve seçmen sayısı okunuyor.
+    int ne = 0, t = 0, voterCount = 0;
     {
         std::ifstream infile("params.txt");
         if (!infile) {
@@ -182,7 +81,7 @@ int main() {
 
     // 2) Setup (Alg.1)
     auto startSetup = Clock::now();
-    params = setupParams();
+    TIACParams params = setupParams();
     auto endSetup = Clock::now();
     auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
     {
@@ -224,7 +123,7 @@ int main() {
     // 4) KeyGen (Alg.2)
     std::cout << "=== TTP ile Anahtar Uretimi (KeyGen) ===\n";
     auto startKeygen = Clock::now();
-    keyOut = keygen(params, t, ne);
+    KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
 
@@ -312,87 +211,125 @@ int main() {
         free(x_str);
     }
 
-    // Sonuç yapılarını hazırlıyoruz
-    pipelineResults.resize(voterCount);
+    // 7) Pipeline: PrepareBlindSign ve BlindSign (Admin Imzalama)
+    // PrepareBlindSign aşaması TBB ile aynı anda maksimum 6 thread çalışacak şekilde paralel yürütülecek.
+    // BlindSign aşamasında ise her admin için 2 paralel görev çalışabilsin diye std::counting_semaphore kullanıyoruz.
 
-    // --- ADIM 1: Admin Thread'leri başlasın (queue'dan iş çekecek) ---
-    remainingJobs = voterCount * t;
-    std::vector<std::thread> adminThreads;
-    adminThreads.reserve(ne);
-    for (int a = 0; a < ne; a++) {
-        adminThreads.emplace_back(adminWorker, a);
+    // Her admin için 2 izne (token) sahip semaphor oluşturuluyor.
+    const int adminCount = ne;
+    std::vector<std::unique_ptr<std::counting_semaphore<>>> adminSemaphores;
+    for (int i = 0; i < adminCount; i++) {
+        // Her admin aynı anda 2 imzaya kadar çalışabiliyor (50 diyorsan çok daha fazla da olabilir)
+        adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(50));
     }
 
-    // --- ADIM 2: Seçmenler (TBB) prepare eder etmez istek üretsin ---
-    auto pipelineStart = Clock::now();
-    {
-        tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
+    // Pipeline sonuçlarını tutacak vector
+    std::vector<PipelineResult> pipelineResults(voterCount);
 
-        tbb::parallel_for(0, voterCount, [&](int i) {
-            // Prepare start
-            pipelineResults[i].timing.prep_start = Clock::now();
-            PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
-            pipelineResults[i].timing.prep_end   = Clock::now();
+    // TBB global kontrolü ile prepare aşamasında maksimum 6 thread kullanımı sağlanıyor.
+    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
 
-            logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
+    // Rastgele admin seçimi için her thread kendi local RNG'sini kullanacak
+    tbb::parallel_for(0, voterCount, [&](int i) {
+        // Hazırlık (Prepare)
+        PipelineResult result;
+        result.timing.prep_start = Clock::now();
+        PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
+        result.timing.prep_end = Clock::now();
 
-            // Şimdi imza istekleri oluşturmaya başlıyoruz
-            pipelineResults[i].timing.blind_start = Clock::now();
+        logThreadUsage("Pipeline", "Voter " + std::to_string(i+1) + " prepareBlindSign finished.");
 
-            {
-                std::lock_guard<std::mutex> lk(queueMutex);
-                for (int j = 0; j < t; j++) {
-                    SignRequest req;
-                    req.voterId = i;
-                    req.bsOut   = bsOut;
-                    requestQueue.push(req);
+        // Şimdi BlindSign
+        result.timing.blind_start = Clock::now();
+
+        std::vector<BlindSignature> collected;
+        collected.reserve(t);  // threshold kadar imza toplanacak
+
+        // Eşik sayıda (t) imza toplanana kadar rastgele admin dene
+        int scheduled = 0;
+
+        // Her voter için ayrı RNG
+        std::random_device rd;
+        std::mt19937 rng(rd());
+
+        // 0..(adminCount-1) aralığını tutan bir vector
+        std::vector<int> adminIndices(adminCount);
+        for (int k = 0; k < adminCount; k++) {
+            adminIndices[k] = k;
+        }
+
+        while (scheduled < t) {
+            // 1) adminIndices'i karıştır
+            std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
+
+            bool usedAny = false;
+            // 2) Karıştırılmış sırada admin'leri dene
+            for (int admin : adminIndices) {
+                // threshold dolduysa çık
+                if (scheduled >= t) break;
+
+                // Müsaitse imzala
+                if (adminSemaphores[admin]->try_acquire()) {
+                    usedAny = true;
+
+                    logThreadUsage("BlindSign",
+                        "Voter " + std::to_string(i+1) + 
+                        " - Admin " + std::to_string(admin+1) +
+                        " sign task started on thread " +
+                        std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
+                    );
+
+                    mpz_t xm, ym;
+                    mpz_init(xm);
+                    mpz_init(ym);
+                    element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
+                    element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
+
+                    // Kör imza fonksiyonu
+                    BlindSignature sig = blindSign(params, bsOut, xm, ym);
+
+                    mpz_clear(xm);
+                    mpz_clear(ym);
+
+                    logThreadUsage("BlindSign",
+                        "Voter " + std::to_string(i+1) + 
+                        " - Admin " + std::to_string(admin+1) +
+                        " sign task finished on thread " +
+                        std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
+                    );
+
+                    // Semaforu sal
+                    adminSemaphores[admin]->release();
+
+                    collected.push_back(sig);
+                    scheduled++;
                 }
             }
-            // Admin'lere bildir
-            queueCV.notify_all();
+            // Bu turda hiç admin bulunamadıysa 1 ms bekle
+            if (!usedAny && scheduled < t) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
 
-            // blind_end zamanını admin iş bitirince güncelleyeceğiz 
-            // (her imzada pipelineResults[i].timing.blind_end = now)
-        });
-    }
-
-    // --- ADIM 3: TBB Bitti, ama belki hâlâ queue'da işler var, admin'lerin bitmesini bekleyelim ---
-    {
-        std::unique_lock<std::mutex> ul(queueMutex);
-        // Tüm işler bitene dek bekle
-        queueCV.wait(ul, [&]{
-            return (remainingJobs <= 0);
-        });
-    }
-
-    // Artık remainingJobs=0 => admin threadleri de kendini kapatacak. Ama yine de join etmek lazım
-    for (auto &th : adminThreads) {
-        th.join();
-    }
-    auto pipelineEnd = Clock::now();
+        result.timing.blind_end = Clock::now();
+        result.signatures = collected;
+        pipelineResults[i] = result;
+    });
 
     // Pipeline sonuçlarının yazdırılması
     long long cumulativePrep_us = 0;
     long long cumulativeBlind_us = 0;
-
-    // pipelineStart'ı en erken "prepare" başlayan an olarak da kullanabiliriz,
-    // ama tam net isterseniz min() alabilirsiniz. Burada pipelineStart sabit.
     for (int i = 0; i < voterCount; i++) {
-        // Kaç admin onayı alındı
-        int gotCount = (int) pipelineResults[i].signatures.size();
         std::cout << "Secmen " << (i+1) << " icin "
-                  << gotCount
+                  << pipelineResults[i].signatures.size()
                   << " admin onayi alindi.\n";
 
         auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start
-        ).count();
-
+            pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
         auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start
-        ).count();
+            pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
 
-        cumulativePrep_us  += prep_time;
+        cumulativePrep_us += prep_time;
         cumulativeBlind_us += blind_time;
 
         std::cout << "Voter " << (i+1)
@@ -400,10 +337,10 @@ int main() {
                   << " ms, BlindSign time = " << blind_time/1000.0 << " ms\n";
     }
 
-    // Toplam pipeline süresi: prepare'ların başlamasıyla son admin imzasının bitişi arası
-    // pipelineStart - pipelineEnd
+    // Toplam pipeline süresi
+    auto endPipeline = Clock::now();
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(
-        pipelineEnd - pipelineStart
+        endPipeline - pipelineResults[0].timing.prep_start
     ).count();
 
     std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = "
