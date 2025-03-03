@@ -402,9 +402,20 @@ int main() {
 
     // Toplam pipeline süresi: prepare'ların başlamasıyla son admin imzasının bitişi arası
     // pipelineStart - pipelineEnd
-    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(
-        pipelineEnd - pipelineStart
-    ).count();
+
+    std::vector<PrepareBlindSignOutput> preparedOutputs(voterCount);
+
+    tbb::parallel_for(0, voterCount, [&](int i){
+        pipelineResults[i].timing.prep_start = Clock::now();
+        PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
+        pipelineResults[i].timing.prep_end = Clock::now();
+        logThreadUsage("Pipeline",
+            "Voter " + std::to_string(i+1) +
+            " prepareBlindSign finished on thread " +
+            std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
+        );
+        preparedOutputs[i] = bsOut;
+    });
 
  //
     // ********** UNBLIND PHASE (Alg.13) **********
