@@ -2,28 +2,24 @@
 #define AGGREGATE_H
 
 #include "setup.h"
-#include "unblindsign.h" // for UnblindSignature
+#include "unblindsign.h"
 #include <vector>
-#include <stdexcept>
 
 /*
-  The partial unblinded signature structure: (h, sm)
-  Already in unblindsign.h => UnblindSignature
-
-  We define an 'AggregateInput' and 'AggregateOutput' to unify the logic of
-  combining partial unblinded signatures.
+  partial unblinded sig => (h, sm)
+  We'll combine them.
 
   'AggregateInput':
-    - partials:  The partial unblinded sigs => vector<UnblindSignature>
-    - alpha2, beta2, beta1 => the MASTER public key: (g2^x, g2^y, g1^y)
-    - DIDi => mpz_t for the user identity
+    partials => a vector of UnblindSignature
+    alpha2, beta2, beta1 => the MASTER public key
+    DIDi => mpz for DID
 */
 struct AggregateInput {
-    std::vector<UnblindSignature> partials; 
+    std::vector<UnblindSignature> partials;
     element_t alpha2; // G2
     element_t beta2;  // G2
     element_t beta1;  // G1
-    mpz_t DIDi;       // the user's DID
+    mpz_t     DIDi;   // Zr
 };
 
 struct AggregateOutput {
@@ -32,9 +28,7 @@ struct AggregateOutput {
 };
 
 /*
-  aggregateSignatures: implements Alg.14
-   Girdi: partial unblinded sigs (h, sm), mvk=(alpha2, beta2, beta1)
-   Çıktı: final sig = (h, s), where s=product of all partial sm in G1
+  aggregateSignatures => Alg.14
 */
 AggregateOutput aggregateSignatures(
     TIACParams &params,
