@@ -35,6 +35,7 @@ void logThreadUsage(const std::string &phase, const std::string &msg) {
 }
 
 // -----------------------------------------------------------------------------
+// Pipeline zaman bilgisi
 struct PipelineTiming {
     Clock::time_point prep_start;
     Clock::time_point prep_end;
@@ -42,6 +43,7 @@ struct PipelineTiming {
     Clock::time_point blind_end;
 };
 
+// Her seçmen için sonuçları tutan yapı
 struct PipelineResult {
     std::vector<BlindSignature> signatures;
     PipelineTiming timing;
@@ -55,7 +57,7 @@ void my_element_dup(element_t dest, element_t src) {
 
 // -----------------------------------------------------------------------------
 int main() {
-    // 1) params.txt'den EA sayısı, threshold (t) ve seçmen sayısı (voterCount) okunuyor
+    // 1) params.txt'den EA sayısı (ne), threshold (t) ve seçmen sayısı (voterCount) okunuyor
     int ne = 0;         // admin (EA) sayısı
     int t  = 0;         // threshold
     int voterCount = 0; // seçmen sayısı
@@ -220,75 +222,49 @@ int main() {
     // Pipeline başlangıcı
     auto pipelineStart = Clock::now();
 
-    // TBB thread sayısını 50 ile sınırlayalım (opsiyonel)
+    // TBB thread sayısını 50 ile sınırlayalım (opsiyonel):
     tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
 
-    // 7) Tüm seçmenler için prepareBlindSign (paralelde)
-    std::vector<PrepareBlindSignOutput> preparedOutputs(voterCount);
-
-    tbb::parallel_for(0, voterCount, [&](int i){
-        // Prepare start
+    // -------------------------------------------------------------------------
+    // 7) "Nested" Yaklaşım: 
+    //    Her seçmen, prepare biter bitmez T kere blindSign başlatır.
+    //    Yani tüm seçmenlerin prepare'ı bitene dek beklenmiyor.
+    // -------------------------------------------------------------------------
+    tbb::parallel_for(0, voterCount, [&](int i) {
+        // A) Prepare
         pipelineResults[i].timing.prep_start = Clock::now();
         PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
         pipelineResults[i].timing.prep_end = Clock::now();
 
-        // Debug log: bu seçmen prepare işi bitti
+        // Log: bu seçmen prepare işi bitti
         logThreadUsage("Pipeline",
             "Voter " + std::to_string(i+1) +
             " prepareBlindSign finished on thread " +
             std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
         );
 
-        preparedOutputs[i] = bsOut;
-    });
+        // B) Kör imza işlemlerine hemen başla (T kere)
+        pipelineResults[i].timing.blind_start = Clock::now();
 
-    // 8) Kör imza görevleri için tek bir "SignTask" havuzu
-    struct SignTask {
-        int voterId;
-        int indexInVoter;
-        int adminId;
-    };
-    std::vector<SignTask> tasks;
-    tasks.reserve(voterCount * t);
+        // Hangi admin'lerin kullanılacağını rastgele/dinamik seçmek için:
+        // Örnek: T adet distinct admin (shuffle approach)
+        std::vector<int> allAdmins(ne);
+        std::iota(allAdmins.begin(), allAdmins.end(), 0);
+        static thread_local std::mt19937 rng(std::random_device{}());
+        std::shuffle(allAdmins.begin(), allAdmins.end(), rng);
 
-    // Rastgele admin subset'i seçimi için
-    std::random_device rd;
-    std::mt19937 rng(rd());
+        // Sign sonuçlarını tutacak geçici vector
+        std::vector<BlindSignature> localSigs(t);
 
-    // Admin indekslerinin [0..ne-1] aralığını tutan dizi
-    std::vector<int> adminIndices(ne);
-    std::iota(adminIndices.begin(), adminIndices.end(), 0);
-
-    // Her seçmen için T adet FARKLI admin seçip tasks’e ekleyelim
-    for (int i = 0; i < voterCount; i++) {
-        pipelineResults[i].signatures.resize(t);
-        pipelineResults[i].timing.blind_start = pipelineResults[i].timing.prep_end;
-
-        // Admin dizisini her seçmen için karıştıralım (shuffle)
-        std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
-        // Böylece adminIndices[0..t-1] => o seçmen için T farklı admin
-
-        for (int j = 0; j < t; j++) {
-            SignTask st;
-            st.voterId      = i;
-            st.indexInVoter = j;
-            st.adminId      = adminIndices[j]; // T farklı admin
-            tasks.push_back(st);
-        }
-    }
-
-    // 9) Şimdi bu tasks havuzunu paralelde koşturuyoruz
-    tbb::parallel_for(
-        0, (int)tasks.size(),
-        [&](int idx) {
-            const SignTask &st = tasks[idx];
-            int vId = st.voterId;
-            int j   = st.indexInVoter;
-            int aId = st.adminId;
+        // Nested paralellik: T kere blindSign'i paralel yürütelim
+        tbb::parallel_for(0, t, [&](int j) {
+            // Hangi admin imzalıyor? 
+            int aId = allAdmins[j % ne]; 
+            // ya da T <= ne ise => allAdmins[j] => T farklı admin
 
             // Log: started
             logThreadUsage("BlindSign",
-                "Voter " + std::to_string(vId+1) +
+                "Voter " + std::to_string(i+1) +
                 " - Admin " + std::to_string(aId+1) +
                 " sign task started on thread " +
                 std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
@@ -301,31 +277,32 @@ int main() {
             element_to_mpz(xm, keyOut.eaKeys[aId].sgk1);
             element_to_mpz(ym, keyOut.eaKeys[aId].sgk2);
 
-            BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym);
+            BlindSignature sig = blindSign(params, bsOut, xm, ym);
 
             mpz_clear(xm);
             mpz_clear(ym);
 
             // Log: finished
             logThreadUsage("BlindSign",
-                "Voter " + std::to_string(vId+1) +
+                "Voter " + std::to_string(i+1) +
                 " - Admin " + std::to_string(aId+1) +
                 " sign task finished on thread " +
                 std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
             );
 
-            // Sonucu ilgili seçmenin j. imzası olarak saklayalım
-            pipelineResults[vId].signatures[j] = sig;
-        }
-    );
+            localSigs[j] = sig;
+        });
 
-    // 10) Kör imzalar bittiğinde pipelineEnd
+        pipelineResults[i].timing.blind_end = Clock::now();
+
+        // Bütün T imzayı pipelineResults’e kopyalayalım
+        pipelineResults[i].signatures = std::move(localSigs);
+    });
+
+    // -------------------------------------------------------------------------
+    // Tüm seçmenlerin hazırlama+imza işleri (nested) bittikten sonra:
+    // -------------------------------------------------------------------------
     auto pipelineEnd = Clock::now();
-    for (int i = 0; i < voterCount; i++) {
-        pipelineResults[i].timing.blind_end = pipelineEnd;
-    }
-
-    // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
 
     // Sonuçları ekrana basalım
