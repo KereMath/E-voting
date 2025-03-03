@@ -528,7 +528,6 @@ int main() {
     std::cout << "Pipeline (Prep+Blind): " << pipeline_ms << " ms\n";
     std::cout << "\nToplam hazirlama (sum) = " << (cumulativePrep_us / 1000.0) << " ms\n";
     std::cout << "Toplam kör imza (sum)  = " << (cumulativeBlind_us / 1000.0) << " ms\n";
-    std::cout << "UnblindSignature total time: " << (unblind_us / 1000.0) << " ms\n";
     // std::cout << "AggregateSignatures total time: " << (agg_us / 1000.0) << " ms\n";
     threadLog.close();
     std::cout << "\n=== Program Sonu ===\n";
