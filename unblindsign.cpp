@@ -1,17 +1,17 @@
 #include "unblindsign.h"
-#include <stdexcept>
-#include <iostream>
-#include <chrono>
+#include <openssl/sha.h>
 #include <sstream>
 #include <iomanip>
+#include <stdexcept>
 #include <vector>
-#include <openssl/sha.h>
+#include <iostream>
 
-// Helper: Convert a G1 element to a hex string.
-static std::string elementToHex(element_t e) {
-    int len = element_length_in_bytes(e);
+// Yardımcı: G1 elemanını hex string’e çevir (non-const pointer)
+static std::string elemToStrG1(element_t g1Elem) {
+    int len = element_length_in_bytes(g1Elem);
     std::vector<unsigned char> buf(len);
-    element_to_bytes(buf.data(), e);
+    element_to_bytes(buf.data(), g1Elem);
+    
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
     for (unsigned char c : buf) {
@@ -20,83 +20,93 @@ static std::string elementToHex(element_t e) {
     return oss.str();
 }
 
-// Helper: Compute hcheck = Hash(comi)
-static void hashComiToG1(element_t outG1, TIACParams &params, element_t comi) {
-    std::string hexStr = elementToHex(comi);
-    element_from_hash(outG1, hexStr.data(), hexStr.size());
-}
-
+/*
+  unblindSignature (Algoritma 13)
+  1) Eğer Hash(comi) ≠ h, hata.
+  2) sm = cm · (beta1)^(–o) hesapla.
+  3) Doğrulama: e(h, alpha2 · (beta2)^(DIDi)) == e(sm, g2)
+  4) Eğer eşit ise (h, sm) döndür, değilse hata.
+*/
 UnblindSignature unblindSignature(
     TIACParams &params,
     UnblindSignInput &in
 ) {
-    auto start = std::chrono::high_resolution_clock::now();
-
-    // **1. Hash doğrulama: h = Hash(comi) olup olmadığını kontrol et**
-    element_t hcheck;
-    element_init_G1(hcheck, params.pairing);
-    hashComiToG1(hcheck, params, in.comi);
-    if (element_cmp(hcheck, in.h) != 0) {
-        element_clear(hcheck);
-        throw std::runtime_error("unblindSignature(Alg.13): Hash(comi) != h => Hata");
+    // 1) Hash(comi) kontrolü:
+    element_t hashComi;
+    element_init_G1(hashComi, params.pairing);
+    {
+        std::string s = elemToStrG1(in.comi);
+        element_from_hash(hashComi, s.data(), s.size());
     }
-    element_clear(hcheck);
-
-    // **2. Körleştirme kaldırma: sm = cm * (β₁)^(-o)**
-    element_t beta1_pow_o;
-    element_init_G1(beta1_pow_o, params.pairing);
-    element_t exp_o;
-    element_init_Zr(exp_o, params.pairing);
-    element_set_mpz(exp_o, in.o);
-    element_pow_zn(beta1_pow_o, in.beta1, exp_o); // β₁^o
-
-    element_t inv_beta1_pow_o;
-    element_init_G1(inv_beta1_pow_o, params.pairing);
-    element_invert(inv_beta1_pow_o, beta1_pow_o); // (β₁)^(-o)
-
-    UnblindSignature result;
-    element_init_G1(result.h, params.pairing);
-    element_init_G1(result.sm, params.pairing);
-    element_set(result.h, in.h);
-    element_mul(result.sm, in.cm, inv_beta1_pow_o);
-
-    element_clear(beta1_pow_o);
-    element_clear(inv_beta1_pow_o);
-    element_clear(exp_o);
-
-    // **3. Pairing doğrulaması: e(h, α₂ * β₂^(DIDi)) == e(sm, g2)**
-    element_t beta2_pow_did;
-    element_init_G2(beta2_pow_did, params.pairing);
-    element_t exp_did;
-    element_init_Zr(exp_did, params.pairing);
-    element_set_mpz(exp_did, in.DIDi);
-    element_pow_zn(beta2_pow_did, in.beta2, exp_did); // β₂^(DIDi)
-
-    element_t combined;
-    element_init_G2(combined, params.pairing);
-    element_mul(combined, in.alpha2, beta2_pow_did); // α₂ * β₂^(DIDi)
-
-    element_t left, right;
-    element_init_GT(left, params.pairing);
-    element_init_GT(right, params.pairing);
-    pairing_apply(left, result.h, combined, params.pairing);
-    pairing_apply(right, result.sm, params.g2, params.pairing);
-
-    bool ok = (element_cmp(left, right) == 0);
-    element_clear(beta2_pow_did);
-    element_clear(combined);
-    element_clear(left);
-    element_clear(right);
-    element_clear(exp_did);
-
-    if (!ok) {
-        element_clear(result.h);
-        element_clear(result.sm);
-        throw std::runtime_error("unblindSignature(Alg.13): Pairing dogrulamasi basarisiz => Hata");
+    if (element_cmp(hashComi, in.h) != 0) {
+        element_clear(hashComi);
+        throw std::runtime_error("unblindSignature: Hash(comi) != h => Hata");
     }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "[DEBUG] unblindSignature took ~" << (ms / 1000.0) << " ms\n";
-    return result;
+    element_clear(hashComi);
+    
+    // 2) Unblinding: sm = cm · (beta1)^(–o)
+    UnblindSignature out;
+    element_init_G1(out.h, params.pairing);
+    element_init_G1(out.sm, params.pairing);
+    element_set(out.h, in.h);
+    element_set(out.sm, in.cm);
+    
+    // Hesapla: beta1^{-o}
+    element_t beta1_negO;
+    element_init_G1(beta1_negO, params.pairing);
+    {
+        element_t zrNeg;
+        element_init_Zr(zrNeg, params.pairing);
+        element_set_mpz(zrNeg, in.o);
+        element_neg(zrNeg, zrNeg); // -o
+        element_pow_zn(beta1_negO, in.beta1, zrNeg);
+        element_clear(zrNeg);
+    }
+    element_mul(out.sm, out.sm, beta1_negO);
+    element_clear(beta1_negO);
+    
+    // 3) Pairing doğrulaması: e(h, alpha2 · (beta2)^(DIDi)) ?= e(sm, g2)
+    element_t alpha2beta;
+    element_init_G2(alpha2beta, params.pairing);
+    element_set(alpha2beta, in.alpha2);
+    
+    element_t beta2_did;
+    element_init_G2(beta2_did, params.pairing);
+    {
+        element_t didZr;
+        element_init_Zr(didZr, params.pairing);
+        element_set_mpz(didZr, in.DIDi);
+        element_pow_zn(beta2_did, in.beta2, didZr);
+        element_clear(didZr);
+    }
+    element_mul(alpha2beta, alpha2beta, beta2_did);
+    element_clear(beta2_did);
+    
+    element_t lhs;
+    element_init_GT(lhs, params.pairing);
+    pairing_apply(lhs, in.h, alpha2beta, params.pairing);
+    element_clear(alpha2beta);
+    
+    element_t rhs;
+    element_init_GT(rhs, params.pairing);
+    pairing_apply(rhs, out.sm, params.g2, params.pairing);
+    
+    // Yazdırma: pairing sonuçlarını görmek için
+    char lhsStr[1024], rhsStr[1024];
+    element_snprintf(lhsStr, sizeof(lhsStr), "%B", lhs);
+    element_snprintf(rhsStr, sizeof(rhsStr), "%B", rhs);
+    std::cout << "unblindSignature: lhs = " << lhsStr << "\n";
+    std::cout << "unblindSignature: rhs = " << rhsStr << "\n";
+    
+    bool eq = (element_cmp(lhs, rhs) == 0);
+    element_clear(lhs);
+    element_clear(rhs);
+    
+    if (!eq) {
+        element_clear(out.h);
+        element_clear(out.sm);
+        throw std::runtime_error("unblindSignature: pairing mismatch => Hata");
+    }
+    
+    return out;
 }
