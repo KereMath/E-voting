@@ -75,8 +75,7 @@ int main() {
         infile.close();
     }
     // Simülasyon için: admin sayısını 3 ve threshold'ü 2 olarak ayarlıyoruz.
-    ne = 2;
-    t = 2;
+
 
     std::cout << "EA sayisi (admin) = " << ne << "\n";
     std::cout << "Esik degeri (threshold) = " << t << "\n";
