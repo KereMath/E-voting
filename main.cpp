@@ -74,8 +74,6 @@ int main() {
         }
         infile.close();
     }
-    // Simülasyon için: admin sayısını 3 ve threshold'ü 2 olarak ayarlıyoruz.
-
 
     std::cout << "EA sayisi (admin) = " << ne << "\n";
     std::cout << "Esik degeri (threshold) = " << t << "\n";
@@ -219,7 +217,6 @@ int main() {
 
     // Her admin için 2 izne (token) sahip semaphor oluşturuluyor.
     const int adminCount = ne;
-    // Semaphor nesnelerini vector içinde unique_ptr ile saklıyoruz.
     std::vector<std::unique_ptr<std::counting_semaphore<>>> adminSemaphores;
     for (int i = 0; i < adminCount; i++) {
         adminSemaphores.push_back(std::make_unique<std::counting_semaphore<>>(50));
@@ -240,39 +237,54 @@ int main() {
 
         result.timing.blind_start = Clock::now();
         // BlindSign işlemi: Her voter için adminlerden threshold (t) kadar imza alınması gerekiyor.
+
         std::vector<BlindSignature> collected;
         int scheduled = 0;
-        // Round-robin başlangıç indeksi
-        int startIdx = i % adminCount;
+
+        // === DEĞİŞTİRİLEN KISIM: Round-robin yerine "hangisi boşsa onu kullan" ===
         while (scheduled < t) {
-            for (int offset = 0; offset < adminCount && scheduled < t; offset++) {
-                int admin = (startIdx + offset) % adminCount;
-                // Her admin için 2 paralel görev izni var; semaphor unique_ptr üzerinden erişiliyor.
+            bool foundAny = false;
+            // Tüm admin'leri sırayla dene, hangisi müsaitse "try_acquire()" ile al
+            for (int admin = 0; admin < adminCount && scheduled < t; admin++) {
                 if (adminSemaphores[admin]->try_acquire()) {
-                    logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
-                                   " - Admin " + std::to_string(admin+1) +
-                                   " sign task started on thread " +
-                                   std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+                    foundAny = true;
+                    logThreadUsage("BlindSign",
+                        "Voter " + std::to_string(i+1) + 
+                        " - Admin " + std::to_string(admin+1) +
+                        " sign task started on thread " +
+                        std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
+                    );
+
                     mpz_t xm, ym;
                     mpz_init(xm);
                     mpz_init(ym);
                     element_to_mpz(xm, keyOut.eaKeys[admin].sgk1);
                     element_to_mpz(ym, keyOut.eaKeys[admin].sgk2);
+
                     BlindSignature sig = blindSign(params, bsOut, xm, ym);
+
                     mpz_clear(xm);
                     mpz_clear(ym);
-                    logThreadUsage("BlindSign", "Voter " + std::to_string(i+1) +
-                                   " - Admin " + std::to_string(admin+1) +
-                                   " sign task finished on thread " +
-                                   std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id())));
+
+                    logThreadUsage("BlindSign",
+                        "Voter " + std::to_string(i+1) + 
+                        " - Admin " + std::to_string(admin+1) +
+                        " sign task finished on thread " +
+                        std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
+                    );
+
                     adminSemaphores[admin]->release();
                     collected.push_back(sig);
                     scheduled++;
                 }
             }
-            if (scheduled < t)
+            // Bu turda hiç admin boşta bulunamadıysa biraz bekle
+            if (!foundAny && scheduled < t) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
         }
+        // === DEĞİŞTİRİLEN KISIM SONU ===
+
         result.timing.blind_end = Clock::now();
         result.signatures = collected;
         pipelineResults[i] = result;
@@ -282,23 +294,33 @@ int main() {
     long long cumulativePrep_us = 0;
     long long cumulativeBlind_us = 0;
     for (int i = 0; i < voterCount; i++) {
-        std::cout << "Secmen " << (i+1) << " icin " << pipelineResults[i].signatures.size() << " admin onayi alindi.\n";
+        std::cout << "Secmen " << (i+1) << " icin " 
+                  << pipelineResults[i].signatures.size() 
+                  << " admin onayi alindi.\n";
         auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
             pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start).count();
         auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
             pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start).count();
+
         cumulativePrep_us += prep_time;
         cumulativeBlind_us += blind_time;
-        std::cout << "Voter " << (i+1) << ": Prepare time = " << prep_time/1000.0
+
+        std::cout << "Voter " << (i+1) 
+                  << ": Prepare time = " << prep_time/1000.0
                   << " ms, BlindSign time = " << blind_time/1000.0 << " ms\n";
     }
     // Toplam pipeline süresi
     auto endPipeline = Clock::now();
-    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(endPipeline - pipelineResults[0].timing.prep_start).count();
+    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                           endPipeline - pipelineResults[0].timing.prep_start
+                       ).count();
 
-    std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = " << pipeline_us/1000.0 << " ms ===\n";
-    std::cout << "Cumulative Prepare time (sum of all tasks): " << cumulativePrep_us/1000.0 << " ms\n";
-    std::cout << "Cumulative BlindSign time (sum of all tasks): " << cumulativeBlind_us/1000.0 << " ms\n";
+    std::cout << "=== Pipeline (Prep+Blind) Toplam Süresi = " 
+              << pipeline_us/1000.0 << " ms ===\n";
+    std::cout << "Cumulative Prepare time (sum of all tasks): " 
+              << cumulativePrep_us/1000.0 << " ms\n";
+    std::cout << "Cumulative BlindSign time (sum of all tasks): " 
+              << cumulativeBlind_us/1000.0 << " ms\n";
 
     // 8) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
@@ -317,12 +339,13 @@ int main() {
     clearParams(params);
 
     // 9) Zaman ölçümleri (ms)
-    double setup_ms     = setup_us     / 1000.0;
-    double pairing_ms   = pairing_us   / 1000.0;
-    double keygen_ms    = keygen_us    / 1000.0;
-    double idGen_ms     = idGen_us     / 1000.0;
-    double didGen_ms    = didGen_us    / 1000.0;
-    double pipeline_ms  = pipeline_us  / 1000.0;
+    double setup_ms    = setup_us    / 1000.0;
+    double pairing_ms  = pairing_us  / 1000.0;
+    double keygen_ms   = keygen_us   / 1000.0;
+    double idGen_ms    = idGen_us    / 1000.0;
+    double didGen_ms   = didGen_us   / 1000.0;
+    double pipeline_ms = pipeline_us / 1000.0;
+
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi       : " << setup_ms     << " ms\n";
     std::cout << "Pairing suresi     : " << pairing_ms   << " ms\n";
