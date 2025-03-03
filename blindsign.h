@@ -2,27 +2,13 @@
 #define BLINDSIGN_H
 
 #include "setup.h"
-#include "prepareblindsign.h" // KoRProof, PrepareBlindSignOutput
-#include "keygen.h"           // EAKey => sgk1, sgk2
-#include <vector>
+#include "prepareblindsign.h"
+#include <stdexcept>
 
 /*
-  CheckKoR (Alg.6) - 
-   Girdi: 
-     - params (TIACParams &)
-     - com, comi, h (G1), pi_s=(c, s1, s2, s3)
-   Çıktı: bool (true => πs=1, false => hata)
-*/
-bool CheckKoR(
-    TIACParams &params,
-    element_t com,
-    element_t comi,
-    element_t h,
-    KoRProof &pi_s
-);
-
-/*
-  BlindSignature: Alg.12'nin çıktısı (h, cm)
+  BlindSignature: (Alg.12) 
+   - h:  G1
+   - cm: G1
 */
 struct BlindSignature {
     element_t h;   // G1
@@ -30,19 +16,19 @@ struct BlindSignature {
 };
 
 /*
-  blindSign (Alg.12):
-   Girdi:
-    - params
-    - PrepareBlindSignOutput: (com, comi, h, pi_s)
-    - xm, ym (mpz_t) => EA otoritesinin gizli anahtarı
-   Çıktı:
-    - (h, cm)
+  blindSign:
+    Girdi:
+      - params
+      - PrepareBlindSignOutput: (com, comi, h, pi_s, o) => from prepareBlindSign
+      - x, y   => the master secret exponents (this time we skip partial shares)
+    Çıktı:
+      - BlindSignature { h, cm }
 */
 BlindSignature blindSign(
     TIACParams &params,
     PrepareBlindSignOutput &bsOut,
-    mpz_t xm,
-    mpz_t ym
+    mpz_t x,
+    mpz_t y
 );
 
 #endif
