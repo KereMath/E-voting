@@ -4,9 +4,9 @@
 #include "setup.h"
 #include <string>
 
-/*
-  KoRProof: c, s1, s2, s3 in Zr (not always strictly needed 
-            but let's keep for completeness)
+/* 
+  KoRProof (πs): 
+    c, s1, s2, s3 ∈ Zr
 */
 struct KoRProof {
     element_t c;
@@ -15,30 +15,29 @@ struct KoRProof {
     element_t s3;
 };
 
-/*
-  PrepareBlindSignOutput:
-   - comi (G1)
-   - h    (G1)
-   - com  (G1)
-   - pi_s (KoRProof)
-   - o    (mpz_t) random factor
+/* 
+  PrepareBlindSignOutput (Algoritma 4 çıktısı):
+    - comi (G1)
+    - h (G1)
+    - com (G1)
+    - pi_s (KoRProof)
 */
 struct PrepareBlindSignOutput {
     element_t comi;
     element_t h;
     element_t com;
     KoRProof  pi_s;
-    mpz_t      o; 
+    mpz_t o;  // Bu alan prepareBlindSign() içinde hesaplanıp saklanmalı.
+
 };
 
 /*
-  prepareBlindSign (Alg.4):
-   1) pick random o, o_i
-   2) comi = g1^o_i * h1^did
-   3) h = HashInG1(comi)
-   4) com = g1^o * h^did
-   5) pi_s = ...
-   ...
+  prepareBlindSign (Algoritma 4):
+   Girdi: 
+     - params (TIACParams &)
+     - didStr (string, DID hex)
+   Çıktı: 
+     - (comi, h, com, pi_s)
 */
 PrepareBlindSignOutput prepareBlindSign(
     TIACParams &params, 
