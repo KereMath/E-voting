@@ -18,6 +18,7 @@
 #include "prepareblindsign.h"
 #include "blindsign.h"   // Alg.50
 #include "unblindsign.h" // Alg.13
+#include "aggregate.h"  // for aggregateSignatures
 
 using Clock = std::chrono::steady_clock;
 
@@ -451,7 +452,57 @@ int main() {
     //
     //    **********  END of Unblind Phase  **********
     //
-
+    auto unblindEnd = std::chrono::steady_clock::now();
+    long long unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(
+        unblindEnd - unblindStart).count();
+    
+    //
+    //  **********  NEW AGGREGATION PHASE (Algorithm 14)  **********
+    //
+    
+    auto aggStart = std::chrono::steady_clock::now();
+    
+    std::vector<AggregateOutput> finalSignatures(voterCount);
+    
+    for (int i = 0; i < voterCount; i++) {
+        // we have t partial unblinded sigs: unblindResults[i][0..t-1]
+        // Build an AggregateInput
+        AggregateInput aggIn;
+    
+        // gather partial unblinded sigs
+        for (int j = 0; j < t; j++) {
+            aggIn.partials.push_back(unblindResults[i][j]);
+        }
+    
+        // set the master key
+        element_init_G2(aggIn.alpha2, params.pairing);
+        element_set(aggIn.alpha2, keyOut.mvk.alpha2);
+    
+        element_init_G2(aggIn.beta2, params.pairing);
+        element_set(aggIn.beta2, keyOut.mvk.beta2);
+    
+        element_init_G1(aggIn.beta1, params.pairing);
+        element_set(aggIn.beta1, keyOut.mvk.beta1);
+    
+        mpz_init(aggIn.DIDi);
+        mpz_set(aggIn.DIDi, dids[i].x); // DID from your dids array
+    
+        // now do the aggregator
+        AggregateOutput aggOut = aggregateSignatures(params, aggIn);
+        finalSignatures[i] = aggOut;  // store final (h,s)
+    
+        // cleanup
+        element_clear(aggIn.alpha2);
+        element_clear(aggIn.beta2);
+        element_clear(aggIn.beta1);
+        mpz_clear(aggIn.DIDi);
+    }
+    
+    // measure aggregation time
+    auto aggEnd = std::chrono::steady_clock::now();
+    long long agg_us = std::chrono::duration_cast<std::chrono::microseconds>(
+        aggEnd - aggStart).count();
+    
     // 12) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
@@ -492,6 +543,7 @@ int main() {
     // Print unblind time:
     std::cout << "UnblindSignature total time: "
               << (unblind_us / 1000.0) << " ms\n";
+    std::cout << "AggregateSignatures total time: " << (agg_us / 1000.0) << " ms\n";
 
     // threads.txt dosyasını kapat
     threadLog.close();
