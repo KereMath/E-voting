@@ -3,12 +3,9 @@
 
 #include "setup.h"
 #include "prepareblindsign.h"
-#include <stdexcept>
 
 /*
-  BlindSignature: (Alg.12) 
-   - h:  G1
-   - cm: G1
+  BlindSignature => (h, cm) from Alg.12
 */
 struct BlindSignature {
     element_t h;   // G1
@@ -16,13 +13,12 @@ struct BlindSignature {
 };
 
 /*
-  blindSign:
-    Girdi:
-      - params
-      - PrepareBlindSignOutput: (com, comi, h, pi_s, o) => from prepareBlindSign
-      - x, y   => the master secret exponents (this time we skip partial shares)
-    Çıktı:
-      - BlindSignature { h, cm }
+  blindSign (single-authority):
+   - Girdi:
+     - params
+     - PrepareBlindSignOutput (com, comi, h, o, pi_s)
+     - x, y => master gizli anahtar
+   - Çıktı: (h, cm) = (h, h^x * com^y)
 */
 BlindSignature blindSign(
     TIACParams &params,
