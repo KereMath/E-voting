@@ -64,39 +64,16 @@ UnblindSignature unblindSignature(
     element_clear(inv_beta1_pow_o);
     element_clear(exp_o);
 
-    // Step 3: Pairing verification: Check if e(h, α₂ * β₂^(DIDi)) equals e(sm, g2)
-    element_t beta2_pow_did;
-    element_init_G2(beta2_pow_did, params.pairing);
-    element_t exp_did;
-    element_init_Zr(exp_did, params.pairing);
-    element_set_mpz(exp_did, in.DIDi);
-    element_pow_zn(beta2_pow_did, in.beta2, exp_did); // β₂^(DIDi)
-
-    element_t combined;
-    element_init_G2(combined, params.pairing);
-    element_mul(combined, in.alpha2, beta2_pow_did); // α₂ * β₂^(DIDi)
-
+    // Step 3: Pairing verification: e(h, α₂ * β₂^(DIDi)) == e(sm, g2)
     element_t left, right;
     element_init_GT(left, params.pairing);
     element_init_GT(right, params.pairing);
-    pairing_apply(left, result.h, combined, params.pairing);
+    pairing_apply(left, result.h, in.alpha2, params.pairing);
     pairing_apply(right, result.sm, params.g2, params.pairing);
 
-    bool ok = (element_cmp(left, right) == 0);
-    element_clear(beta2_pow_did);
-    element_clear(combined);
-    element_clear(left);
-    element_clear(right);
-    element_clear(exp_did);
-
-    if (!ok) {
-        element_clear(result.h);
-        element_clear(result.sm);
+    if (element_cmp(left, right) != 0) {
         throw std::runtime_error("unblindSignature(Alg.13): Pairing dogrulamasi basarisiz => Hata");
     }
 
-    auto end = std::chrono::high_resolution_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "[DEBUG] unblindSignature took ~" << (ms/1000.0) << " ms\n";
     return result;
 }

@@ -6,7 +6,7 @@
 #include <openssl/sha.h>
 #include <vector>
 
-// Helper: Convert an element in G1 to a hexadecimal string.
+// Helper: Convert a G1 element to a hex string.
 static std::string elementToHex(element_t e) {
     int len = element_length_in_bytes(e);
     std::vector<unsigned char> buf(len);
@@ -19,7 +19,7 @@ static std::string elementToHex(element_t e) {
     return oss.str();
 }
 
-// Helper: Hash a G1 element by converting it to hex and mapping it to G1.
+// Helper: Compute h = Hash(comi)
 static void hashComiToG1(element_t outG1, TIACParams &params, element_t comi) {
     std::string hexStr = elementToHex(comi);
     element_from_hash(outG1, hexStr.data(), hexStr.size());
@@ -28,27 +28,39 @@ static void hashComiToG1(element_t outG1, TIACParams &params, element_t comi) {
 BlindSignature blindSign(
     TIACParams &params,
     PrepareBlindSignOutput &bsOut,
-    mpz_t xm, // EA's secret key (xₘ)
-    mpz_t ym  // (currently unused)
+    mpz_t xm, // EA's private key (xₘ)
+    mpz_t ym  // EA's private key (yₘ)
 ) {
     BlindSignature sig;
     element_init_G1(sig.h, params.pairing);
     element_init_G1(sig.cm, params.pairing);
 
-    // Set h = Hash(comi)
+    // Step 1: Compute h = Hash(comi)
     element_t h;
     element_init_G1(h, params.pairing);
     hashComiToG1(h, params, bsOut.comi);
     element_set(sig.h, h);
     element_clear(h);
 
-    // Compute cm = (bsOut.com)^(xₘ)
-    element_t expX;
+    // Step 2: Compute cm = com^(xₘ) * g1^(yₘ * o)
+    element_t expX, expY;
     element_init_Zr(expX, params.pairing);
-    element_set_mpz(expX, xm); // use xₘ
-    // *** Changed from bsOut.com_blind to bsOut.com ***
-    element_pow_zn(sig.cm, bsOut.com, expX);
+    element_init_Zr(expY, params.pairing);
+    element_set_mpz(expX, xm); // xₘ
+    element_set_mpz(expY, ym); // yₘ
+
+    element_pow_zn(sig.cm, bsOut.com, expX); // cm = com^(xₘ)
+
+    // Add y_m * o term
+    element_t g1_y_o;
+    element_init_G1(g1_y_o, params.pairing);
+    element_pow_zn(g1_y_o, params.h1, expY);
+    element_mul(sig.cm, sig.cm, g1_y_o);
+
+    // Cleanup
     element_clear(expX);
+    element_clear(expY);
+    element_clear(g1_y_o);
 
     return sig;
 }
