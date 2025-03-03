@@ -346,62 +346,61 @@ int main() {
     //
     // ********** UNBLIND PHASE (Alg.13) **********
     //
-    auto unblindStart = std::chrono::steady_clock::now();
+//  ********** UNBLIND PHASE (Algorithm 13) **********
+auto unblindStart = Clock::now();
 
-    std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
-    tbb::parallel_for(0, voterCount, [&](int i) {
-        unblindResults[i].resize(t);
+std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
+tbb::parallel_for(0, voterCount, [&](int i) {
+    unblindResults[i].resize(t);
+    for (int j = 0; j < t; j++) {
+        UnblindSignInput in;
+        // comi and o come from preparedOutputs[i]
+        element_init_G1(in.comi, params.pairing);
+        element_set(in.comi, preparedOutputs[i].comi);
+        mpz_init(in.o);
+        mpz_set(in.o, preparedOutputs[i].o);
 
-        for (int j = 0; j < t; j++) {
-            UnblindSignInput in;
-            element_init_G1(in.comi, params.pairing);
-            element_set(in.comi, preparedOutputs[i].comi);
+        // h and cm come from the partial blind signature
+        element_init_G1(in.h, params.pairing);
+        element_set(in.h, pipelineResults[i].signatures[j].h);
+        element_init_G1(in.cm, params.pairing);
+        element_set(in.cm, pipelineResults[i].signatures[j].cm);
 
-            mpz_init(in.o);
-            mpz_set(in.o, preparedOutputs[i].o);
+        // Use the MASTER public key (not the partial EA keys)
+        element_init_G2(in.alpha2, params.pairing);
+        element_set(in.alpha2, keyOut.mvk.alpha2); // <-- FIX: use master alpha2
+        element_init_G2(in.beta2, params.pairing);
+        element_set(in.beta2, keyOut.mvk.beta2);   // <-- FIX: use master beta2
+        element_init_G1(in.beta1, params.pairing);
+        element_set(in.beta1, keyOut.mvk.beta1);     // <-- FIX: use master beta1
 
-            element_init_G1(in.h, params.pairing);
-            element_set(in.h, pipelineResults[i].signatures[j].h);
+        // DID from the voter (dids[i].x)
+        mpz_init(in.DIDi);
+        mpz_set(in.DIDi, dids[i].x);
 
-            element_init_G1(in.cm, params.pairing);
-            element_set(in.cm, pipelineResults[i].signatures[j].cm);
-
-            // partial version => alpha2,beta2,beta1 from eaKeys[j]
-            element_init_G2(in.alpha2, params.pairing);
-            element_set(in.alpha2, keyOut.eaKeys[j].vkm1);
-
-            element_init_G2(in.beta2, params.pairing);
-            element_set(in.beta2, keyOut.eaKeys[j].vkm2);
-
-            element_init_G1(in.beta1, params.pairing);
-            element_set(in.beta1, keyOut.eaKeys[j].vkm3);
-
-            mpz_init(in.DIDi);
-            mpz_set(in.DIDi, dids[i].x);
-
-            try {
-                UnblindSignature usig = unblindSignature(params, in);
-                unblindResults[i][j] = usig;
-            } catch (const std::exception &ex) {
-                std::cerr << "[ERROR] UnblindSignature failed for voter " << i
-                          << " partialSig " << j << ": " << ex.what() << std::endl;
-            }
-
-            // cleanup
-            element_clear(in.comi);
-            mpz_clear(in.o);
-            element_clear(in.h);
-            element_clear(in.cm);
-            element_clear(in.alpha2);
-            element_clear(in.beta2);
-            element_clear(in.beta1);
-            mpz_clear(in.DIDi);
+        try {
+            UnblindSignature usig = unblindSignature(params, in);
+            unblindResults[i][j] = usig;
+        } catch (const std::exception &ex) {
+            std::cerr << "[ERROR] UnblindSignature failed for voter " << i
+                      << " partialSig " << j << ": " << ex.what() << std::endl;
         }
-    });
 
-    auto unblindEnd = std::chrono::steady_clock::now();
-    long long unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(
-        unblindEnd - unblindStart).count();
+        // cleanup input
+        element_clear(in.comi);
+        mpz_clear(in.o);
+        element_clear(in.h);
+        element_clear(in.cm);
+        element_clear(in.alpha2);
+        element_clear(in.beta2);
+        element_clear(in.beta1);
+        mpz_clear(in.DIDi);
+    }
+});
+
+auto unblindEnd = std::chrono::steady_clock::now();
+long long unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
+
 
     //
     // ********** AGGREGATION PHASE (Alg.14) **********
