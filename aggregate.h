@@ -2,37 +2,39 @@
 #define AGGREGATE_H
 
 #include "setup.h"
-#include "unblindsign.h"  // for UnblindSignature
+#include "unblindsign.h" // for UnblindSignature
 #include <vector>
+#include <stdexcept>
 
 /*
-  AggregateInput: 
-    - a list of partial unblinded signatures (h, s_m) from each EA
-    - mvk: the master verification key = (alpha2, beta2, beta1) = (g2^x, g2^y, g1^y)
-    - DIDi for the user
+  The partial unblinded signature structure: (h, sm)
+  Already in unblindsign.h => UnblindSignature
+
+  We define an 'AggregateInput' and 'AggregateOutput' to unify the logic of
+  combining partial unblinded signatures.
+
+  'AggregateInput':
+    - partials:  The partial unblinded sigs => vector<UnblindSignature>
+    - alpha2, beta2, beta1 => the MASTER public key: (g2^x, g2^y, g1^y)
+    - DIDi => mpz_t for the user identity
 */
 struct AggregateInput {
-    std::vector<UnblindSignature> partials; // each is (h, s_m)
-    element_t alpha2;  // G2
-    element_t beta2;   // G2
-    element_t beta1;   // G1
-    mpz_t DIDi;        // user DID
+    std::vector<UnblindSignature> partials; 
+    element_t alpha2; // G2
+    element_t beta2;  // G2
+    element_t beta1;  // G1
+    mpz_t DIDi;       // the user's DID
 };
 
-/*
-  AggregateOutput: final signature (h, s) in G1
-*/
 struct AggregateOutput {
-    element_t h;   // G1
-    element_t s;   // G1
+    element_t h; // G1
+    element_t s; // G1
 };
 
 /*
-  aggregateSignatures (Alg.14):
-    1) s = identity in G1
-    2) for each partial sig => multiply s by s_m
-    3) final => (h, s)
-    4) optionally check e(h, alpha2 * beta2^DID) == e(s, g2)
+  aggregateSignatures: implements Alg.14
+   Girdi: partial unblinded sigs (h, sm), mvk=(alpha2, beta2, beta1)
+   Çıktı: final sig = (h, s), where s=product of all partial sm in G1
 */
 AggregateOutput aggregateSignatures(
     TIACParams &params,
