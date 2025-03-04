@@ -5,13 +5,12 @@
 #include "prepareblindsign.h" // KoRProof, PrepareBlindSignOutput
 #include "keygen.h"           // EAKey => sgk1, sgk2
 #include <vector>
+#include <string>
 
 /*
-  CheckKoR (Alg.6) - 
-   Girdi: 
-     - params (TIACParams &)
-     - com, comi, h (G1), pi_s=(c, s1, s2, s3)
-   Çıktı: bool (true => πs=1, false => hata)
+  CheckKoR (Alg.6):
+  Girdi: (G1, p, g1, h, h1), com, comi, h, πs = (c, s1, s2, s3)
+  Çıktı: bool (true => πs ispatı doğru, false => hata)
 */
 bool CheckKoR(
     TIACParams &params,
@@ -22,21 +21,22 @@ bool CheckKoR(
 );
 
 /*
-  BlindSignature: Alg.12'nin çıktısı (h, cm)
+  BlindSignature: Alg.12'nin çıktısı (σ'_m = (h, cm))
 */
 struct BlindSignature {
-    element_t h;   // G1
-    element_t cm;  // G1
+    element_t h;   // G1 (aynı h)
+    element_t cm;  // G1 (hesaplanan cm)
 };
 
 /*
   blindSign (Alg.12):
-   Girdi:
+  Girdi:
     - params
-    - PrepareBlindSignOutput: (com, comi, h, pi_s)
-    - xm, ym (mpz_t) => EA otoritesinin gizli anahtarı
-   Çıktı:
-    - (h, cm)
+    - PrepareBlindSignOutput: (com, comi, h, πs) (prepare aşamasından)
+    - xm, ym (mpz_t): EA otoritesinin gizli anahtar bileşenleri
+  Çıktı:
+    - BlindSignature: (h, cm)
+  Not: Fonksiyon içinde ara değerler std::cout ile ekrana yazdırılmaktadır.
 */
 BlindSignature blindSign(
     TIACParams &params,

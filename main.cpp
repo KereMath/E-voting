@@ -298,46 +298,45 @@ int main() {
     }
 
     // 9) Şimdi bu tasks havuzunu paralelde koşturuyoruz
-    tbb::parallel_for(
-        0, (int)tasks.size(),
-        [&](int idx) {
-            const SignTask &st = tasks[idx];
-            int vId = st.voterId;
-            int j   = st.indexInVoter;
-            int aId = st.adminId;
+    // 9) Kör imza görevlerini paralel çalıştırma
+tbb::parallel_for(
+    0, (int)tasks.size(),
+    [&](int idx) {
+        const SignTask &st = tasks[idx];
+        int vId = st.voterId;
+        int j   = st.indexInVoter;
+        int aId = st.adminId;
 
-            // Log: started
-            logThreadUsage("BlindSign",
-                "Voter " + std::to_string(vId+1) +
-                " - Admin " + std::to_string(aId+1) +
-                " sign task started on thread " +
-                std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-            );
+        logThreadUsage("BlindSign",
+            "Voter " + std::to_string(vId+1) +
+            " - Admin " + std::to_string(aId+1) +
+            " sign task started on thread " +
+            std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
+        );
 
-            mpz_t xm, ym;
-            mpz_init(xm);
-            mpz_init(ym);
+        mpz_t xm, ym;
+        mpz_init(xm);
+        mpz_init(ym);
 
-            element_to_mpz(xm, keyOut.eaKeys[aId].sgk1);
-            element_to_mpz(ym, keyOut.eaKeys[aId].sgk2);
+        element_to_mpz(xm, keyOut.eaKeys[aId].sgk1);
+        element_to_mpz(ym, keyOut.eaKeys[aId].sgk2);
 
-            BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym);
+        BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym);
 
-            mpz_clear(xm);
-            mpz_clear(ym);
+        mpz_clear(xm);
+        mpz_clear(ym);
 
-            // Log: finished
-            logThreadUsage("BlindSign",
-                "Voter " + std::to_string(vId+1) +
-                " - Admin " + std::to_string(aId+1) +
-                " sign task finished on thread " +
-                std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-            );
+        logThreadUsage("BlindSign",
+            "Voter " + std::to_string(vId+1) +
+            " - Admin " + std::to_string(aId+1) +
+            " sign task finished on thread " +
+            std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
+        );
 
-            // Sonucu ilgili seçmenin j. imzası olarak saklayalım
-            pipelineResults[vId].signatures[j] = sig;
-        }
-    );
+        pipelineResults[vId].signatures[j] = sig;
+    }
+);
+
 
     // 10) Kör imzalar bittiğinde pipelineEnd
     auto pipelineEnd = Clock::now();

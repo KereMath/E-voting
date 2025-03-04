@@ -4,7 +4,11 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
+#include <iostream>
+#include <numeric>
+#include <algorithm>
 
+// Ara değerleri hex string'e çeviren yardımcı fonksiyon
 static std::string elemToStrG1(element_s *g1Ptr) {
     int len = element_length_in_bytes(g1Ptr);
     std::vector<unsigned char> buf(len);
@@ -12,15 +16,16 @@ static std::string elemToStrG1(element_s *g1Ptr) {
 
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
-    for(unsigned char c : buf) {
+    for (unsigned char c : buf) {
         oss << std::setw(2) << (int)c;
     }
     return oss.str();
 }
 
+// Birden fazla element'in string gösterimlerini birleştirip hash hesaplar
 static void hashToZr(element_t outZr, TIACParams &params, const std::vector<element_s*> &g1Elems) {
     std::ostringstream oss;
-    for(auto ePtr : g1Elems) {
+    for (auto ePtr : g1Elems) {
         oss << elemToStrG1(ePtr);
     }
     std::string data = oss.str();
@@ -37,6 +42,14 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<elem
     mpz_clear(tmp);
 }
 
+/*
+  CheckKoR: Algoritma 6 (Temsil Bilgisinin İspatının Kontrolü)
+  Hesaplamalar:
+    comi_double = g1^(s1) · h1^(s2) · comi^(c)
+    com_double  = g1^(s3) · h^(s2) · com^(c)
+    cprime = Hash(g1, h, h1, com, com_double, comi, comi_double)
+  Ara değerler ekrana yazdırılır.
+*/
 bool CheckKoR(
     TIACParams &params,
     element_t com,
@@ -44,6 +57,7 @@ bool CheckKoR(
     element_t h,
     KoRProof &pi_s
 ) {
+    // comi_double hesaplanıyor:
     element_t comi_double;
     element_init_G1(comi_double, params.pairing);
 
@@ -66,6 +80,9 @@ bool CheckKoR(
     element_mul(comi_double, comi_double, comi_c);
     element_clear(comi_c);
 
+    std::cout << "[DEBUG] comi_double = " << elemToStrG1(comi_double) << "\n";
+
+    // com_double hesaplanıyor:
     element_t com_double;
     element_init_G1(com_double, params.pairing);
 
@@ -88,6 +105,9 @@ bool CheckKoR(
     element_clear(h_s2);
     element_clear(com_c);
 
+    std::cout << "[DEBUG] com_double = " << elemToStrG1(com_double) << "\n";
+
+    // cprime hesaplanıyor:
     element_t cprime;
     element_init_Zr(cprime, params.pairing);
 
@@ -103,14 +123,29 @@ bool CheckKoR(
 
     hashToZr(cprime, params, toHash);
 
-    element_clear(comi_double);
-    element_clear(com_double);
+    std::cout << "[DEBUG] Computed cprime = " << elemToStrG1(cprime) << "\n";
+    std::cout << "[DEBUG] pi_s.c         = " << elemToStrG1(pi_s.c) << "\n";
 
     bool ok = (element_cmp(cprime, pi_s.c) == 0);
+    if(ok)
+        std::cout << "[DEBUG] CheckKoR PASSED\n";
+    else
+        std::cout << "[DEBUG] CheckKoR FAILED\n";
+
+    element_clear(comi_double);
+    element_clear(com_double);
     element_clear(cprime);
     return ok;
 }
 
+/*
+  blindSign: Algoritma 12 TIAC Kör İmzalama
+  Hesaplamalar:
+    1) CheckKoR çağrılarak imza ispatı doğrulanır.
+    2) Hash(comi) fonksiyonu ile h değeri üretilir ve kontrol edilir.
+    3) cm = h^(xm) · com^(ym) hesaplanır.
+  Ara değerler fonksiyon içerisinde ekrana basılır.
+*/
 BlindSignature blindSign(
     TIACParams &params,
     PrepareBlindSignOutput &bsOut,
@@ -128,6 +163,8 @@ BlindSignature blindSign(
         std::string s = elemToStrG1(bsOut.comi);
         element_from_hash(hprime, s.data(), s.size());
     }
+    std::cout << "[DEBUG] hprime (Hash(comi)) = " << elemToStrG1(hprime) << "\n";
+    std::cout << "[DEBUG] bsOut.h              = " << elemToStrG1(bsOut.h) << "\n";
     if(element_cmp(hprime, bsOut.h) != 0) {
         element_clear(hprime);
         throw std::runtime_error("blindSign: Hash(comi) != h => hata");
@@ -149,6 +186,7 @@ BlindSignature blindSign(
         element_pow_zn(hx, bsOut.h, expX);
         element_clear(expX);
     }
+    std::cout << "[DEBUG] hx = h^(xm) = " << elemToStrG1(hx) << "\n";
 
     element_t comy;
     element_init_G1(comy, params.pairing);
@@ -159,8 +197,11 @@ BlindSignature blindSign(
         element_pow_zn(comy, bsOut.com, expY);
         element_clear(expY);
     }
+    std::cout << "[DEBUG] comy = com^(ym) = " << elemToStrG1(comy) << "\n";
 
     element_mul(sig.cm, hx, comy);
+    std::cout << "[DEBUG] Computed cm = " << elemToStrG1(sig.cm) << "\n";
+
     element_clear(hx);
     element_clear(comy);
 
