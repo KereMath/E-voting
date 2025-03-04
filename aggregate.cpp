@@ -8,6 +8,10 @@
 // Yardımcı: G1 elemanını hex string'e çevirir.
 std::string elementToStringG1(element_t elem); // Dışarıdan sağlanmış fonksiyon (örn. unblindsign.h'dan)
 // Eğer global tanımınız yoksa, buraya benzer şekilde ekleyin.
+// Yardımcı fonksiyon: element_t (const) verisini non-const pointer'a çevirir.
+static element_t toNonConst(element_t in) {
+    return const_cast<element_s*>(static_cast<const element_s*>(in));
+}
 
 AggregateSignature aggregateSign(
     TIACParams &params,
@@ -20,7 +24,7 @@ AggregateSignature aggregateSign(
     
     // (1) h: Tüm parçalarda h aynı; ilk partial imzadan alınır.
     element_init_G1(aggSig.h, params.pairing);
-    element_set(aggSig.h, const_cast<element_t>(&partialSigs[0].h[0]));
+    element_set(aggSig.h, toNonConst(partialSigs[0].h));
     debugStream << "Aggregate h set from first partial signature.\n";
     
     // (2) s: Başlangıçta grup identity elemanı (s = 1) olarak ayarlanır.
@@ -30,10 +34,10 @@ AggregateSignature aggregateSign(
     
     // (3) Her partial imza parçasının s_m değeri ile aggregate s'yi çarpıyoruz.
     for (size_t i = 0; i < partialSigs.size(); i++) {
-        std::string part = elementToStringG1(const_cast<element_t>(&partialSigs[i].s_m[0]));
+        std::string part = elementToStringG1(toNonConst(partialSigs[i].s_m));
         debugStream << "Multiplying with partial signature " << (i+1)
                     << " s_m = " << part << "\n";
-        element_mul(aggSig.s, aggSig.s, const_cast<element_t>(&partialSigs[i].s_m[0]));
+        element_mul(aggSig.s, aggSig.s, toNonConst(partialSigs[i].s_m));
     }
     debugStream << "Aggregate s computed = " << elementToStringG1(aggSig.s) << "\n";
     
