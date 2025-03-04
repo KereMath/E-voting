@@ -23,7 +23,7 @@ struct ProveCredentialOutput {
  * 
  * @param params TIAC parametreleri
  * @param aggSig Aggregate imza (AggregateSignature)
- * @param mvk Master Verification Key (mvk) – burada mvk.alpha2 = g^x₂, mvk.beta2 = g^y₂, mvk.beta1 = g^y₁
+ * @param mvk Master Verification Key (mvk); burada mvk.alpha2 = g₂^x₂, mvk.beta2 = g₂^y₂, mvk.beta1 = g₁^y₁
  * @param didStr Seçmenin DID değeri (hex string)
  * @return ProveCredentialOutput
  */

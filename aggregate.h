@@ -8,17 +8,17 @@
 #include <vector>
 
 struct AggregateSignature {
-    element_t h; // Toplanan h değeri
-    element_t s; // Toplanan s değeri (partial imza parçalarının çarpımı)
-    std::string debug_info; // Debug bilgisi (örneğin, hangi parçaların çarpımı)
+    element_t h; // Aggregate h değeri (partial imzaların h değerlerinin birleşimi)
+    element_t s; // Aggregate s değeri (partial imza parçalarının çarpımı)
+    std::string debug_info; // Debug bilgileri
 };
 
 /**
- * @brief Verilen unblind imza parçalarını (partial signatures) çarparak tek aggregate imza oluşturur.
+ * @brief Verilen unblind imza parçalarını (partial signatures) çarparak aggregate imza oluşturur.
  * 
  * @param params TIAC parametreleri.
- * @param partialSigs Her seçmenin unblind imza parçaları (UnblindSignature) vektörü.
- * @param mvk EA Authority'nin master verification key bileşenleri (MasterVerKey).
+ * @param partialSigs Her seçmenin unblind imza parçaları.
+ * @param mvk EA Authority'nin master verification key bileşenleri.
  * @param didStr Seçmenin DID değeri (hex string).
  * @return AggregateSignature 
  */

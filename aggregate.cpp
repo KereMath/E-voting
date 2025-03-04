@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iomanip>
 
-// Extern olarak tanımlı: elementToStringG1 artık const parametre alır.
+// Dışarıdan tanımlı: elementToStringG1 – parametre tipini const olarak alabilir.
 extern std::string elementToStringG1(const element_t elem);
 
 AggregateSignature aggregateSign(TIACParams &params,
@@ -15,25 +15,23 @@ AggregateSignature aggregateSign(TIACParams &params,
     }
     
     AggregateSignature aggSig;
-    // Initialize aggregate signature components:
+    // Aggregate imza bileşenlerini başlatın.
     element_init_G1(aggSig.h, params.pairing);
     element_init_G1(aggSig.s, params.pairing);
 
-    // partialSigs[i].h ve partialSigs[i].s_m tanımları element_t (yani element_s[1]) olduğundan,
-    // bunların pointer’larını almak için &partialSigs[i].h[0] kullanılmalıdır.
-    element_set(aggSig.h, &partialSigs[0].h[0]);
-    element_set(aggSig.s, &partialSigs[0].s_m[0]);
+    // UnblindSignature yapıdaki element_t (yani element_s[1]) verileri sabit olabilir.
+    // Bu nedenle, direkt C stili dönüşüm (cast) kullanarak "non‑const" pointer elde ediyoruz.
+    element_set(aggSig.h, (element_t)partialSigs[0].h);
+    element_set(aggSig.s, (element_t)partialSigs[0].s_m);
     
-    // Her kalan partial imza parçasının s_m değerini çarparız.
     for (size_t i = 1; i < partialSigs.size(); i++) {
-        element_mul(aggSig.s, aggSig.s, &partialSigs[i].s_m[0]);
+        element_mul(aggSig.s, aggSig.s, (element_t)partialSigs[i].s_m);
     }
     
-    // Debug bilgisini oluşturmak için s_m değerlerinin string gösterimlerini birleştiriyoruz.
     std::ostringstream oss;
     oss << "Aggregated s (product of s_m's): ";
     for (size_t i = 0; i < partialSigs.size(); i++) {
-        oss << elementToStringG1(&partialSigs[i].s_m[0]) << " ";
+        oss << elementToStringG1((element_t)partialSigs[i].s_m) << " ";
     }
     aggSig.debug_info = oss.str();
     
