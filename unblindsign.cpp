@@ -36,10 +36,10 @@ static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) 
 // inElem'nin hash'ini G1 elemanına aktarır.
 static void hashToG1(element_t outG1, TIACParams &params, element_t inElem) {
     std::string s = elementToStringG1(inElem);
-    std::cout << "[HASH TO G1] Input element (hex): " << s << "\n";
+    // std::cout << "[HASH TO G1] Input element (hex): " << s << "\n";
     element_from_hash(outG1, s.data(), s.size());
     std::string outStr = elementToStringG1(outG1);
-    std::cout << "[HASH TO G1] Output element (hex): " << outStr << "\n";
+    // std::cout << "[HASH TO G1] Output element (hex): " << outStr << "\n";
 }
 
 // Verilen string'lerin birleşiminden hash hesaplar, sonucu outZr'ye atar.
@@ -48,14 +48,14 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<std:
     for (const auto &s : elems)
         oss << s;
     std::string msg = oss.str();
-    std::cout << "[HASH TO Zr] Input concatenated string: " << msg << "\n";
+    // std::cout << "[HASH TO Zr] Input concatenated string: " << msg << "\n";
     unsigned char digest[SHA512_DIGEST_LENGTH];
     SHA512(reinterpret_cast<const unsigned char*>(msg.data()), msg.size(), digest);
-    std::cout << "[HASH TO Zr] SHA512 digest: ";
+    // std::cout << "[HASH TO Zr] SHA512 digest: ";
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)digest[i];
+        // std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)digest[i];
     }
-    std::cout << "\n";
+    // std::cout << "\n";
     mpz_t tmp;
     mpz_init(tmp);
     mpz_import(tmp, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, digest);
