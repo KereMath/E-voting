@@ -9,8 +9,9 @@
 std::string elementToStringG1(element_t elem); // Dışarıdan sağlanmış fonksiyon (örn. unblindsign.h'dan)
 // Eğer global tanımınız yoksa, buraya benzer şekilde ekleyin.
 // Yardımcı fonksiyon: element_t (const) verisini non-const pointer'a çevirir.
-static element_t toNonConst(element_t in) {
-    return const_cast<element_s*>(static_cast<const element_s*>(in));
+// Yardımcı fonksiyon: const element_t'yi (yani element_s* ) non-const element_s*'ye çevirir.
+static element_s* toNonConst(element_t in) {
+    return const_cast<element_s*>(in);
 }
 
 AggregateSignature aggregateSign(
