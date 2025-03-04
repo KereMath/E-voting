@@ -394,14 +394,14 @@ std::vector< std::vector<UnblindSignature> > unblindResults(voterCount);
 tbb::parallel_for(0, voterCount, [&](int i) {
     int numSigs = (int)pipelineResults[i].signatures.size();
     unblindResults[i].resize(numSigs);
-    for (int j = 0; j < numSigs; j++) {
-        // Blind imza sırasında hangi admin tarafından imzalandığı sig.debug.adminId'de saklanmış.
-        int adminId = pipelineResults[i].signatures[j].debug.adminId;  
-        // Unblind işlemi: ilgili prepareBlindSign çıktısı, kör imza, ilgili EA key (keyOut.eaKeys[adminId]) ve DID (dids[i].did) kullanılarak çalışır.
+    // İç döngüde de paralelleştirme (küçük eşik değerler için fazladan overhead yaratabilir)
+    tbb::parallel_for(0, numSigs, [&](int j) {
+        int adminId = pipelineResults[i].signatures[j].debug.adminId;
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
         unblindResults[i][j] = usig;
-    }
+    });
 });
+
 
 auto unblindEnd = Clock::now();
 auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
