@@ -355,7 +355,7 @@ tbb::parallel_for(
             // std::cout << "     h  = " << elemToStrG1(sig.h) << "\n";
             // std::cout << "     cm = " << elemToStrG1(sig.cm) << "\n";
         }
-        std::cout << "-------------------------\n";
+        // std::cout << "-------------------------\n";
     }
 
 
