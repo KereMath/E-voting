@@ -298,6 +298,7 @@ for (int i = 0; i < voterCount; i++) {
 }
 
 // 9) Tasks havuzunu paralel çalıştırıyoruz
+// 9) Kör imza görevlerini paralel çalıştırıyoruz
 tbb::parallel_for(
     0, (int)tasks.size(),
     [&](int idx) {
@@ -320,7 +321,7 @@ tbb::parallel_for(
         element_to_mpz(xm, keyOut.eaKeys[aId].sgk1);
         element_to_mpz(ym, keyOut.eaKeys[aId].sgk2);
 
-        BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym, aId);
+        BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym, aId, vId);
 
         mpz_clear(xm);
         mpz_clear(ym);
@@ -332,10 +333,11 @@ tbb::parallel_for(
             std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
         );
 
-        // Sonucu ilgili seçmenin j. imzası olarak saklayalım
         pipelineResults[vId].signatures[j] = sig;
     }
 );
+
+// 10) Paralel imza işlemleri bittikten sonra, sonuç raporu:
 
 // 10) Kör imzalar tamamlandığında, pipeline bitiş zamanı ayarlanır
 auto pipelineEnd = Clock::now();
@@ -343,21 +345,20 @@ for (int i = 0; i < voterCount; i++) {
     pipelineResults[i].timing.blind_end = pipelineEnd;
 }
 
-// 11) Sonuçların temiz raporlanması
 std::cout << "\n=== İmzalama Sonuçları ===\n";
 for (int i = 0; i < voterCount; i++) {
     std::cout << "Voter " << (i+1) << " için:\n";
-    // Her seçmen için, admin sırasına göre imza sonuçlarını yazdırıyoruz.
-    // Örneğin, Admin 1, Admin 2, ...
-    // Eğer bir seçmenin birden fazla imzası varsa; sırasıyla yazılır.
+    // Her seçmenin imzaları, hangi admin tarafından üretilmişse admin sırası ile yazdırılıyor.
     for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
         BlindSignature &sig = pipelineResults[i].signatures[j];
-        std::cout << "  Admin " << (sig.debug.adminId + 1) << ": ";
-        std::cout << "Imza h = " << elemToStrG1(sig.h) << "\n";
-        std::cout << "           cm = " << elemToStrG1(sig.cm) << "\n";
+        std::cout << "  Admin " << (sig.debug.adminId + 1)
+                  << " tarafından imzalandı. \n";
+        std::cout << "     h  = " << elemToStrG1(sig.h) << "\n";
+        std::cout << "     cm = " << elemToStrG1(sig.cm) << "\n";
     }
     std::cout << "-------------------------\n";
 }
+
 
     // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();

@@ -8,11 +8,11 @@
 #include <numeric>
 #include <algorithm>
 
-// Ara değerleri hex string’e çeviren yardımcı fonksiyon
-static std::string elemToStrG1(element_s *g1Ptr) {
-    int len = element_length_in_bytes(g1Ptr);
+// elemToStrG1 artık global olarak tanımlı (static kaldırıldı)
+std::string elemToStrG1(element_t elem) {
+    int len = element_length_in_bytes(elem);
     std::vector<unsigned char> buf(len);
-    element_to_bytes(buf.data(), g1Ptr);
+    element_to_bytes(buf.data(), elem);
 
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
@@ -48,7 +48,7 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<elem
     comi_double = g1^(s1) · h1^(s2) · comi^(c)
     com_double  = g1^(s3) · h^(s2) · com^(c)
     cprime = Hash(g1, h, h1, com, com_double, comi, comi_double)
-  Ara değerler std::cout ile ekrana yazdırılır.
+  Ara değerler ekrana yazdırılır.
 */
 bool CheckKoR(
     TIACParams &params,
@@ -144,15 +144,16 @@ bool CheckKoR(
     1) CheckKoR çağrılarak imza ispatı doğrulanır.
     2) Hash(comi) fonksiyonu ile h değeri üretilir ve kontrol edilir.
     3) cm = h^(xm) · com^(ym) hesaplanır.
-  Ek olarak, adminId parametresi ile hangi adminin imzaladığı bilgisini de saklıyoruz.
-  Ara değerler std::cout ile ekrana yazdırılır.
+  Ek olarak, adminId ve voterId parametreleri ile hangi adminin ve seçmenin
+  imzayı ürettiği bilgisi de debug alanında saklanır.
 */
 BlindSignature blindSign(
     TIACParams &params,
     PrepareBlindSignOutput &bsOut,
     mpz_t xm,
     mpz_t ym,
-    int adminId
+    int adminId,
+    int voterId
 ) {
     // 1) CheckKoR
     bool ok = CheckKoR(params, bsOut.com, bsOut.comi, bsOut.h, bsOut.pi_s);
@@ -213,13 +214,12 @@ BlindSignature blindSign(
     element_clear(hx);
     element_clear(comy);
 
-    // Debug: admin bilgisi de saklanıyor (sonuçta final özet raporda kullanılacak)
+    // Debug bilgilerine admin ve voter bilgisini ekliyoruz.
     sig.debug.adminId = adminId;
-    // Diğer debug bilgilerini (h^(xm), com^(ym), cm) zaten yukarıda ekrana bastık.
-    sig.debug.computed_hash_comi = ""; // İsteğe bağlı, burada hprime'nin string değeri de saklanabilir.
-    // Aşağıdaki alanları boş bırakıyoruz ya da ek debug yapabilirsiniz:
-    sig.debug.hx = ""; 
-    sig.debug.comy = "";
+    sig.debug.voterId = voterId;
+    sig.debug.computed_hash_comi = ""; // İsteğe bağlı olarak eklenebilir.
+    sig.debug.hx = "";  // İsteğe bağlı
+    sig.debug.comy = ""; // İsteğe bağlı
     sig.debug.computed_cm = elemToStrG1(sig.cm);
 
     return sig;
