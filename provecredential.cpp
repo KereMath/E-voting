@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <iostream>
 
-// Dışarıdan tanımlı: elementToStringG1 artık const parametre alır.
+// Dışarıdan tanımlı: elementToStringG1; artık const parametre alır.
 extern std::string elementToStringG1(const element_t elem);
 
 static std::string mpzToString(const mpz_t value) {
@@ -16,7 +16,7 @@ static std::string mpzToString(const mpz_t value) {
 }
 
 // Helper: Verilen elementlerin string gösterimlerini birleştirip SHA512 hash'ini hesaplar.
-// Çıktı, Zr elemanı olarak hash değeri.
+// Çıktı, Zr elemanı olarak hash değeri (string) döndürür.
 static std::string computeHashFromElements(const std::vector<element_t> &elems, TIACParams &params) {
     std::ostringstream oss;
     for (const auto &e : elems) {
@@ -38,13 +38,14 @@ ProveCredentialOutput proveCredential(
     TIACParams &params,
     AggregateSignature &aggSig,
     MasterVerKey &mvk,
-    const std::string &didStr
+    const std::string &didStr,
+    const element_t o  // o değeri (prepare aşamasından alınan)
 ) {
     ProveCredentialOutput output;
-    
     std::cout << "\n[PROVE] Starting ProveCredential Phase.\n";
+    
     // --- Alg.15: Imza Kanıtı ---
-    // 1) Rastgele r₁ ve r₂ (r₁, r₂ ∈ Zₚ)
+    // 1) Rastgele r₁ ve r₂ ∈ Zₚ seç.
     element_t r1, r2;
     element_init_Zr(r1, params.pairing);
     element_init_Zr(r2, params.pairing);
@@ -53,13 +54,14 @@ ProveCredentialOutput proveCredential(
     std::cout << "[PROVE] Random r₁: " << elementToStringG1(r1) << "\n";
     std::cout << "[PROVE] Random r₂: " << elementToStringG1(r2) << "\n";
     
-    // 2) h″ ← h^(r₁) ; h is aggSig.h (aggregate imzanın h'si)
+    // 2) h″ ← h^(r₁)  (h, aggregate imzadan alınan h)
     element_t h_dbl;
     element_init_G1(h_dbl, params.pairing);
     element_pow_zn(h_dbl, aggSig.h, r1);
     std::cout << "[PROVE] h'' = h^(r₁): " << elementToStringG1(h_dbl) << "\n";
     
-    // 3) s″ ← s^(r₁)  (Basit versiyon; isteğe bağlı (h″)^(r₂) ile de çarpılabilir)
+    // 3) s″ ← s^(r₁) * (h″)^(r₁)   --- Not: Alg.15’de s″ = s^(r')·(h″)^(r) ama 
+    // bizim versiyonda (basitlik açısından) s″ = s^(r₁) kabul ediliyor.
     element_t s_dbl;
     element_init_G1(s_dbl, params.pairing);
     element_pow_zn(s_dbl, aggSig.s, r1);
@@ -80,28 +82,26 @@ ProveCredentialOutput proveCredential(
     mpz_mod(didInt, didInt, params.prime_order);
     std::cout << "[PROVE] DID (mpz): " << mpzToString(didInt) << "\n";
     
-    // Compute (β₂)^(DID)
     element_t beta_exp;
     element_init_G1(beta_exp, params.pairing);
     element_t expElem;
     element_init_Zr(expElem, params.pairing);
     element_set_mpz(expElem, didInt);
+    // **Önemli:** mvk.beta2 (yani β₂) kullanılıyor.
     element_pow_zn(beta_exp, mvk.beta2, expElem);
     element_clear(expElem);
     
-    // Compute g₂^(r₂)
     element_t g2_r;
     element_init_G1(g2_r, params.pairing);
     element_pow_zn(g2_r, params.g2, r2);
     
-    // k = α₂ · (β₂)^(DID) · g₂^(r₂)
     element_init_G1(output.k, params.pairing);
     element_mul(output.k, mvk.alpha2, beta_exp);
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
     // --- Alg.16: KoR İspatı ---
-    // 1) Rastgele r₁', r₂', r₃' ∈ Zₚ
+    // 1) Rastgele r₁', r₂', r₃' ∈ Zₚ seç.
     element_t r1p, r2p, r3p;
     element_init_Zr(r1p, params.pairing);
     element_init_Zr(r2p, params.pairing);
@@ -113,7 +113,7 @@ ProveCredentialOutput proveCredential(
     std::cout << "[PROVE] Random r₂': " << elementToStringG1(r2p) << "\n";
     std::cout << "[PROVE] Random r₃': " << elementToStringG1(r3p) << "\n";
     
-    // 2) k' ← g₁^(r1') · α₂ · (β₂)^(r2')
+    // 2) k' ← g₁^(r₁') · α₂ · (β₂)^(r₂')
     element_t k_prime;
     element_init_G1(k_prime, params.pairing);
     {
@@ -128,7 +128,7 @@ ProveCredentialOutput proveCredential(
         element_clear(temp);
     }
     
-    // 3) com' ← g₁^(r3') · (h'')^(r2')
+    // 3) com' ← g₁^(r₃') · (h″)^(r₂')
     element_t com_prime;
     element_init_G1(com_prime, params.pairing);
     {
@@ -142,13 +142,13 @@ ProveCredentialOutput proveCredential(
         element_clear(temp);
     }
     
-    // 4) c ← Hash(g₁, g₂, h'', com, com', k, k')
-    // Burada com olarak prepare aşamasından gelen com yoksa, identity (1) kullanılır.
+    // 4) c ← Hash(g₁, g₂, h″, com, com', k, k')
+    // Burada, prepare aşamasından gelen com değeri yoksa, identity (1) kullanılır.
     element_t com;
     element_init_G1(com, params.pairing);
     element_set1(com);
+    
     std::vector<element_t> hashElems;
-    // push_back sırasıyla: g1, g2, h'', com, com', k, k'
     hashElems.push_back(params.g1);
     hashElems.push_back(params.g2);
     hashElems.push_back(output.sigmaRnd.h);
@@ -158,8 +158,7 @@ ProveCredentialOutput proveCredential(
     hashElems.push_back(k_prime);
     
     std::string c_str = computeHashFromElements(hashElems, params);
-    // c_str şimdi c değerinin string gösterimi; 
-    // dönüştürüp c_elem olarak Zr elemanına atayalım:
+    // c_str şimdi c'nin string gösterimi; dönüştürüp c_elem olarak Zr elemanına atayalım:
     element_t c_elem;
     element_init_Zr(c_elem, params.pairing);
     {
@@ -173,15 +172,14 @@ ProveCredentialOutput proveCredential(
     std::cout << "[PROVE] c computed (KoR hash) = " << elementToStringG1(c_elem) << "\n";
     
     // 5) Compute KoR proof components:
-    // s1 = r1' - c * r1
-    // s2 = r2' - c * (DID)   (DID is converted to Zr element)
-    // s3 = r3' - c * o       (o: prepare aşamasından; burada o = 0)
+    // s₁ = r₁' − c · r₁  
+    // s₂ = r₂' − c · (DID)  
+    // s₃ = r₃' − c · o    (o, prepare aşamasından; burada o değeri parametre olarak alınıyor)
     element_t s1_elem, s2_elem, s3_elem;
     element_init_Zr(s1_elem, params.pairing);
     element_init_Zr(s2_elem, params.pairing);
     element_init_Zr(s3_elem, params.pairing);
     
-    // s1 = r1p - c * r1
     {
         element_t tmp;
         element_init_Zr(tmp, params.pairing);
@@ -189,8 +187,6 @@ ProveCredentialOutput proveCredential(
         element_sub(s1_elem, r1p, tmp);
         element_clear(tmp);
     }
-    
-    // s2 = r2p - c * DID
     {
         element_t did_elem;
         element_init_Zr(did_elem, params.pairing);
@@ -202,28 +198,42 @@ ProveCredentialOutput proveCredential(
         element_clear(tmp);
         element_clear(did_elem);
     }
+    // s₃ = r₃' − c·o  (o parametreden geliyor)
+    {
+        element_t tmp;
+        element_init_Zr(tmp, params.pairing);
+        element_mul(tmp, c_elem, o);
+        element_sub(s3_elem, r3p, tmp);
+        element_clear(tmp);
+    }
+    std::cout << "[PROVE] s₁ computed: " << elementToStringG1(s1_elem) << "\n";
+    std::cout << "[PROVE] s₂ computed: " << elementToStringG1(s2_elem) << "\n";
+    std::cout << "[PROVE] s₃ computed: " << elementToStringG1(s3_elem) << "\n";
     
-    // s3 = r3p - c * o ; o = 0 ⇒ s3 = r3p.
-    element_set(s3_elem, r3p);
-    std::cout << "[PROVE] s1 computed: " << elementToStringG1(s1_elem) << "\n";
-    std::cout << "[PROVE] s2 computed: " << elementToStringG1(s2_elem) << "\n";
-    std::cout << "[PROVE] s3 computed: " << elementToStringG1(s3_elem) << "\n";
+    // 6) Set πᵥ = (c, s₁, s₂, s₃) as a tuple.
+    ProveCredentialKoR proof;
+    proof.c = elementToStringG1(c_elem);
+    proof.s1 = elementToStringG1(s1_elem);
+    proof.s2 = elementToStringG1(s2_elem);
+    proof.s3 = elementToStringG1(s3_elem);
     
-    // Serialize KoR proof tuple π_v = (c, s1, s2, s3) as a space-separated string.
+    // Debug: Dump all KoR proof components.
     std::ostringstream proofStream;
-    proofStream << elementToStringG1(c_elem) << " "
-                << elementToStringG1(s1_elem) << " "
-                << elementToStringG1(s2_elem) << " "
-                << elementToStringG1(s3_elem);
-    output.proof_v = proofStream.str();
-    std::cout << "[PROVE] π_v (KoR proof tuple) = " << output.proof_v << "\n";
+    proofStream << "c = " << proof.c << "\n"
+                << "s₁ = " << proof.s1 << "\n"
+                << "s₂ = " << proof.s2 << "\n"
+                << "s₃ = " << proof.s3 << "\n";
+    proof.debug_info = proofStream.str();
+    std::cout << "[PROVE] πᵥ (KoR proof tuple) = " << proof << "\n";
+    
+    output.proof_v = proof;
     
     // Debug info: Dump all computed values.
     std::ostringstream dbg;
     dbg << "h'' = " << elementToStringG1(output.sigmaRnd.h) << "\n";
     dbg << "s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
     dbg << "k   = " << elementToStringG1(output.k) << "\n";
-    dbg << "KoR Proof Tuple (c, s1, s2, s3) = " << output.proof_v << "\n";
+    dbg << "KoR Proof Tuple (c, s₁, s₂, s₃):\n" << proof << "\n";
     output.sigmaRnd.debug_info = dbg.str();
     
     // Clean up temporary elements.

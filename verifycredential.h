@@ -2,7 +2,7 @@
 #define VERIFY_CREDENTIAL_H
 
 #include "setup.h"
-#include "provecredential.h"  // For ProveCredentialOutput
+#include "provecredential.h"
 #include <string>
 
 bool verifyCredential(

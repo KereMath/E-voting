@@ -11,7 +11,7 @@ bool verifyCredential(
     TIACParams &params,
     ProveCredentialOutput &pOut
 ) {
-    std::cout << "[VERIFY] Starting credential verification.\n";
+    std::cout << "\n[VERIFY] Starting credential verification.\n";
     
     // Pairing hesaplamaları: e(h'', k) ve e(s'', g2)
     element_t pairing_lhs, pairing_rhs;
@@ -25,7 +25,7 @@ bool verifyCredential(
     auto gtToString = [&params](const element_t gt_elem) -> std::string {
         int len = element_length_in_bytes(gt_elem);
         std::vector<unsigned char> buf(len);
-        element_to_bytes(buf.data(), gt_elem);
+        element_to_bytes(buf.data(), const_cast<element_t>(gt_elem));
         std::ostringstream oss;
         oss << std::hex << std::setfill('0');
         for (auto c : buf)
