@@ -8,7 +8,7 @@
 #include <numeric>
 #include <algorithm>
 
-// Ara değerleri hex string'e çeviren yardımcı fonksiyon
+// Ara değerleri hex string’e çeviren yardımcı fonksiyon
 static std::string elemToStrG1(element_s *g1Ptr) {
     int len = element_length_in_bytes(g1Ptr);
     std::vector<unsigned char> buf(len);
@@ -48,7 +48,7 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<elem
     comi_double = g1^(s1) · h1^(s2) · comi^(c)
     com_double  = g1^(s3) · h^(s2) · com^(c)
     cprime = Hash(g1, h, h1, com, com_double, comi, comi_double)
-  Ara değerler ekrana yazdırılır.
+  Ara değerler std::cout ile ekrana yazdırılır.
 */
 bool CheckKoR(
     TIACParams &params,
@@ -144,19 +144,23 @@ bool CheckKoR(
     1) CheckKoR çağrılarak imza ispatı doğrulanır.
     2) Hash(comi) fonksiyonu ile h değeri üretilir ve kontrol edilir.
     3) cm = h^(xm) · com^(ym) hesaplanır.
-  Ara değerler fonksiyon içerisinde ekrana basılır.
+  Ek olarak, adminId parametresi ile hangi adminin imzaladığı bilgisini de saklıyoruz.
+  Ara değerler std::cout ile ekrana yazdırılır.
 */
 BlindSignature blindSign(
     TIACParams &params,
     PrepareBlindSignOutput &bsOut,
     mpz_t xm,
-    mpz_t ym
+    mpz_t ym,
+    int adminId
 ) {
+    // 1) CheckKoR
     bool ok = CheckKoR(params, bsOut.com, bsOut.comi, bsOut.h, bsOut.pi_s);
     if(!ok) {
         throw std::runtime_error("blindSign: KoR check failed");
     }
 
+    // 2) Hash(comi) hesapla ve bsOut.h ile karşılaştır
     element_t hprime;
     element_init_G1(hprime, params.pairing);
     {
@@ -175,8 +179,10 @@ BlindSignature blindSign(
     element_init_G1(sig.h,  params.pairing);
     element_init_G1(sig.cm, params.pairing);
 
+    // h aynen kullanılıyor
     element_set(sig.h, bsOut.h);
 
+    // 3) hx = h^(xm)
     element_t hx;
     element_init_G1(hx, params.pairing);
     {
@@ -188,6 +194,7 @@ BlindSignature blindSign(
     }
     std::cout << "[DEBUG] hx = h^(xm) = " << elemToStrG1(hx) << "\n";
 
+    // comy = com^(ym)
     element_t comy;
     element_init_G1(comy, params.pairing);
     {
@@ -199,11 +206,21 @@ BlindSignature blindSign(
     }
     std::cout << "[DEBUG] comy = com^(ym) = " << elemToStrG1(comy) << "\n";
 
+    // cm = hx * comy
     element_mul(sig.cm, hx, comy);
     std::cout << "[DEBUG] Computed cm = " << elemToStrG1(sig.cm) << "\n";
 
     element_clear(hx);
     element_clear(comy);
+
+    // Debug: admin bilgisi de saklanıyor (sonuçta final özet raporda kullanılacak)
+    sig.debug.adminId = adminId;
+    // Diğer debug bilgilerini (h^(xm), com^(ym), cm) zaten yukarıda ekrana bastık.
+    sig.debug.computed_hash_comi = ""; // İsteğe bağlı, burada hprime'nin string değeri de saklanabilir.
+    // Aşağıdaki alanları boş bırakıyoruz ya da ek debug yapabilirsiniz:
+    sig.debug.hx = ""; 
+    sig.debug.comy = "";
+    sig.debug.computed_cm = elemToStrG1(sig.cm);
 
     return sig;
 }

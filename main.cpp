@@ -263,42 +263,41 @@ int main() {
     }
 
     // 8) Kör imza görevleri için tek bir "SignTask" havuzu
-    struct SignTask {
-        int voterId;
-        int indexInVoter;
-        int adminId;
-    };
-    std::vector<SignTask> tasks;
-    tasks.reserve(voterCount * t);
+   // 8) Kör imza görevleri için tek bir "SignTask" havuzu
+struct SignTask {
+    int voterId;
+    int indexInVoter;
+    int adminId;
+};
+std::vector<SignTask> tasks;
+tasks.reserve(voterCount * t);
 
-    // Rastgele admin subset'i seçimi için
-    std::random_device rd;
-    std::mt19937 rng(rd());
+// Rastgele admin subset'i seçimi için
+std::random_device rd;
+std::mt19937 rng(rd());
 
-    // Admin indekslerinin [0..ne-1] aralığını tutan dizi
-    std::vector<int> adminIndices(ne);
-    std::iota(adminIndices.begin(), adminIndices.end(), 0);
+// Admin indekslerinin [0..ne-1] aralığını tutan dizi
+std::vector<int> adminIndices(ne);
+std::iota(adminIndices.begin(), adminIndices.end(), 0);
 
-    // Her seçmen için T adet FARKLI admin seçip tasks’e ekleyelim
-    for (int i = 0; i < voterCount; i++) {
-        pipelineResults[i].signatures.resize(t);
-        pipelineResults[i].timing.blind_start = pipelineResults[i].timing.prep_end;
+// Her seçmen için T adet FARKLI admin seçip tasks’e ekleyelim
+for (int i = 0; i < voterCount; i++) {
+    pipelineResults[i].signatures.resize(t);
+    pipelineResults[i].timing.blind_start = pipelineResults[i].timing.prep_end;
 
-        // Admin dizisini her seçmen için karıştıralım (shuffle)
-        std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
-        // Böylece adminIndices[0..t-1] => o seçmen için T farklı admin
-
-        for (int j = 0; j < t; j++) {
-            SignTask st;
-            st.voterId      = i;
-            st.indexInVoter = j;
-            st.adminId      = adminIndices[j]; // T farklı admin
-            tasks.push_back(st);
-        }
+    // Admin dizisini her seçmen için karıştıralım (shuffle)
+    std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
+    // Böylece adminIndices[0..t-1] => o seçmen için T farklı admin
+    for (int j = 0; j < t; j++) {
+        SignTask st;
+        st.voterId      = i;
+        st.indexInVoter = j;
+        st.adminId      = adminIndices[j]; // T farklı admin
+        tasks.push_back(st);
     }
+}
 
-    // 9) Şimdi bu tasks havuzunu paralelde koşturuyoruz
-    // 9) Kör imza görevlerini paralel çalıştırma
+// 9) Tasks havuzunu paralel çalıştırıyoruz
 tbb::parallel_for(
     0, (int)tasks.size(),
     [&](int idx) {
@@ -321,7 +320,7 @@ tbb::parallel_for(
         element_to_mpz(xm, keyOut.eaKeys[aId].sgk1);
         element_to_mpz(ym, keyOut.eaKeys[aId].sgk2);
 
-        BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym);
+        BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym, aId);
 
         mpz_clear(xm);
         mpz_clear(ym);
@@ -333,16 +332,32 @@ tbb::parallel_for(
             std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
         );
 
+        // Sonucu ilgili seçmenin j. imzası olarak saklayalım
         pipelineResults[vId].signatures[j] = sig;
     }
 );
 
+// 10) Kör imzalar tamamlandığında, pipeline bitiş zamanı ayarlanır
+auto pipelineEnd = Clock::now();
+for (int i = 0; i < voterCount; i++) {
+    pipelineResults[i].timing.blind_end = pipelineEnd;
+}
 
-    // 10) Kör imzalar bittiğinde pipelineEnd
-    auto pipelineEnd = Clock::now();
-    for (int i = 0; i < voterCount; i++) {
-        pipelineResults[i].timing.blind_end = pipelineEnd;
+// 11) Sonuçların temiz raporlanması
+std::cout << "\n=== İmzalama Sonuçları ===\n";
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "Voter " << (i+1) << " için:\n";
+    // Her seçmen için, admin sırasına göre imza sonuçlarını yazdırıyoruz.
+    // Örneğin, Admin 1, Admin 2, ...
+    // Eğer bir seçmenin birden fazla imzası varsa; sırasıyla yazılır.
+    for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
+        BlindSignature &sig = pipelineResults[i].signatures[j];
+        std::cout << "  Admin " << (sig.debug.adminId + 1) << ": ";
+        std::cout << "Imza h = " << elemToStrG1(sig.h) << "\n";
+        std::cout << "           cm = " << elemToStrG1(sig.cm) << "\n";
     }
+    std::cout << "-------------------------\n";
+}
 
     // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
