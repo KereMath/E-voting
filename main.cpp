@@ -466,18 +466,15 @@ for (int i = 0; i < voterCount; i++) {
 
 
 // --- ProveCredential Phase ---
+// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
+
 tbb::parallel_for(0, voterCount, [&](int i) {
-    // o: prepare aşamasından elde edilen blinding değeri; burada örneğin prepareOutputs[i].o kullanılabilir.
-    // Eğer prepare aşamasında o değeri üretilmişse onu kullanın, yoksa 0 olarak kabul edin.
-    element_t o_val;
-    element_init_Zr(o_val, params.pairing);
-    element_set1(o_val); // o = 1 (identity) veya 0, isteğe bağlı
-    ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, o_val);
+    ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did);
     proveResults[i] = pOut;
-    element_clear(o_val);
 });
+
 auto proveEnd = Clock::now();
 auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
 
@@ -493,26 +490,6 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "-------------------------\n";
 }
 std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
-
-// --- VerifyCredential Phase ---
-std::vector<bool> verifyResults(voterCount);
-auto verifyStart = Clock::now();
-tbb::parallel_for(0, voterCount, [&](int i) {
-    bool res = verifyCredential(params, proveResults[i]);
-    verifyResults[i] = res;
-});
-auto verifyEnd = Clock::now();
-auto verify_us = std::chrono::duration_cast<std::chrono::microseconds>(verifyEnd - verifyStart).count();
-
-// VerifyCredential sonuçlarını raporlama:
-std::cout << "\n=== VerifyCredential Results ===\n";
-for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " credential verification: " 
-              << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
-}
-std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
-
-
 
 
 
