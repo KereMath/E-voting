@@ -116,30 +116,31 @@ UnblindSignature unblindSign(
     
     // (2) sₘ = cm * (β₂)^(–o)
     mpz_t neg_o;
-    mpz_init(neg_o);
-    mpz_neg(neg_o, bsOut.o);
-    mpz_mod(neg_o, neg_o, params.prime_order);
-    std::cout << "[UNBLIND DEBUG] Negative o (mpz): " << mpzToString(neg_o) << "\n";
-    
-    // Zr tipi element oluştur, neg_o'yu atayalım.
-    element_t exponent;
-    element_init_Zr(exponent, params.pairing);
-    element_set_mpz(exponent, neg_o);
-    std::cout << "[UNBLIND DEBUG] Exponent (from -o): (converted from mpz value)\n";
-    mpz_clear(neg_o);
-    
-    element_t beta_pow;
-    element_init_G1(beta_pow, params.pairing);
-    // EA key'deki β₂, vkm2 olarak veriliyor.
-    element_pow_zn(beta_pow, eaKey.vkm2, exponent);
-    std::cout << "[UNBLIND DEBUG] beta_pow = " << elementToStringG1(beta_pow) << "\n";
-    element_clear(exponent);
-    
-    element_init_G1(result.s_m, params.pairing);
-    element_mul(result.s_m, blindSig.cm, beta_pow);
-    result.debug.computed_s_m = elementToStringG1(result.s_m);
-    std::cout << "[UNBLIND DEBUG] Computed s_m = " << result.debug.computed_s_m << "\n";
-    element_clear(beta_pow);
+mpz_init(neg_o);
+mpz_neg(neg_o, bsOut.o);
+mpz_mod(neg_o, neg_o, params.prime_order);
+std::cout << "[UNBLIND DEBUG] Negative o (mpz): " << mpzToString(neg_o) << "\n";
+
+// Zr tipi element oluştur, neg_o'yu atayalım.
+element_t exponent;
+element_init_Zr(exponent, params.pairing);
+element_set_mpz(exponent, neg_o);
+std::cout << "[UNBLIND DEBUG] Exponent (from -o): (converted from mpz value)\n";
+mpz_clear(neg_o);
+
+element_t beta_pow;
+element_init_G1(beta_pow, params.pairing);
+// Eski kodda: element_pow_zn(beta_pow, eaKey.vkm2, exponent);
+// Şimdi, istenen düzeltmeye göre vkm3 kullanılacaktır:
+element_pow_zn(beta_pow, eaKey.vkm3, exponent);
+std::cout << "[UNBLIND DEBUG] beta_pow (from vkm3) = " << elementToStringG1(beta_pow) << "\n";
+element_clear(exponent);
+
+element_init_G1(result.s_m, params.pairing);
+element_mul(result.s_m, blindSig.cm, beta_pow);
+result.debug.computed_s_m = elementToStringG1(result.s_m);
+std::cout << "[UNBLIND DEBUG] Computed s_m = " << result.debug.computed_s_m << "\n";
+element_clear(beta_pow);
     
     // (3) Pairing kontrolü:
     // DID string'inden mpz_t didInt hesaplanır.
