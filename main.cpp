@@ -18,6 +18,7 @@
 #include "prepareblindsign.h"
 #include "blindsign.h"   // Alg.50
 #include "unblindsign.h" // Alg.13
+#include "aggregate.h" // aggregateSign fonksiyonunu kullanmak için
 
 using Clock = std::chrono::steady_clock;
 
@@ -424,6 +425,29 @@ for (int i = 0; i < voterCount; i++) {
 }
 
 
+    //Aggregate
+    std::vector<AggregateSignature> aggregateResults(voterCount);
+    auto aggregateStart = Clock::now();
+    
+    tbb::parallel_for(0, voterCount, [&](int i) {
+        // Her seçmenin aggregate imzası, unblindResults[i] (vector<UnblindSignature>) içindeki partial imzalardan oluşturulur.
+        AggregateSignature aggSig = aggregateSign(params, unblindResults[i], keyOut.mvk, dids[i].did);
+        aggregateResults[i] = aggSig;
+    });
+    
+    auto aggregateEnd = Clock::now();
+    auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
+    
+    // Aggregate sonuçlarını raporlama:
+    std::cout << "\n=== Aggregate Signature Results ===\n";
+    for (int i = 0; i < voterCount; i++) {
+        std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+        std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+        std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+        std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
+        std::cout << "-------------------------\n";
+    }
+    
 
 
 
@@ -469,6 +493,7 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "Toplam kör imza (sum)  = "
               << (cumulativeBlind_us / 1000.0) << " ms\n";
     std::cout << "\n[UNBLIND] Total Unblind Phase Time = " << (unblind_us / 1000.0) << " ms\n";
+    std::cout << "\n[AGGREGATE] Total Aggregate Phase Time = " << (aggregate_us / 1000.0) << " ms\n";
 
     // threads.txt dosyasını kapat
     threadLog.close();
