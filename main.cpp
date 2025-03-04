@@ -20,6 +20,7 @@
 #include "unblindsign.h" // Alg.13
 #include "aggregate.h" // aggregateSign fonksiyonunu kullanmak için
 #include "provecredential.h"  // proveCredential fonksiyonunu içerir
+#include "verifycredential.h"  // verifyCredential tanımı
 
 using Clock = std::chrono::steady_clock;
 
@@ -479,6 +480,27 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     std::cout << "-------------------------\n";
 }
+std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
+
+// 17) VerifyCredential Phase: ProveCredential çıktısını doğrulayalım.
+std::vector<bool> verifyResults(voterCount);
+auto verifyStart = Clock::now();
+
+tbb::parallel_for(0, voterCount, [&](int i) {
+    bool res = verifyCredential(params, proveResults[i]);
+    verifyResults[i] = res;
+});
+
+auto verifyEnd = Clock::now();
+auto verify_us = std::chrono::duration_cast<std::chrono::microseconds>(verifyEnd - verifyStart).count();
+
+// VerifyCredential sonuçlarını raporlama:
+std::cout << "\n=== VerifyCredential Results ===\n";
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "Voter " << (i+1) << " credential verification: " 
+              << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
+}
+std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
 
 
 

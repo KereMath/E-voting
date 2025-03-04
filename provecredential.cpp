@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <iostream>
 
-// Eğer global elementToStringG1 tanımlı değilse, onu ekleyin.
+// Dışarıdan tanımlı: elementToStringG1 (örneğin, unblindsign veya aggregate modülünden)
 extern std::string elementToStringG1(element_t elem);
 
 static std::string mpzToString(const mpz_t value) {
@@ -28,15 +28,15 @@ ProveCredentialOutput proveCredential(
     element_init_Zr(r, params.pairing);
     element_random(r);
     std::cout << "[PROVE] Random r chosen (Zr): " << elementToStringG1(r)
-              << " (Note: r is in Zr, not directly human-readable)\n";
+              << " (Note: r is in Zr)\n";
     
-    // 2) h'' = h^r, burada h aggregate imzadan alınan h'dir.
+    // 2) h'' = h^r, h aggregate imzadan alınan h'dir.
     element_t h_dbl;
     element_init_G1(h_dbl, params.pairing);
     element_pow_zn(h_dbl, aggSig.h, r);
     std::cout << "[PROVE] h'' computed: " << elementToStringG1(h_dbl) << "\n";
     
-    // 3) s'' = s^r * (h'')^r, burada s aggregate imzadan alınan s'dir.
+    // 3) s'' = s^r * (h'')^r, s aggregate imzadan alınan s'dir.
     element_t s_r, h_dbl_r, s_dbl;
     element_init_G1(s_r, params.pairing);
     element_init_G1(h_dbl_r, params.pairing);
@@ -46,7 +46,7 @@ ProveCredentialOutput proveCredential(
     element_mul(s_dbl, s_r, h_dbl_r);
     std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
     
-    // σ'' = (h'', s'')
+    // σRnd = (h'', s'')
     element_init_G1(output.sigmaRnd.h, params.pairing);
     element_set(output.sigmaRnd.h, h_dbl);
     element_init_G1(output.sigmaRnd.s, params.pairing);
@@ -61,29 +61,24 @@ ProveCredentialOutput proveCredential(
     mpz_mod(didInt, didInt, params.prime_order);
     std::cout << "[PROVE] DID (mpz): " << mpzToString(didInt) << "\n";
     
-    // Compute (β₂)^(DID)
     element_t beta_exp;
     element_init_G1(beta_exp, params.pairing);
     element_t expElem;
     element_init_Zr(expElem, params.pairing);
     element_set_mpz(expElem, didInt);
-    // Değişiklik: mvk.vkm2 yerine mvk.beta2 kullanılıyor.
     element_pow_zn(beta_exp, mvk.beta2, expElem);
     element_clear(expElem);
     
-    // Compute g₂^r
     element_t g2_r;
     element_init_G1(g2_r, params.pairing);
     element_pow_zn(g2_r, params.g2, r);
     
-    // k = α₂ * (β₂)^(DID) * g₂^r, burada α₂ = mvk.alpha2.
     element_init_G1(output.k, params.pairing);
     element_mul(output.k, mvk.alpha2, beta_exp);
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
-    // 5) π_v ← KoR(k)
-    // Basitçe k'nin SHA512 hash’ini hesaplayalım.
+    // 5) π_v ← KoR(k): burada basitçe k'nin SHA512 hash'ini hesaplıyoruz.
     unsigned char digest[SHA512_DIGEST_LENGTH];
     std::string kStr = elementToStringG1(output.k);
     SHA512(reinterpret_cast<const unsigned char*>(kStr.data()), kStr.size(), digest);
