@@ -8,13 +8,13 @@
 struct ProveCredentialSigmaRnd {
     element_t h;
     element_t s;
-    std::string debug_info;
+    std::string debug_info; // Ara değerlerin string gösterimi: r₁, r₂, h″, s″
 };
 
 struct ProveCredentialOutput {
-    ProveCredentialSigmaRnd sigmaRnd; // (h'', s'')
-    element_t k;                      // k = α₂ * (β₂)^(DID) * g₂^(r₂)
-    std::string proof_v;              // π_v (hash of k)
+    ProveCredentialSigmaRnd sigmaRnd; // (h″, s″)
+    element_t k;                      // k = α₂ · (β₂)^(DID) · g₂^(r₂)
+    std::string proof_v;              // π_v = SHA512(k)
 };
 
 ProveCredentialOutput proveCredential(
