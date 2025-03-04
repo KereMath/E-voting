@@ -388,18 +388,23 @@ tbb::parallel_for(
 
     //Unblindsign
 // 14) Unblind Phase: Her seçmen için threshold (örneğin t adet) imza unblind edilecek.
+auto unblindStart = Clock::now();
+
 std::vector< std::vector<UnblindSignature> > unblindResults(voterCount);
-for (int i = 0; i < voterCount; i++) {
+tbb::parallel_for(0, voterCount, [&](int i) {
     int numSigs = (int)pipelineResults[i].signatures.size();
     unblindResults[i].resize(numSigs);
     for (int j = 0; j < numSigs; j++) {
-        // Blind imza sırasında hangi admin tarafından imzalandığı sig.debug.adminId
+        // Blind imza sırasında hangi admin tarafından imzalandığı sig.debug.adminId'de saklanmış.
         int adminId = pipelineResults[i].signatures[j].debug.adminId;  
-        // Unblind işlemi:
+        // Unblind işlemi: ilgili prepareBlindSign çıktısı, kör imza, ilgili EA key (keyOut.eaKeys[adminId]) ve DID (dids[i].did) kullanılarak çalışır.
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
         unblindResults[i][j] = usig;
     }
-}
+});
+
+auto unblindEnd = Clock::now();
+auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
 
 // Unblind sonuçlarını raporlama:
 std::cout << "\n=== Unblind Signature Results ===\n";
@@ -417,6 +422,7 @@ for (int i = 0; i < voterCount; i++) {
     }
     std::cout << "-------------------------\n";
 }
+
 
 
 
@@ -462,6 +468,7 @@ for (int i = 0; i < voterCount; i++) {
               << (cumulativePrep_us / 1000.0) << " ms\n";
     std::cout << "Toplam kör imza (sum)  = "
               << (cumulativeBlind_us / 1000.0) << " ms\n";
+    std::cout << "\n[UNBLIND] Total Unblind Phase Time = " << (unblind_us / 1000.0) << " ms\n";
 
     // threads.txt dosyasını kapat
     threadLog.close();
