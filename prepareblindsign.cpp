@@ -19,11 +19,11 @@ static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) 
     mpz_mod(rop, rop, p);
 }
 
-static std::string elementToStringG1(const element_t elem) {
-    // PBC fonksiyonları mutable pointer beklediğinden const_cast kullanıyoruz.
-    int length = element_length_in_bytes(const_cast<element_t>(elem));
+// elementToStringG1 artık parametresini "element_t" olarak alıyor.
+static std::string elementToStringG1(element_t elem) {
+    int length = element_length_in_bytes(elem);
     std::vector<unsigned char> buf(length);
-    element_to_bytes(buf.data(), const_cast<element_t>(elem));
+    element_to_bytes(buf.data(), elem);
 
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
@@ -40,7 +40,7 @@ static std::string mpzToString(const mpz_t value) {
     return str;
 }
 
-static void hashToG1(element_t outG1, TIACParams &params, const element_t inElem) {
+static void hashToG1(element_t outG1, TIACParams &params, element_t inElem) {
     std::string s = elementToStringG1(inElem); 
     element_from_hash(outG1, s.data(), s.size());
 }
