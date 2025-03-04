@@ -456,6 +456,7 @@ for (int i = 0; i < voterCount; i++) {
 //Provecredential
 
 
+// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
 
@@ -478,7 +479,6 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     std::cout << "-------------------------\n";
 }
-
 
 
 

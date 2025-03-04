@@ -5,10 +5,9 @@
 #include <stdexcept>
 #include <iostream>
 
-// Eğer global elementToStringG1 tanımlı değilse, aşağıdaki gibi bir yardımcı fonksiyon ekleyin.
+// Eğer global elementToStringG1 tanımlı değilse, onu ekleyin.
 extern std::string elementToStringG1(element_t elem);
 
-// Yardımcı: mpz_t'yi string'e çevirir.
 static std::string mpzToString(const mpz_t value) {
     char* c_str = mpz_get_str(nullptr, 10, value);
     std::string str(c_str);
@@ -24,7 +23,7 @@ ProveCredentialOutput proveCredential(
 ) {
     ProveCredentialOutput output;
     
-    // 1) Rastgele r değeri seç (Zr).
+    // 1) Rastgele r değeri seç (Zr)
     element_t r;
     element_init_Zr(r, params.pairing);
     element_random(r);
@@ -54,8 +53,7 @@ ProveCredentialOutput proveCredential(
     element_set(output.sigmaRnd.s, s_dbl);
     
     // 4) k = α₂ * (β₂)^(DID) * g₂^r
-    // mvk.vkm1 = α₂, mvk.vkm2 = β₂.
-    // DID'i mpz_t'ye çevir:
+    // mvk.alpha2 = α₂, mvk.beta2 = β₂.
     mpz_t didInt;
     mpz_init(didInt);
     if(mpz_set_str(didInt, didStr.c_str(), 16) != 0)
@@ -69,7 +67,8 @@ ProveCredentialOutput proveCredential(
     element_t expElem;
     element_init_Zr(expElem, params.pairing);
     element_set_mpz(expElem, didInt);
-    element_pow_zn(beta_exp, mvk.vkm2, expElem);
+    // Değişiklik: mvk.vkm2 yerine mvk.beta2 kullanılıyor.
+    element_pow_zn(beta_exp, mvk.beta2, expElem);
     element_clear(expElem);
     
     // Compute g₂^r
@@ -77,14 +76,14 @@ ProveCredentialOutput proveCredential(
     element_init_G1(g2_r, params.pairing);
     element_pow_zn(g2_r, params.g2, r);
     
-    // k = α₂ * (β₂)^(DID) * g₂^r, where α₂ = mvk.vkm1.
+    // k = α₂ * (β₂)^(DID) * g₂^r, burada α₂ = mvk.alpha2.
     element_init_G1(output.k, params.pairing);
-    element_mul(output.k, mvk.vkm1, beta_exp);
+    element_mul(output.k, mvk.alpha2, beta_exp);
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
     // 5) π_v ← KoR(k)
-    // Basitçe k'nin SHA512 hash'ini hesaplayıp proof_v olarak atayalım.
+    // Basitçe k'nin SHA512 hash’ini hesaplayalım.
     unsigned char digest[SHA512_DIGEST_LENGTH];
     std::string kStr = elementToStringG1(output.k);
     SHA512(reinterpret_cast<const unsigned char*>(kStr.data()), kStr.size(), digest);
@@ -106,7 +105,7 @@ ProveCredentialOutput proveCredential(
     element_clear(g2_r);
     mpz_clear(didInt);
     
-    // Debug bilgilerini toplayalım.
+    // Debug bilgileri
     std::ostringstream dbg;
     dbg << "h'' = " << elementToStringG1(output.sigmaRnd.h) << "\n";
     dbg << "s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
