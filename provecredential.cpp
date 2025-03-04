@@ -20,7 +20,7 @@ ProveCredentialOutput proveCredential(
     AggregateSignature &aggSig,
     MasterVerKey &mvk,
     const std::string &didStr,
-    const mpz_t o   // prepareBlindSign aşamasından alınan "o" değeri
+    const mpz_t o    // "o" değeri prepare aşamasından geliyor.
 ) {
     ProveCredentialOutput output;
     std::cout << "\n[PROVE] ===== ProveCredential Phase START =====\n";
@@ -40,7 +40,7 @@ ProveCredentialOutput proveCredential(
     element_pow_zn(h_dbl, aggSig.h, rp);
     std::cout << "[PROVE] h'' computed: " << elementToStringG1(h_dbl) << "\n";
     
-    // --- Adım 3: s'' = s^(r') * (h'')^(r) ---
+    // --- Adım 3: s'' = s^(r') · (h'')^(r) ---
     element_t s_rp, h_dbl_r, s_dbl;
     element_init_G1(s_rp, params.pairing);
     element_init_G1(h_dbl_r, params.pairing);
@@ -50,13 +50,13 @@ ProveCredentialOutput proveCredential(
     element_mul(s_dbl, s_rp, h_dbl_r);
     std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
     
-    // --- σRnd = (h'', s'') ---
+    // --- σ_Rnd = (h'', s'') ---
     element_init_G1(output.sigmaRnd.h, params.pairing);
     element_set(output.sigmaRnd.h, h_dbl);
     element_init_G1(output.sigmaRnd.s, params.pairing);
     element_set(output.sigmaRnd.s, s_dbl);
     
-    // --- Adım 4: k = α₂ * (β₂)^(DID) * g₂^(r) ---
+    // --- Adım 4: k = α₂ · (β₂)^(DID) · g₂^(r) ---
     // DID'i hex string'den Zₚ'ye çevir.
     mpz_t didInt;
     mpz_init(didInt);
@@ -68,7 +68,7 @@ ProveCredentialOutput proveCredential(
     // Print: kullanılan "o" değeri (prepare aşamasından)
     std::cout << "[PROVE] Value of o (from prepare phase): " << mpzToString(o) << "\n";
     
-    // β₂'nin üssü: (β₂)^(DID)
+    // β₂ üssü: (β₂)^(DID)
     element_t beta_exp;
     element_init_G1(beta_exp, params.pairing);
     element_t expElem;
@@ -83,13 +83,13 @@ ProveCredentialOutput proveCredential(
     element_pow_zn(g2_r, params.g2, r);
     
     element_init_G1(output.k, params.pairing);
-    // k = α₂ * (β₂)^(DID) * g₂^(r)
+    // k = α₂ · (β₂)^(DID) · g₂^(r)
     element_mul(output.k, mvk.alpha2, beta_exp);
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
     // --- Adım 5: KoR İspatı (Algoritma 16) ---
-    // Rastgele r₁', r₂', r₃' seç
+    // Rastgele r₁', r₂', r₃' ∈ Zₚ seç
     element_t r1p, r2p, r3p;
     element_init_Zr(r1p, params.pairing);
     element_init_Zr(r2p, params.pairing);
@@ -130,12 +130,13 @@ ProveCredentialOutput proveCredential(
         element_clear(temp);
     }
     
-    // com: Prepare aşamasında üretilmeyen bir değer, burada identity (1) kabul ediliyor.
+    // com: Bu değeri prepare aşamasında üretilmediğinden identity (1) kabul edilir.
     element_t com_identity;
     element_init_G1(com_identity, params.pairing);
     element_set1(com_identity);
     
-    // Compute hash: c = Hash(g₁, g₂, h'', com, com', k, k')
+    // --- Adım 6: Hash Hesaplama ---
+    // c = Hash(g₁, g₂, h'', com, com', k, k')
     std::vector<std::string> hashInputs;
     hashInputs.push_back(elementToStringG1(params.g1));
     hashInputs.push_back(elementToStringG1(params.g2));
@@ -151,17 +152,18 @@ ProveCredentialOutput proveCredential(
     std::string concatStr = oss.str();
     unsigned char digest[SHA512_DIGEST_LENGTH];
     SHA512(reinterpret_cast<const unsigned char*>(concatStr.data()), concatStr.size(), digest);
-    mpz_t tmp;
-    mpz_init(tmp);
-    mpz_import(tmp, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, digest);
-    mpz_mod(tmp, tmp, params.prime_order);
+    mpz_t hash_mpz;
+    mpz_init(hash_mpz);
+    mpz_import(hash_mpz, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, digest);
+    mpz_mod(hash_mpz, hash_mpz, params.prime_order);
     element_t c_elem;
     element_init_Zr(c_elem, params.pairing);
-    element_set_mpz(c_elem, tmp);
-    mpz_clear(tmp);
+    element_set_mpz(c_elem, hash_mpz);
+    mpz_clear(hash_mpz);
     std::cout << "[PROVE] c computed (from hash): " << elementToStringG1(c_elem) << "\n";
     
-    // Compute s₁ = r1' − c·(r')
+    // --- Adım 7: KoR Tuple Hesaplaması ---
+    // s₁ = r1' − c·(r')
     element_t s1_elem, s2_elem, s3_elem;
     element_init_Zr(s1_elem, params.pairing);
     element_init_Zr(s2_elem, params.pairing);
@@ -171,18 +173,19 @@ ProveCredentialOutput proveCredential(
     element_sub(s1_elem, r1p, s1_elem);
     std::cout << "[PROVE] s1 computed: " << elementToStringG1(s1_elem) << "\n";
     
-    // Compute s₂ = r2' − c·(DID)
+    // s₂ = r2' − c·(DID)
     element_t did_elem;
     element_init_Zr(did_elem, params.pairing);
-    element_set_mpz(did_elem, didInt);  // didInt was computed earlier
+    element_set_mpz(did_elem, didInt);  // didInt daha önce hesaplanmıştı.
     element_mul(s2_elem, c_elem, did_elem);
     element_sub(s2_elem, r2p, s2_elem);
     std::cout << "[PROVE] s2 computed: " << elementToStringG1(s2_elem) << "\n";
     
-    // Compute s₃ = r3' − c·o ; burada o kullanılıyorsa (aksi halde 0 kabul edilir)
+    // s₃ = r3' − c·o  (o, prepare aşamasından gelen değerdir)
     element_t s3_temp;
     element_init_Zr(s3_temp, params.pairing);
-    element_set(s3_temp, o);  // o, prepare aşamasından gelen o değeri
+    // Dikkat: o bir mpz_t; onu Zr tipi element'e aktarıyoruz.
+    element_set_mpz(s3_temp, o);
     element_mul(s3_elem, c_elem, s3_temp);
     element_sub(s3_elem, r3p, s3_elem);
     std::cout << "[PROVE] s3 computed: " << elementToStringG1(s3_elem) << "\n";
