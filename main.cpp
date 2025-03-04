@@ -501,7 +501,7 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "Voter " << (i+1) << " credential verification: " 
               << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
 }
-std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 10
+std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
 
 
 
