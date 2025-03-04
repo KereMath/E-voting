@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <iomanip>
 
 // Dışarıdan tanımlı: elementToStringG1
 extern std::string elementToStringG1(element_t elem);
