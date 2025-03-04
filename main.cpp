@@ -467,11 +467,15 @@ for (int i = 0; i < voterCount; i++) {
 
 // --- ProveCredential Phase ---
 // 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
+// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
+// Burada, prepare aşamasından elde edilen 'o' değeri (mpz_t) de kullanılıyor.
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
 
 tbb::parallel_for(0, voterCount, [&](int i) {
-    ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did);
+    // ProveCredential, aggregateResults[i], keyOut.mvk ve dids[i].did ile birlikte,
+    // prepareBlindSign aşamasından gelen 'o' değeri (örneğin: preparedOutputs[i].o) kullanılarak çağrılır.
+    ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, preparedOutputs[i].o);
     proveResults[i] = pOut;
 });
 
