@@ -202,7 +202,7 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     out.debug.oi = mpzToString(oi);
     element_random(tmp);
     element_to_mpz(o, tmp);
-    std::cout << "[PREPARE DEBUG] o = " << mpzToString(o) << "\n";  // <-- EK SATIR: o değeri yazdırılıyor.
+    // std::cout << "[PREPARE DEBUG] o = " << mpzToString(o) << "\n";  // <-- EK SATIR: o değeri yazdırılıyor.
     element_clear(tmp);
 
     // (2) DID -> mpz dönüşümü

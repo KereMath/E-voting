@@ -88,26 +88,26 @@ UnblindSignature unblindSign(
 ) {
     UnblindSignature result;
     
-    std::cout << "\n[UNBLIND] STARTING UNBLINDING PROCESS\n";
-    std::cout << "[UNBLIND] bsOut.comi = " << bsOut.debug.comi << "\n";
-    std::cout << "[UNBLIND] bsOut.h    = " << bsOut.debug.h << "\n";
-    std::cout << "[UNBLIND] bsOut.com  = " << bsOut.debug.com << "\n";
-    std::cout << "[UNBLIND] bsOut.o    = " << mpzToString(bsOut.o) << "\n";
-    std::cout << "[UNBLIND] EA Key vkm2 = " << elementToStringG1(eaKey.vkm2) << "\n";
-    std::cout << "[UNBLIND] EA Key vkm1 = " << elementToStringG1(eaKey.vkm1) << "\n";
+    // std::cout << "\n[UNBLIND] STARTING UNBLINDING PROCESS\n";
+    // std::cout << "[UNBLIND] bsOut.comi = " << bsOut.debug.comi << "\n";
+    // std::cout << "[UNBLIND] bsOut.h    = " << bsOut.debug.h << "\n";
+    // std::cout << "[UNBLIND] bsOut.com  = " << bsOut.debug.com << "\n";
+    // std::cout << "[UNBLIND] bsOut.o    = " << mpzToString(bsOut.o) << "\n";
+    // std::cout << "[UNBLIND] EA Key vkm2 = " << elementToStringG1(eaKey.vkm2) << "\n";
+    // std::cout << "[UNBLIND] EA Key vkm1 = " << elementToStringG1(eaKey.vkm1) << "\n";
     
     // (a) h değeri: blind imzadan alınan h
     element_init_G1(result.h, params.pairing);
     element_set(result.h, blindSig.h);
-    std::cout << "[UNBLIND] Result h = " << elementToStringG1(result.h) << "\n";
+    // std::cout << "[UNBLIND] Result h = " << elementToStringG1(result.h) << "\n";
     
     // (1) Hash(comi) kontrolü:
     element_t h_check;
     element_init_G1(h_check, params.pairing);
     hashToG1(h_check, params, bsOut.comi);
     result.debug.hash_comi = elementToStringG1(h_check);
-    std::cout << "[UNBLIND DEBUG] Hash(comi) computed = " << result.debug.hash_comi << "\n";
-    std::cout << "[UNBLIND DEBUG] bsOut.h              = " << elementToStringG1(bsOut.h) << "\n";
+    // std::cout << "[UNBLIND DEBUG] Hash(comi) computed = " << result.debug.hash_comi << "\n";
+    // std::cout << "[UNBLIND DEBUG] bsOut.h              = " << elementToStringG1(bsOut.h) << "\n";
     if(element_cmp(h_check, bsOut.h) != 0) {
         element_clear(h_check);
         throw std::runtime_error("unblindSign: Hash(comi) != h");
@@ -119,13 +119,13 @@ UnblindSignature unblindSign(
 mpz_init(neg_o);
 mpz_neg(neg_o, bsOut.o);
 mpz_mod(neg_o, neg_o, params.prime_order);
-std::cout << "[UNBLIND DEBUG] Negative o (mpz): " << mpzToString(neg_o) << "\n";
+// std::cout << "[UNBLIND DEBUG] Negative o (mpz): " << mpzToString(neg_o) << "\n";
 
 // Zr tipi element oluştur, neg_o'yu atayalım.
 element_t exponent;
 element_init_Zr(exponent, params.pairing);
 element_set_mpz(exponent, neg_o);
-std::cout << "[UNBLIND DEBUG] Exponent (from -o): (converted from mpz value)\n";
+// std::cout << "[UNBLIND DEBUG] Exponent (from -o): (converted from mpz value)\n";
 mpz_clear(neg_o);
 
 element_t beta_pow;
@@ -133,13 +133,13 @@ element_init_G1(beta_pow, params.pairing);
 // Eski kodda: element_pow_zn(beta_pow, eaKey.vkm2, exponent);
 // Şimdi, istenen düzeltmeye göre vkm3 kullanılacaktır:
 element_pow_zn(beta_pow, eaKey.vkm3, exponent);
-std::cout << "[UNBLIND DEBUG] beta_pow (from vkm3) = " << elementToStringG1(beta_pow) << "\n";
+// std::cout << "[UNBLIND DEBUG] beta_pow (from vkm3) = " << elementToStringG1(beta_pow) << "\n";
 element_clear(exponent);
 
 element_init_G1(result.s_m, params.pairing);
 element_mul(result.s_m, blindSig.cm, beta_pow);
 result.debug.computed_s_m = elementToStringG1(result.s_m);
-std::cout << "[UNBLIND DEBUG] Computed s_m = " << result.debug.computed_s_m << "\n";
+// std::cout << "[UNBLIND DEBUG] Computed s_m = " << result.debug.computed_s_m << "\n";
 element_clear(beta_pow);
     
     // (3) Pairing kontrolü:
@@ -147,25 +147,25 @@ element_clear(beta_pow);
     mpz_t didInt;
     mpz_init(didInt);
     didStringToMpz(didStr, didInt, params.prime_order);
-    std::cout << "[UNBLIND DEBUG] didInt = " << mpzToString(didInt) << "\n";
+    // std::cout << "[UNBLIND DEBUG] didInt = " << mpzToString(didInt) << "\n";
     
     // Exponent oluştur: didInt (Zr tipi)
     element_init_Zr(exponent, params.pairing);
     element_set_mpz(exponent, didInt);
     mpz_clear(didInt);
-    std::cout << "[UNBLIND DEBUG] Exponent for DID (from didInt)\n";
+    // std::cout << "[UNBLIND DEBUG] Exponent for DID (from didInt)\n";
     
     element_t beta_did;
     element_init_G1(beta_did, params.pairing);
     element_pow_zn(beta_did, eaKey.vkm2, exponent);
-    std::cout << "[UNBLIND DEBUG] beta_did = " << elementToStringG1(beta_did) << "\n";
+    // std::cout << "[UNBLIND DEBUG] beta_did = " << elementToStringG1(beta_did) << "\n";
     element_clear(exponent);
     
     // multiplier = α₂ * beta_did, burada α₂ = eaKey.vkm1
     element_t multiplier;
     element_init_G1(multiplier, params.pairing);
     element_mul(multiplier, eaKey.vkm1, beta_did);
-    std::cout << "[UNBLIND DEBUG] Multiplier (α₂ * beta_did) = " << elementToStringG1(multiplier) << "\n";
+    // std::cout << "[UNBLIND DEBUG] Multiplier (α₂ * beta_did) = " << elementToStringG1(multiplier) << "\n";
     element_clear(beta_did);
     
     // Pairing hesaplamaları:
@@ -173,10 +173,10 @@ element_clear(beta_pow);
     element_init_GT(pairing_lhs, params.pairing);
     element_init_GT(pairing_rhs, params.pairing);
     pairing_apply(pairing_lhs, result.h, multiplier, params.pairing);
-    std::cout << "[UNBLIND DEBUG] Pairing LHS computed: " << elementToStringG1(pairing_lhs) << "\n";
+    // std::cout << "[UNBLIND DEBUG] Pairing LHS computed: " << elementToStringG1(pairing_lhs) << "\n";
     element_clear(multiplier);
     pairing_apply(pairing_rhs, result.s_m, params.g2, params.pairing);
-    std::cout << "[UNBLIND DEBUG] Pairing RHS computed: " << elementToStringG1(pairing_rhs) << "\n";
+    // std::cout << "[UNBLIND DEBUG] Pairing RHS computed: " << elementToStringG1(pairing_rhs) << "\n";
     
     // GT elemanlarını string'e çevirmek için:
     auto gtToString = [&params](element_t gt_elem) -> std::string {
@@ -191,8 +191,8 @@ element_clear(beta_pow);
     };
     result.debug.pairing_lhs = gtToString(pairing_lhs);
     result.debug.pairing_rhs = gtToString(pairing_rhs);
-    std::cout << "[UNBLIND DEBUG] pairing_lhs (GT) = " << result.debug.pairing_lhs << "\n";
-    std::cout << "[UNBLIND DEBUG] pairing_rhs (GT) = " << result.debug.pairing_rhs << "\n";
+    // std::cout << "[UNBLIND DEBUG] pairing_lhs (GT) = " << result.debug.pairing_lhs << "\n";
+    // std::cout << "[UNBLIND DEBUG] pairing_rhs (GT) = " << result.debug.pairing_rhs << "\n";
     
     bool pairing_ok = (element_cmp(pairing_lhs, pairing_rhs) == 0);
     element_clear(pairing_lhs);
