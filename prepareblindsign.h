@@ -15,12 +15,47 @@ struct KoRProof {
     element_t s3;
 };
 
+/*
+   KoRProof için debug detayları
+*/
+struct KoRProofDebug {
+    KoRProof proof;      // Asıl sonuç
+    std::string r1;      // r1 değeri
+    std::string r2;      // r2 değeri
+    std::string r3;      // r3 değeri
+    std::string comi_prime; // Hesaplanan comi′ (g1^r1 · h1^r2)
+    std::string com_prime;  // Hesaplanan com′  (g1^r3 · h^r2)
+};
+
+/* 
+  PrepareBlindSignDebug: Tüm ara değerlerin string gösterimlerini saklar
+*/
+struct PrepareBlindSignDebug {
+    std::string oi;         // Seçilen oi değeri
+    std::string didInt;     // did'in mpz_t karşılığı
+    std::string comi;       // Hesaplanan comi
+    std::string h;          // Hash sonucu h
+    std::string com;        // Hesaplanan com
+    // KoR ile ilgili debug bilgileri:
+    std::string kor_r1;
+    std::string kor_r2;
+    std::string kor_r3;
+    std::string kor_comi_prime;
+    std::string kor_com_prime;
+    std::string kor_c;
+    std::string kor_s1;
+    std::string kor_s2;
+    std::string kor_s3;
+};
+
 /* 
   PrepareBlindSignOutput (Algoritma 4 çıktısı):
     - comi (G1)
     - h (G1)
     - com (G1)
     - pi_s (KoRProof)
+    - o (mpz_t)
+    - debug (PrepareBlindSignDebug) -> Ara değerlerin detaylı gösterimi
 */
 struct PrepareBlindSignOutput {
     element_t comi;
@@ -28,7 +63,7 @@ struct PrepareBlindSignOutput {
     element_t com;
     KoRProof  pi_s;
     mpz_t o;  // Bu alan prepareBlindSign() içinde hesaplanıp saklanmalı.
-
+    PrepareBlindSignDebug debug;
 };
 
 /*
@@ -37,7 +72,7 @@ struct PrepareBlindSignOutput {
      - params (TIACParams &)
      - didStr (string, DID hex)
    Çıktı: 
-     - (comi, h, com, pi_s)
+     - (comi, h, com, πs, debug)
 */
 PrepareBlindSignOutput prepareBlindSign(
     TIACParams &params, 

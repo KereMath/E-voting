@@ -241,6 +241,26 @@ int main() {
 
         preparedOutputs[i] = bsOut;
     });
+// prepareBlindSign çağrılarından sonra:
+    for (size_t i = 0; i < preparedOutputs.size(); i++) {
+        std::cout << "=== Voter " << i+1 << " Debug Bilgileri ===\n";
+        std::cout << "oi         : " << preparedOutputs[i].debug.oi << "\n";
+        std::cout << "didInt     : " << preparedOutputs[i].debug.didInt << "\n";
+        std::cout << "comi       : " << preparedOutputs[i].debug.comi << "\n";
+        std::cout << "h          : " << preparedOutputs[i].debug.h << "\n";
+        std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
+        std::cout << "--- KoR Debug ---\n";
+        std::cout << "r1         : " << preparedOutputs[i].debug.kor_r1 << "\n";
+        std::cout << "r2         : " << preparedOutputs[i].debug.kor_r2 << "\n";
+        std::cout << "r3         : " << preparedOutputs[i].debug.kor_r3 << "\n";
+        std::cout << "comi_prime : " << preparedOutputs[i].debug.kor_comi_prime << "\n";
+        std::cout << "com_prime  : " << preparedOutputs[i].debug.kor_com_prime << "\n";
+        std::cout << "c          : " << preparedOutputs[i].debug.kor_c << "\n";
+        std::cout << "s1         : " << preparedOutputs[i].debug.kor_s1 << "\n";
+        std::cout << "s2         : " << preparedOutputs[i].debug.kor_s2 << "\n";
+        std::cout << "s3         : " << preparedOutputs[i].debug.kor_s3 << "\n";
+        std::cout << "============================\n\n";
+    }
 
     // 8) Kör imza görevleri için tek bir "SignTask" havuzu
     struct SignTask {
