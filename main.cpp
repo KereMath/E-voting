@@ -56,6 +56,8 @@ void my_element_dup(element_t dest, element_t src) {
 
 // -----------------------------------------------------------------------------
 int main() {
+    auto programStart = Clock::now();
+
     // 1) params.txt'den EA sayısı, threshold (t) ve seçmen sayısı (voterCount) okunuyor
     int ne = 0;         // admin (EA) sayısı
     int t  = 0;         // threshold
@@ -470,6 +472,7 @@ for (int i = 0; i < voterCount; i++) {
         mpz_clear(dids[i].x);
     }
     clearParams(params);
+    auto programEnd = Clock::now();
 
     // 13) Zaman ölçümlerini ekrana yazalım
     double setup_ms    = setup_us    / 1000.0;
@@ -496,6 +499,8 @@ for (int i = 0; i < voterCount; i++) {
 
     // threads.txt dosyasını kapat
     threadLog.close();
+    auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(programEnd - programStart).count();
+    std::cout << "Total execution time: " << (totalDuration / 1000.0) << " ms\n";
     std::cout << "\n=== Program Sonu ===\n";
     return 0;
 }
