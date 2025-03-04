@@ -13,7 +13,7 @@ bool verifyCredential(
 ) {
     std::cout << "\n[VERIFY] Starting credential verification.\n";
     
-    // Pairing hesaplamaları: e(h'', k) ve e(s'', g2)
+    // e(h'', k) ve e(s'', g2) hesaplanıyor.
     element_t pairing_lhs, pairing_rhs;
     element_init_GT(pairing_lhs, params.pairing);
     element_init_GT(pairing_rhs, params.pairing);
@@ -21,9 +21,9 @@ bool verifyCredential(
     pairing_apply(pairing_lhs, pOut.sigmaRnd.h, pOut.k, params.pairing);
     pairing_apply(pairing_rhs, pOut.sigmaRnd.s, params.g2, params.pairing);
     
-    // GT elemanlarını string'e çeviren yardımcı lambda:
+    // GT elemanlarını string'e çeviren yardımcı lambda (const_cast kullanarak).
     auto gtToString = [&params](const element_t gt_elem) -> std::string {
-        int len = element_length_in_bytes(gt_elem);
+        int len = element_length_in_bytes(const_cast<element_t>(gt_elem));
         std::vector<unsigned char> buf(len);
         element_to_bytes(buf.data(), const_cast<element_t>(gt_elem));
         std::ostringstream oss;
