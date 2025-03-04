@@ -5,7 +5,7 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
-
+#include <iostream>
 // Yardımcı Fonksiyonlar
 
 static void randomZr(element_t zr, TIACParams &params) {
