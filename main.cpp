@@ -210,13 +210,13 @@ int main() {
     }
     auto endDIDGen = Clock::now();
     auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
-    // std::cout << "=== DID Generation ===\n";
-    // for (int i = 0; i < voterCount; i++) {
-    //     char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
-    //     std::cout << "Secmen " << (i+1) << " icin x   = " << x_str << "\n"
-    //               << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
-    //     free(x_str);
-    // }
+    std::cout << "=== DID Generation ===\n";
+    for (int i = 0; i < voterCount; i++) {
+        char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
+        std::cout << "Secmen " << (i+1) << " icin x   = " << x_str << "\n"
+                  << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
+        free(x_str);
+    }
 
     // PipelineResult: her seçmen için
     std::vector<PipelineResult> pipelineResults(voterCount);
