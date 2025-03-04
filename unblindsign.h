@@ -2,50 +2,44 @@
 #define UNBLINDSIGN_H
 
 #include "setup.h"
+#include "prepareblindsign.h"
+#include "keygen.h"
+#include "blindsign.h"
+#include <string>
 
-/* 
-  UnblindSignInput: Algoritma 13 girdileri
-  - comi: PrepareBlindSignOutput'dan alınan orijinal comi (G1)
-  - h: EA’nın blindSign (partial signature) çıktısından alınan h (G1)
-  - cm: EA’nın blindSign çıktısından alınan cm (G1)
-  - o: PrepareBlindSignOutput’da hesaplanıp saklanan o (mpz_t)
-  - alpha2, beta2, beta1: EA'nın doğrulama anahtarları (vkm); 
-       alpha2 = g2^(xm), beta2 = g2^(ym), beta1 = g1^(ym)
-  - DIDi: Seçmenin DID’inin (mod p) mpz_t temsili (örneğin dids[i].x)
-*/
-struct UnblindSignInput {
-    element_t comi;    // G1
-    element_t h;       // G1
-    element_t cm;      // G1
-    mpz_t o;           // Rastgele seçilen o (PrepareBlindSignOutput'dan)
-    element_t alpha2;  // EA doğrulama anahtarından: g2^(xm)
-    element_t beta2;   // EA doğrulama anahtarından: g2^(ym)
-    element_t beta1;   // EA doğrulama anahtarından: g1^(ym)
-    mpz_t DIDi;        // Seçmenin DID (mod p)
-};
-
-/* 
-  UnblindSignature output: Algoritma 13 çıktısı
-  - h: (G1) – orijinal h değeri
-  - sm: (G1) – unblind edilmiş imza (cm · (beta1)^(–o))
+/*
+  UnblindSignature: Alg.13 TIAC Körleştirme Faktörünün Çıkarılması sonucunda
+  elde edilen unblind imza: σₘ = (h, sₘ)
+  Debug alanında ara hesaplama sonuçlarının string gösterimleri saklanır.
 */
 struct UnblindSignature {
-    element_t h;
-    element_t sm;
+    element_t h;   // G1, aynı h
+    element_t s_m; // G1, unblinded signature component
+    struct {
+        std::string hash_comi;   // Hash(comi) sonucu
+        std::string computed_s_m; // Hesaplanan sₘ = cm * (β₂)^(–o)
+        std::string pairing_lhs;  // e(h, α₂ * (β₂)^(didInt)) değeri
+        std::string pairing_rhs;  // e(sₘ, g2) değeri
+    } debug;
 };
 
 /*
-  Algoritma 13: TIAC Körleştirme Faktörünün Çıkarılması
-  Girdi: UnblindSignInput in
-  İşlem:
-    1. Eğer Hash(comi) ≠ h ise hata.
-    2. sm = cm · (beta1)^(–o) hesapla.
-    3. Eğer pairing doğrulaması: e(h, alpha2 · (beta2)^(DIDi)) == e(sm, g2) sağlanıyorsa,
-       (h, sm) döndür; aksi halde hata.
+  unblindSign: Algoritma 13 – TIAC Körleştirme Faktörünün Çıkarılması
+  Girdi:
+    - params: TIAC parametreleri
+    - bsOut: PrepareBlindSignOutput (comi, h, com, o, vs.)
+    - blindSig: BlindSignature (σ'_m = (h, cm)) (kör imza)
+    - eaKey: EA Authority'nin public key kısmı (vkm: α₂, β₂, β₁)
+    - didStr: Votera ait DID hex string (DID'i mpz'ye çevirmek için)
+  Çıktı:
+    - UnblindSignature: σₘ = (h, sₘ) ve debug bilgileri
 */
-UnblindSignature unblindSignature(
+UnblindSignature unblindSign(
     TIACParams &params,
-    UnblindSignInput &in
+    PrepareBlindSignOutput &bsOut,
+    BlindSignature &blindSig,
+    EAKey &eaKey,
+    const std::string &didStr
 );
 
 #endif

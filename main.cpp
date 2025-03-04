@@ -337,27 +337,25 @@ tbb::parallel_for(
     }
 );
 
-// 10) Paralel imza işlemleri bittikten sonra, sonuç raporu:
-
-// 10) Kör imzalar tamamlandığında, pipeline bitiş zamanı ayarlanır
-auto pipelineEnd = Clock::now();
-for (int i = 0; i < voterCount; i++) {
-    pipelineResults[i].timing.blind_end = pipelineEnd;
-}
-
-std::cout << "\n=== İmzalama Sonuçları ===\n";
-for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " için:\n";
-    // Her seçmenin imzaları, hangi admin tarafından üretilmişse admin sırası ile yazdırılıyor.
-    for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
-        BlindSignature &sig = pipelineResults[i].signatures[j];
-        std::cout << "  Admin " << (sig.debug.adminId + 1)
-                  << " tarafından imzalandı. \n";
-        std::cout << "     h  = " << elemToStrG1(sig.h) << "\n";
-        std::cout << "     cm = " << elemToStrG1(sig.cm) << "\n";
+    // 10) Kör imzalar tamamlandığında, pipeline bitiş zamanı ayarlanır
+    auto pipelineEnd = Clock::now();
+    for (int i = 0; i < voterCount; i++) {
+        pipelineResults[i].timing.blind_end = pipelineEnd;
     }
-    std::cout << "-------------------------\n";
-}
+
+    std::cout << "\n=== İmzalama Sonuçları ===\n";
+    for (int i = 0; i < voterCount; i++) {
+        std::cout << "Voter " << (i+1) << " için:\n";
+        // Her seçmenin imzaları, hangi admin tarafından üretilmişse admin sırası ile yazdırılıyor.
+        for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
+            BlindSignature &sig = pipelineResults[i].signatures[j];
+            std::cout << "  Admin " << (sig.debug.adminId + 1)
+                    << " tarafından imzalandı. \n";
+            std::cout << "     h  = " << elemToStrG1(sig.h) << "\n";
+            std::cout << "     cm = " << elemToStrG1(sig.cm) << "\n";
+        }
+        std::cout << "-------------------------\n";
+    }
 
 
     // 11) Pipeline süresi
@@ -387,6 +385,50 @@ for (int i = 0; i < voterCount; i++) {
                   << ": Prepare time = " << (prep_time / 1000.0)
                   << " ms, BlindSign time = " << (blind_time / 1000.0) << " ms\n\n";
     }
+
+    //Unblindsign
+
+// 14) Unblind Phase: Her seçmen için threshold kadar imza unblind edilecek.
+// Unblind sonuçlarını saklamak için her seçmen için bir vektör.
+std::vector< std::vector<UnblindSignature> > unblindResults(voterCount);
+for (int i = 0; i < voterCount; i++) {
+    // Örneğin, her seçmen için pipelineResults[i].signatures.size() adet kör imza var.
+    unblindResults[i].resize(pipelineResults[i].signatures.size());
+    for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
+        // Her imzayı üreten admin bilgisini blindSign sırasında sig.debug.adminId olarak sakladık.
+        int adminId = pipelineResults[i].signatures[j].debug.adminId;
+        // Unblind işlemi: unblindSign fonksiyonu, ilgili prepareBlindSign çıktısı (preparedOutputs[i]),
+        // kör imza (pipelineResults[i].signatures[j]), ilgili EA key (keyOut.eaKeys[adminId]) ve DID (dids[i].did) kullanılarak çalışır.
+        UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
+        unblindResults[i][j] = usig;
+    }
+}
+
+// Unblind sonuçlarını raporlama:
+std::cout << "\n=== Unblind Signature Results ===\n";
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "Voter " << (i+1) << " unblind signatures:\n";
+    for (int j = 0; j < (int)unblindResults[i].size(); j++) {
+        UnblindSignature &usig = unblindResults[i][j];
+        std::cout << "  Signature " << (j+1) << ":\n";
+        std::cout << "     h   = " << elementToStringG1(usig.h) << "\n";
+        std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
+        std::cout << "     Debug - Hash(comi): " << usig.debug.hash_comi << "\n";
+        std::cout << "     Debug - computed s_m: " << usig.debug.computed_s_m << "\n";
+        std::cout << "     Debug - pairing LHS: " << usig.debug.pairing_lhs << "\n";
+        std::cout << "     Debug - pairing RHS: " << usig.debug.pairing_rhs << "\n";
+    }
+    std::cout << "-------------------------\n";
+}
+
+
+
+
+
+
+
+
+
 
     // 12) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
