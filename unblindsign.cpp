@@ -200,7 +200,7 @@ element_clear(beta_pow);
     if(!pairing_ok) {
         throw std::runtime_error("unblindSign: Pairing check failed");
     }
-    std::cout << "[UNBLIND DEBUG] Pairing check PASSED\n";
+    // std::cout << "[UNBLIND DEBUG] Pairing check PASSED\n";
     
     return result;
 }
