@@ -200,13 +200,13 @@ int main() {
     // std::cout << "\n";
 
     // 6) DID Generation
-    // auto startDIDGen = Clock::now();
-    // std::vector<DID> dids(voterCount);
-    // for (int i = 0; i < voterCount; i++) {
-    //     dids[i] = createDID(params, voterIDs[i]);
-    // }
-    // auto endDIDGen = Clock::now();
-    // auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
+    auto startDIDGen = Clock::now();
+    std::vector<DID> dids(voterCount);
+    for (int i = 0; i < voterCount; i++) {
+        dids[i] = createDID(params, voterIDs[i]);
+    }
+    auto endDIDGen = Clock::now();
+    auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
     // std::cout << "=== DID Generation ===\n";
     // for (int i = 0; i < voterCount; i++) {
     //     char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
