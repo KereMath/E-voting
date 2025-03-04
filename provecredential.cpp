@@ -15,6 +15,26 @@ static std::string mpzToString(const mpz_t value) {
     return str;
 }
 
+// Ek olarak, blindsign.cpp’de kullanılan hashToZr benzeri fonksiyonu burada tanımlıyoruz.
+// Bu fonksiyon, birden fazla element'in hex gösterimini birleştirip SHA512 ile hash hesaplar.
+static void hashToZrFromElements(element_t outZr, TIACParams &params, const std::vector<element_t> &elems) {
+    std::ostringstream oss;
+    for (auto e : elems) {
+        oss << elementToStringG1(e);
+    }
+    std::string data = oss.str();
+
+    unsigned char digest[SHA512_DIGEST_LENGTH];
+    SHA512(reinterpret_cast<const unsigned char*>(data.data()), data.size(), digest);
+
+    mpz_t tmp;
+    mpz_init(tmp);
+    mpz_import(tmp, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, digest);
+    mpz_mod(tmp, tmp, params.prime_order);
+    element_set_mpz(outZr, tmp);
+    mpz_clear(tmp);
+}
+
 ProveCredentialOutput proveCredential(
     TIACParams &params,
     AggregateSignature &aggSig,
@@ -36,13 +56,11 @@ ProveCredentialOutput proveCredential(
     element_pow_zn(h_dbl, aggSig.h, r);
     std::cout << "[PROVE] h'' computed: " << elementToStringG1(h_dbl) << "\n";
     
-    // 3) s'' = s^r * (h'')^r, s aggregate imzadan alınan s'dir.
-// 3) s'' = s^r, s aggregate imzadan alınan s'dir.
-element_t s_dbl;
-element_init_G1(s_dbl, params.pairing);
-element_pow_zn(s_dbl, aggSig.s, r);
-std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
-
+    // 3) s'' = s^r, s aggregate imzadan alınan s'dir.
+    element_t s_dbl;
+    element_init_G1(s_dbl, params.pairing);
+    element_pow_zn(s_dbl, aggSig.s, r);
+    std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
     
     // σRnd = (h'', s'')
     element_init_G1(output.sigmaRnd.h, params.pairing);
@@ -76,17 +94,18 @@ std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
-    // 5) π_v ← KoR(k): burada basitçe k'nin SHA512 hash'ini hesaplıyoruz.
-    unsigned char digest[SHA512_DIGEST_LENGTH];
-    std::string kStr = elementToStringG1(output.k);
-    SHA512(reinterpret_cast<const unsigned char*>(kStr.data()), kStr.size(), digest);
-    std::ostringstream oss;
-    oss << std::hex << std::setfill('0');
-    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        oss << std::setw(2) << (int)digest[i];
-    }
-    output.proof_v = oss.str();
+    // 5) π_v ← KoR(k): burada, blindsign’de kullanılan hashToZr benzeri yöntemle k'nin hash’ini hesaplıyoruz.
+    // Bu şekilde, hem prove hem de diğer yerlerde aynı hash fonksiyonu kullanılmış olacak.
+    element_t tempHash;
+    element_init_Zr(tempHash, params.pairing);
+    std::vector<element_t> vec;
+    vec.push_back(output.k);
+    hashToZrFromElements(tempHash, params, vec);
+    // π_v'yi, tempHash'in hex gösterimi olarak alalım:
+    std::string proofStr = elementToStringG1(tempHash);
+    output.proof_v = proofStr;
     std::cout << "[PROVE] Proof (π_v) computed as hash(k): " << output.proof_v << "\n";
+    element_clear(tempHash);
     
     // Temizleme
     element_clear(r);
