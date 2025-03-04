@@ -185,7 +185,7 @@ ProveCredentialOutput proveCredential(
     element_t s3_temp;
     element_init_Zr(s3_temp, params.pairing);
     // Dikkat: o bir mpz_t; onu Zr tipi element'e aktarıyoruz.
-    element_set_mpz(s3_temp, o);
+    element_set_mpz(s3_temp, const_cast<mpz_t>(o));  // Değişiklik yapıldı!
     element_mul(s3_elem, c_elem, s3_temp);
     element_sub(s3_elem, r3p, s3_elem);
     std::cout << "[PROVE] s3 computed: " << elementToStringG1(s3_elem) << "\n";
