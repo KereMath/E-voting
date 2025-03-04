@@ -91,8 +91,6 @@ std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
     // Temizleme
     element_clear(r);
     element_clear(h_dbl);
-    element_clear(s_r);
-    element_clear(h_dbl_r);
     element_clear(s_dbl);
     element_clear(beta_exp);
     element_clear(g2_r);
