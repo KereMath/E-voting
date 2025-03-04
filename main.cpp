@@ -442,7 +442,7 @@ for (int i = 0; i < voterCount; i++) {
     auto aggregateEnd = Clock::now();
     auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
     
-    Aggregate sonuçlarını raporlama:
+    // Aggregate sonuçlarını raporlama:
     std::cout << "\n=== Aggregate Signature Results ===\n";
     for (int i = 0; i < voterCount; i++) {
         std::cout << "Voter " << (i+1) << " aggregate signature:\n";
