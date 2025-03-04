@@ -37,14 +37,12 @@ ProveCredentialOutput proveCredential(
     std::cout << "[PROVE] h'' computed: " << elementToStringG1(h_dbl) << "\n";
     
     // 3) s'' = s^r * (h'')^r, s aggregate imzadan alınan s'dir.
-    element_t s_r, h_dbl_r, s_dbl;
-    element_init_G1(s_r, params.pairing);
-    element_init_G1(h_dbl_r, params.pairing);
-    element_init_G1(s_dbl, params.pairing);
-    element_pow_zn(s_r, aggSig.s, r);
-    element_pow_zn(h_dbl_r, h_dbl, r);
-    element_mul(s_dbl, s_r, h_dbl_r);
-    std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
+// 3) s'' = s^r, s aggregate imzadan alınan s'dir.
+element_t s_dbl;
+element_init_G1(s_dbl, params.pairing);
+element_pow_zn(s_dbl, aggSig.s, r);
+std::cout << "[PROVE] s'' computed: " << elementToStringG1(s_dbl) << "\n";
+
     
     // σRnd = (h'', s'')
     element_init_G1(output.sigmaRnd.h, params.pairing);
