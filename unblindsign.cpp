@@ -6,39 +6,36 @@
 #include <stdexcept>
 #include <iostream>
 
-// Global olarak kullanılacak: G1 elemanını hex string'e çeviren fonksiyon
+// Global: G1 elemanını hex string'e çevirir.
 std::string elementToStringG1(element_t elem) {
     int length = element_length_in_bytes(elem);
     std::vector<unsigned char> buf(length);
     element_to_bytes(buf.data(), elem);
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
-    for (auto c : buf) {
+    for (auto c : buf)
         oss << std::setw(2) << (int)c;
-    }
     return oss.str();
 }
 
-// Yardımcı: DID string'ini mpz_t'ye çevirir.
+// DID string'ini mpz_t'ye çevirir.
 static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) {
-    if(mpz_set_str(rop, didStr.c_str(), 16) != 0) {
+    if(mpz_set_str(rop, didStr.c_str(), 16) != 0)
         throw std::runtime_error("didStringToMpz: invalid hex string");
-    }
     mpz_mod(rop, rop, p);
 }
 
-// Yardımcı: inElem'nin hash'ini G1 elemanına aktarır.
+// inElem'nin hash'ini G1 elemanına aktarır.
 static void hashToG1(element_t outG1, TIACParams &params, element_t inElem) {
     std::string s = elementToStringG1(inElem);
     element_from_hash(outG1, s.data(), s.size());
 }
 
-// Yardımcı: Verilen string'lerin birleşiminden hash hesaplar ve sonucu outZr'ye atar.
+// Verilen string'lerin birleşiminden hash hesaplar, sonucu outZr'ye atar.
 static void hashToZr(element_t outZr, TIACParams &params, const std::vector<std::string> &elems) {
     std::ostringstream oss;
-    for (const auto &s : elems) {
+    for (const auto &s : elems)
         oss << s;
-    }
     std::string msg = oss.str();
     unsigned char digest[SHA512_DIGEST_LENGTH];
     SHA512(reinterpret_cast<const unsigned char*>(msg.data()), msg.size(), digest);
@@ -52,10 +49,11 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<std:
 
 /*
   unblindSign implementasyonu (Alg. 13):
-  1) Hash(comi) kontrolü: Eğer hash(comi) ≠ h, hata verir.
-  2) sₘ = cm · (β₂)^(–o) hesaplanır. (o, prepare aşamasından alınmıştır.)
-  3) Pairing kontrolü: e(h, α₂·(β₂)^(didInt)) ?= e(sₘ, g2)
-  Her adımda ara sonuçlar ekrana yazdırılır.
+  1) Hash(comi) kontrolü: Eğer hash(comi) ≠ h, hata verilir.
+  2) sₘ = cm * (β₂)^(–o) hesaplanır. (Burada bsOut.o, prepare aşamasından alınan o değeri)
+  3) Pairing kontrolü: e(h, α₂ * (β₂)^(didInt)) ?= e(sₘ, g2)
+     - didInt, didStr'den hesaplanır.
+  Her adımda ara sonuçlar std::cout ile yazdırılarak debug bilgileri toplanır.
 */
 UnblindSignature unblindSign(
     TIACParams &params,
@@ -83,13 +81,14 @@ UnblindSignature unblindSign(
     }
     element_clear(h_check);
     
-    // (2) sₘ = cm · (β₂)^(–o)
+    // (2) sₘ = cm * (β₂)^(–o)
+    // bsOut.o, prepare aşamasında hesaplanan o değeridir.
     mpz_t neg_o;
     mpz_init(neg_o);
     mpz_neg(neg_o, bsOut.o);
     mpz_mod(neg_o, neg_o, params.prime_order);
     
-    // Üstel için Zr tipi element oluşturuyoruz:
+    // Zr tipi bir element oluşturup neg_o'yu atıyoruz.
     element_t exponent;
     element_init_Zr(exponent, params.pairing);
     element_set_mpz(exponent, neg_o);
@@ -97,6 +96,7 @@ UnblindSignature unblindSign(
     
     element_t beta_pow;
     element_init_G1(beta_pow, params.pairing);
+    // EA key'deki β₂, vkm2 olarak veriliyor.
     element_pow_zn(beta_pow, eaKey.vkm2, exponent);
     element_clear(exponent);
     
@@ -107,12 +107,12 @@ UnblindSignature unblindSign(
     element_clear(beta_pow);
     
     // (3) Pairing kontrolü:
-    // DID'i mpz_t'ye çevir:
+    // DID, didStr'den mpz_t'ye çevrilir.
     mpz_t didInt;
     mpz_init(didInt);
     didStringToMpz(didStr, didInt, params.prime_order);
     
-    // Üstel için yeniden Zr tipi element oluştur:
+    // Üstel hesaplama için Zr tipi element oluşturuluyor.
     element_init_Zr(exponent, params.pairing);
     element_set_mpz(exponent, didInt);
     mpz_clear(didInt);
@@ -122,7 +122,7 @@ UnblindSignature unblindSign(
     element_pow_zn(beta_did, eaKey.vkm2, exponent);
     element_clear(exponent);
     
-    // multiplier = α₂ * beta_did (EA key: α₂ = vkm1)
+    // multiplier = α₂ * beta_did, burada α₂ = eaKey.vkm1
     element_t multiplier;
     element_init_G1(multiplier, params.pairing);
     element_mul(multiplier, eaKey.vkm1, beta_did);
@@ -135,32 +135,21 @@ UnblindSignature unblindSign(
     element_clear(multiplier);
     pairing_apply(pairing_rhs, result.s_m, params.g2, params.pairing);
     
-    // GT elemanlarını string'e çevirmek için:
-    std::string lhs_str, rhs_str;
-    {
-        int len = element_length_in_bytes(pairing_lhs);
+    // GT elemanlarını string'e çeviriyoruz:
+    auto gtToString = [&params](element_t gt_elem) -> std::string {
+        int len = element_length_in_bytes(gt_elem);
         std::vector<unsigned char> buf(len);
-        element_to_bytes(buf.data(), pairing_lhs);
+        element_to_bytes(buf.data(), gt_elem);
         std::ostringstream oss;
         oss << std::hex << std::setfill('0');
-        for(auto c : buf)
+        for (auto c : buf)
             oss << std::setw(2) << (int)c;
-        lhs_str = oss.str();
-    }
-    {
-        int len = element_length_in_bytes(pairing_rhs);
-        std::vector<unsigned char> buf(len);
-        element_to_bytes(buf.data(), pairing_rhs);
-        std::ostringstream oss;
-        oss << std::hex << std::setfill('0');
-        for(auto c : buf)
-            oss << std::setw(2) << (int)c;
-        rhs_str = oss.str();
-    }
-    result.debug.pairing_lhs = lhs_str;
-    result.debug.pairing_rhs = rhs_str;
-    std::cout << "[UNBLIND DEBUG] pairing_lhs = " << lhs_str << "\n";
-    std::cout << "[UNBLIND DEBUG] pairing_rhs = " << rhs_str << "\n";
+        return oss.str();
+    };
+    result.debug.pairing_lhs = gtToString(pairing_lhs);
+    result.debug.pairing_rhs = gtToString(pairing_rhs);
+    std::cout << "[UNBLIND DEBUG] pairing_lhs = " << result.debug.pairing_lhs << "\n";
+    std::cout << "[UNBLIND DEBUG] pairing_rhs = " << result.debug.pairing_rhs << "\n";
     
     bool pairing_ok = (element_cmp(pairing_lhs, pairing_rhs) == 0);
     element_clear(pairing_lhs);

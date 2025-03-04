@@ -387,18 +387,16 @@ tbb::parallel_for(
     }
 
     //Unblindsign
-
-// ... (Blind imza üretim aşaması tamamlandıktan sonra)
-
 // 14) Unblind Phase: Her seçmen için threshold (örneğin t adet) imza unblind edilecek.
+// Unblind sonuçlarını saklamak için her seçmen için bir vektör oluşturuyoruz.
 std::vector< std::vector<UnblindSignature> > unblindResults(voterCount);
 for (int i = 0; i < voterCount; i++) {
     int numSigs = (int)pipelineResults[i].signatures.size();
     unblindResults[i].resize(numSigs);
     for (int j = 0; j < numSigs; j++) {
-        // Her imza için, blindSign sırasında hangi admin tarafından imzalandığı bilgisi sig.debug.adminId saklanmış.
-        int adminId = pipelineResults[i].signatures[j].debug.adminId; // BlindSign fonksiyonunda adminId atandı.
-        // Unblind işlemi:
+        // BlindSign sırasında hangi adminin imzaladığı bilgisi sig.debug.adminId'de saklanmış.
+        int adminId = pipelineResults[i].signatures[j].debug.adminId;  
+        // Unblind işlemi: ilgili prepareBlindSign çıktısı, kör imza, ilgili EA key (keyOut.eaKeys[adminId]) ve DID (dids[i].did) kullanılarak çalışır.
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
         unblindResults[i][j] = usig;
     }
@@ -420,7 +418,6 @@ for (int i = 0; i < voterCount; i++) {
     }
     std::cout << "-------------------------\n";
 }
-
 
 
 
