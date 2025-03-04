@@ -5,8 +5,8 @@
 #include <stdexcept>
 #include <iostream>
 
-// Dışarıdan tanımlı: elementToStringG1 (örneğin, unblindsign veya aggregate modülünden)
-extern std::string elementToStringG1(element_t elem);
+// Externally defined: elementToStringG1 with const element_t parameter.
+extern std::string elementToStringG1(const element_t elem);
 
 static std::string mpzToString(const mpz_t value) {
     char* c_str = mpz_get_str(nullptr, 10, value);
@@ -15,32 +15,10 @@ static std::string mpzToString(const mpz_t value) {
     return str;
 }
 
-// Ek olarak, blindsign.cpp’de kullanılan hashToZr benzeri fonksiyonu burada tanımlıyoruz.
-// Bu fonksiyon, birden fazla element'in hex gösterimini birleştirip SHA512 ile hash hesaplar.
-static void hashToZrFromElements(element_t outZr, TIACParams &params, const std::vector<element_t> &elems) {
-    std::ostringstream oss;
-    for (auto e : elems) {
-        oss << elementToStringG1(e);
-    }
-    std::string data = oss.str();
-
-    unsigned char digest[SHA512_DIGEST_LENGTH];
-    SHA512(reinterpret_cast<const unsigned char*>(data.data()), data.size(), digest);
-
-    mpz_t tmp;
-    mpz_init(tmp);
-    mpz_import(tmp, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, digest);
-    mpz_mod(tmp, tmp, params.prime_order);
-    element_set_mpz(outZr, tmp);
-    mpz_clear(tmp);
-}
-
-ProveCredentialOutput proveCredential(
-    TIACParams &params,
-    AggregateSignature &aggSig,
-    MasterVerKey &mvk,
-    const std::string &didStr
-) {
+ProveCredentialOutput proveCredential(TIACParams &params,
+                                        AggregateSignature &aggSig,
+                                        MasterVerKey &mvk,
+                                        const std::string &didStr) {
     ProveCredentialOutput output;
     
     // 1) Rastgele r değeri seç (Zr)
@@ -69,10 +47,10 @@ ProveCredentialOutput proveCredential(
     element_set(output.sigmaRnd.s, s_dbl);
     
     // 4) k = α₂ * (β₂)^(DID) * g₂^r
-    // mvk.alpha2 = α₂, mvk.beta2 = β₂.
+    // mvk.alpha2 = α₂, mvk.beta2 = β₂
     mpz_t didInt;
     mpz_init(didInt);
-    if(mpz_set_str(didInt, didStr.c_str(), 16) != 0)
+    if (mpz_set_str(didInt, didStr.c_str(), 16) != 0)
         throw std::runtime_error("proveCredential: Invalid DID hex string");
     mpz_mod(didInt, didInt, params.prime_order);
     std::cout << "[PROVE] DID (mpz): " << mpzToString(didInt) << "\n";
@@ -94,18 +72,17 @@ ProveCredentialOutput proveCredential(
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
-    // 5) π_v ← KoR(k): burada, blindsign’de kullanılan hashToZr benzeri yöntemle k'nin hash’ini hesaplıyoruz.
-    // Bu şekilde, hem prove hem de diğer yerlerde aynı hash fonksiyonu kullanılmış olacak.
-    element_t tempHash;
-    element_init_Zr(tempHash, params.pairing);
-    std::vector<element_t> vec;
-    vec.push_back(output.k);
-    hashToZrFromElements(tempHash, params, vec);
-    // π_v'yi, tempHash'in hex gösterimi olarak alalım:
-    std::string proofStr = elementToStringG1(tempHash);
-    output.proof_v = proofStr;
+    // 5) π_v ← SHA512(k)
+    unsigned char digest[SHA512_DIGEST_LENGTH];
+    std::string kStr = elementToStringG1(output.k);
+    SHA512(reinterpret_cast<const unsigned char*>(kStr.data()), kStr.size(), digest);
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
+        oss << std::setw(2) << (int)digest[i];
+    }
+    output.proof_v = oss.str();
     std::cout << "[PROVE] Proof (π_v) computed as hash(k): " << output.proof_v << "\n";
-    element_clear(tempHash);
     
     // Temizleme
     element_clear(r);
