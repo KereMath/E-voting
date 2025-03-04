@@ -456,7 +456,9 @@ for (int i = 0; i < voterCount; i++) {
 
 //Provecredential
 
-// ProveCredential Phase
+
+// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
+// ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
 
@@ -481,7 +483,7 @@ for (int i = 0; i < voterCount; i++) {
 }
 std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
 
-// VerifyCredential Phase
+// VerifyCredential Phase: ProveCredential çıktısını doğrulayalım.
 std::vector<bool> verifyResults(voterCount);
 auto verifyStart = Clock::now();
 
@@ -499,8 +501,7 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "Voter " << (i+1) << " credential verification: " 
               << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
 }
-std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
-
+std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 10
 
 
 

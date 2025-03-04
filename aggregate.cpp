@@ -3,8 +3,7 @@
 #include <sstream>
 #include <iomanip>
 
-// Externally defined: elementToStringG1, 
-// artık const element_t parametre alacak şekilde tanımlanmıştır.
+// Extern olarak tanımlı: elementToStringG1 artık const parametre alır.
 extern std::string elementToStringG1(const element_t elem);
 
 AggregateSignature aggregateSign(TIACParams &params,
@@ -20,23 +19,21 @@ AggregateSignature aggregateSign(TIACParams &params,
     element_init_G1(aggSig.h, params.pairing);
     element_init_G1(aggSig.s, params.pairing);
 
-    // Set h using the first partial signature. PartialSigs[].h is const, so cast it away.
-    element_set(aggSig.h, const_cast<element_t>(partialSigs[0].h));
+    // partialSigs[i].h ve partialSigs[i].s_m tanımları element_t (yani element_s[1]) olduğundan,
+    // bunların pointer’larını almak için &partialSigs[i].h[0] kullanılmalıdır.
+    element_set(aggSig.h, &partialSigs[0].h[0]);
+    element_set(aggSig.s, &partialSigs[0].s_m[0]);
     
-    // Set s initially to the first partial signature's s_m.
-    element_set(aggSig.s, const_cast<element_t>(partialSigs[0].s_m));
-    
-    // For each remaining partial signature, multiply s_m'leri.
+    // Her kalan partial imza parçasının s_m değerini çarparız.
     for (size_t i = 1; i < partialSigs.size(); i++) {
-        // Cast partialSigs[i].s_m from const to non-const for element_mul.
-        element_mul(aggSig.s, aggSig.s, const_cast<element_t>(partialSigs[i].s_m));
+        element_mul(aggSig.s, aggSig.s, &partialSigs[i].s_m[0]);
     }
     
-    // Build debug info by concatenating the string representations of each partial s_m.
+    // Debug bilgisini oluşturmak için s_m değerlerinin string gösterimlerini birleştiriyoruz.
     std::ostringstream oss;
     oss << "Aggregated s (product of s_m's): ";
     for (size_t i = 0; i < partialSigs.size(); i++) {
-        oss << elementToStringG1(const_cast<element_t>(partialSigs[i].s_m)) << " ";
+        oss << elementToStringG1(&partialSigs[i].s_m[0]) << " ";
     }
     aggSig.debug_info = oss.str();
     

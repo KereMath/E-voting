@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <iostream>
 
-// Externally defined: elementToStringG1 with const element_t parameter.
+// Dışarıdan tanımlı: elementToStringG1 artık const parametre alır.
 extern std::string elementToStringG1(const element_t elem);
 
 static std::string mpzToString(const mpz_t value) {
@@ -15,10 +15,12 @@ static std::string mpzToString(const mpz_t value) {
     return str;
 }
 
-ProveCredentialOutput proveCredential(TIACParams &params,
-                                        AggregateSignature &aggSig,
-                                        MasterVerKey &mvk,
-                                        const std::string &didStr) {
+ProveCredentialOutput proveCredential(
+    TIACParams &params,
+    AggregateSignature &aggSig,
+    MasterVerKey &mvk,
+    const std::string &didStr
+) {
     ProveCredentialOutput output;
     
     // 1) Rastgele r değeri seç (Zr)
@@ -46,11 +48,11 @@ ProveCredentialOutput proveCredential(TIACParams &params,
     element_init_G1(output.sigmaRnd.s, params.pairing);
     element_set(output.sigmaRnd.s, s_dbl);
     
-    // 4) k = α₂ * (β₂)^(DID) * g₂^r
-    // mvk.alpha2 = α₂, mvk.beta2 = β₂
+    // 4) k = α₂ * (β₂)^(DID) * g₂^r  
+    // mvk.alpha2 = α₂, mvk.beta2 = β₂.
     mpz_t didInt;
     mpz_init(didInt);
-    if (mpz_set_str(didInt, didStr.c_str(), 16) != 0)
+    if(mpz_set_str(didInt, didStr.c_str(), 16) != 0)
         throw std::runtime_error("proveCredential: Invalid DID hex string");
     mpz_mod(didInt, didInt, params.prime_order);
     std::cout << "[PROVE] DID (mpz): " << mpzToString(didInt) << "\n";
@@ -72,7 +74,7 @@ ProveCredentialOutput proveCredential(TIACParams &params,
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
-    // 5) π_v ← SHA512(k)
+    // 5) π_v ← KoR(k): burada k’nin SHA512 hash’ini hesaplıyoruz.
     unsigned char digest[SHA512_DIGEST_LENGTH];
     std::string kStr = elementToStringG1(output.k);
     SHA512(reinterpret_cast<const unsigned char*>(kStr.data()), kStr.size(), digest);

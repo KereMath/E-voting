@@ -6,23 +6,30 @@
 #include "keygen.h"
 #include <string>
 
-// ProveCredentialRound: σ'' = (h'', s'')
-struct ProveCredentialRound {
-    element_t h; // h'' = h^r
-    element_t s; // s'' = s^r (Burada s aggregate imzadan alınan s'dir)
-    std::string debug_info; // Debug bilgileri (ör. h'' ve s'' değerlerinin string gösterimi)
+struct ProveCredentialSignature {
+    element_t h; // h'' değeri
+    element_t s; // s'' değeri
+    std::string debug_info;
 };
 
-// ProveCredentialOutput: Çıktı olarak imza kanıtı (σRnd, k) ve π_v (hash(k))
 struct ProveCredentialOutput {
-    ProveCredentialRound sigmaRnd; // σ'' = (h'', s'')
-    element_t k;                   // k = α₂ · (β₂)^(DID) · g₂^r
-    std::string proof_v;           // π_v = SHA512(k)
+    ProveCredentialSignature sigmaRnd; // (h'', s'')
+    element_t k;                       // k değeri
+    std::string proof_v;               // π_v: k'nin SHA512 hash'ı
 };
 
+/**
+ * @brief Seçmenin aggregate imzası üzerinde imza kanıtı (prove credential) üretir.
+ * 
+ * @param params TIAC parametreleri
+ * @param aggSig Aggregate imza (AggregateSignature)
+ * @param mvk Master Verification Key (mvk) – burada mvk.alpha2 = g^x₂, mvk.beta2 = g^y₂, mvk.beta1 = g^y₁
+ * @param didStr Seçmenin DID değeri (hex string)
+ * @return ProveCredentialOutput
+ */
 ProveCredentialOutput proveCredential(TIACParams &params,
                                         AggregateSignature &aggSig,
                                         MasterVerKey &mvk,
                                         const std::string &didStr);
 
-#endif
+#endif // PROVE_CREDENTIAL_H
