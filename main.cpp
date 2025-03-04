@@ -135,22 +135,22 @@ int main() {
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
 
-    // std::cout << "Key generation time: " << keygen_us/1000.0 << " ms\n\n";
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
-    //     std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
-    //     std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
-    //     std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
-    // }
+    std::cout << "Key generation time: " << keygen_us/1000.0 << " ms\n\n";
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
+        std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
+        std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
+        std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
+    }
 
     // EA Authority'lerin detaylı yazdırılması
     // for (int i = 0; i < ne; i++) {
@@ -459,14 +459,19 @@ for (int i = 0; i < voterCount; i++) {
 
 // 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
 // ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
+
+
+// VerifyCredential Phase: ProveCredential çıktısını doğrulayalım.
+
+
+
+// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
-
 tbb::parallel_for(0, voterCount, [&](int i) {
     ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did);
     proveResults[i] = pOut;
 });
-
 auto proveEnd = Clock::now();
 auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
 
@@ -477,21 +482,19 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
     std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
     std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
-    std::cout << "    Proof (π_v) = " << proveResults[i].proof_v << "\n";
+    std::cout << "    π_v = " << proveResults[i].proof_v << "\n";
     std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     std::cout << "-------------------------\n";
 }
 std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
 
-// VerifyCredential Phase: ProveCredential çıktısını doğrulayalım.
+// 17) VerifyCredential Phase: ProveCredential çıktısını doğrulayalım.
 std::vector<bool> verifyResults(voterCount);
 auto verifyStart = Clock::now();
-
 tbb::parallel_for(0, voterCount, [&](int i) {
     bool res = verifyCredential(params, proveResults[i]);
     verifyResults[i] = res;
 });
-
 auto verifyEnd = Clock::now();
 auto verify_us = std::chrono::duration_cast<std::chrono::microseconds>(verifyEnd - verifyStart).count();
 
@@ -502,10 +505,6 @@ for (int i = 0; i < voterCount; i++) {
               << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
 }
 std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
-
-
-
-
 
 
 

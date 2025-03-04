@@ -21,8 +21,8 @@ bool verifyCredential(
     pairing_apply(pairing_lhs, pOut.sigmaRnd.h, pOut.k, params.pairing);
     pairing_apply(pairing_rhs, pOut.sigmaRnd.s, params.g2, params.pairing);
     
-    // GT elemanını string'e çeviren yardımcı lambda:
-    auto gtToString = [&params](element_t gt_elem) -> std::string {
+    // GT elemanlarını string'e çeviren yardımcı lambda:
+    auto gtToString = [&params](const element_t gt_elem) -> std::string {
         int len = element_length_in_bytes(gt_elem);
         std::vector<unsigned char> buf(len);
         element_to_bytes(buf.data(), gt_elem);
