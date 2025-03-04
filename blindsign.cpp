@@ -80,7 +80,7 @@ bool CheckKoR(
     element_mul(comi_double, comi_double, comi_c);
     element_clear(comi_c);
 
-    std::cout << "[DEBUG] comi_double = " << elemToStrG1(comi_double) << "\n";
+    // std::cout << "[DEBUG] comi_double = " << elemToStrG1(comi_double) << "\n";
 
     // com_double hesaplanıyor:
     element_t com_double;
@@ -105,7 +105,7 @@ bool CheckKoR(
     element_clear(h_s2);
     element_clear(com_c);
 
-    std::cout << "[DEBUG] com_double = " << elemToStrG1(com_double) << "\n";
+    // std::cout << "[DEBUG] com_double = " << elemToStrG1(com_double) << "\n";
 
     // cprime hesaplanıyor:
     element_t cprime;
@@ -123,14 +123,14 @@ bool CheckKoR(
 
     hashToZr(cprime, params, toHash);
 
-    std::cout << "[DEBUG] Computed cprime = " << elemToStrG1(cprime) << "\n";
-    std::cout << "[DEBUG] pi_s.c         = " << elemToStrG1(pi_s.c) << "\n";
+    // std::cout << "[DEBUG] Computed cprime = " << elemToStrG1(cprime) << "\n";
+    // std::cout << "[DEBUG] pi_s.c         = " << elemToStrG1(pi_s.c) << "\n";
 
     bool ok = (element_cmp(cprime, pi_s.c) == 0);
     if(ok)
-        std::cout << "[DEBUG] CheckKoR PASSED\n";
+        // std::cout << "[DEBUG] CheckKoR PASSED\n";
     else
-        std::cout << "[DEBUG] CheckKoR FAILED\n";
+        // std::cout << "[DEBUG] CheckKoR FAILED\n";
 
     element_clear(comi_double);
     element_clear(com_double);
@@ -168,8 +168,8 @@ BlindSignature blindSign(
         std::string s = elemToStrG1(bsOut.comi);
         element_from_hash(hprime, s.data(), s.size());
     }
-    std::cout << "[DEBUG] hprime (Hash(comi)) = " << elemToStrG1(hprime) << "\n";
-    std::cout << "[DEBUG] bsOut.h              = " << elemToStrG1(bsOut.h) << "\n";
+    // std::cout << "[DEBUG] hprime (Hash(comi)) = " << elemToStrG1(hprime) << "\n";
+    // std::cout << "[DEBUG] bsOut.h              = " << elemToStrG1(bsOut.h) << "\n";
     if(element_cmp(hprime, bsOut.h) != 0) {
         element_clear(hprime);
         throw std::runtime_error("blindSign: Hash(comi) != h => hata");
@@ -193,7 +193,7 @@ BlindSignature blindSign(
         element_pow_zn(hx, bsOut.h, expX);
         element_clear(expX);
     }
-    std::cout << "[DEBUG] hx = h^(xm) = " << elemToStrG1(hx) << "\n";
+    // std::cout << "[DEBUG] hx = h^(xm) = " << elemToStrG1(hx) << "\n";
 
     // comy = com^(ym)
     element_t comy;
@@ -205,11 +205,11 @@ BlindSignature blindSign(
         element_pow_zn(comy, bsOut.com, expY);
         element_clear(expY);
     }
-    std::cout << "[DEBUG] comy = com^(ym) = " << elemToStrG1(comy) << "\n";
+    // std::cout << "[DEBUG] comy = com^(ym) = " << elemToStrG1(comy) << "\n";
 
     // cm = hx * comy
     element_mul(sig.cm, hx, comy);
-    std::cout << "[DEBUG] Computed cm = " << elemToStrG1(sig.cm) << "\n";
+    // std::cout << "[DEBUG] Computed cm = " << elemToStrG1(sig.cm) << "\n";
 
     element_clear(hx);
     element_clear(comy);
