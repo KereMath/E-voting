@@ -127,10 +127,10 @@ bool CheckKoR(
     // std::cout << "[DEBUG] pi_s.c         = " << elemToStrG1(pi_s.c) << "\n";
 
     bool ok = (element_cmp(cprime, pi_s.c) == 0);
-    if(ok)
-        // std::cout << "[DEBUG] CheckKoR PASSED\n";
-    else
-        // std::cout << "[DEBUG] CheckKoR FAILED\n";
+    // if(ok)
+    //     std::cout << "[DEBUG] CheckKoR PASSED\n";
+    // else
+    //     std::cout << "[DEBUG] CheckKoR FAILED\n";
 
     element_clear(comi_double);
     element_clear(com_double);
