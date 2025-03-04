@@ -17,7 +17,7 @@ std::string elementToStringG1(element_t elem);
 */
 struct UnblindSignature {
     element_t h;   // Blind imzadan alınan h (aynı h)
-    element_t s_m; // Unblinded imza bileşeni sₘ
+    element_t s_m; // Unblind imza bileşeni sₘ
     struct {
         std::string hash_comi;    // Hash(comi) sonucu
         std::string computed_s_m; // Hesaplanan sₘ = cm·(β₂)^(–o)

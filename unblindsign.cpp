@@ -6,6 +6,14 @@
 #include <stdexcept>
 #include <iostream>
 
+// Yardımcı: mpz_t değerini string'e çevirir.
+static std::string mpzToString(const mpz_t value) {
+    char* c_str = mpz_get_str(nullptr, 10, value);
+    std::string str(c_str);
+    free(c_str);
+    return str;
+}
+
 // Global: G1 elemanını hex string'e çevirir.
 std::string elementToStringG1(element_t elem) {
     int length = element_length_in_bytes(elem);
@@ -26,12 +34,9 @@ static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) 
 }
 
 // inElem'nin hash'ini G1 elemanına aktarır.
-// (Debug amaçlı: girilen string ve çıkan değeri yazdırıyoruz)
 static void hashToG1(element_t outG1, TIACParams &params, element_t inElem) {
     std::string s = elementToStringG1(inElem);
     std::cout << "[HASH TO G1] Input element (hex): " << s << "\n";
-    element_from_hash(outG1, params.g1, s.size()); // Dikkat: Klasik kullanımda element_from_hash(outG1, s.data(), s.size())
-    // Ancak burada orijinal kodda: element_from_hash(outG1, s.data(), s.size());
     element_from_hash(outG1, s.data(), s.size());
     std::string outStr = elementToStringG1(outG1);
     std::cout << "[HASH TO G1] Output element (hex): " << outStr << "\n";
@@ -69,10 +74,10 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<std:
 /*
   unblindSign implementasyonu (Alg. 13):
   1) Hash(comi) kontrolü: Eğer hash(comi) ≠ h, hata verilir.
-  2) sₘ = cm * (β₂)^(–o) hesaplanır. (Burada bsOut.o, prepare aşamasından alınan o değeri)
+  2) sₘ = cm * (β₂)^(–o) hesaplanır.
   3) Pairing kontrolü: e(h, α₂ * (β₂)^(didInt)) ?= e(sₘ, g2)
-     - didInt, didStr'den hesaplanır.
-  Debug çıktıları: Tüm ara değerler ve hesaplamalarda kullanılan input/output’lar ekrana yazdırılır.
+     (didInt, didStr'den hesaplanır.)
+  Her adımda girilen değerler ve hesaplanan ara değerler debug olarak ekrana yazdırılır.
 */
 UnblindSignature unblindSign(
     TIACParams &params,
@@ -120,7 +125,7 @@ UnblindSignature unblindSign(
     element_t exponent;
     element_init_Zr(exponent, params.pairing);
     element_set_mpz(exponent, neg_o);
-    std::cout << "[UNBLIND DEBUG] Exponent (from -o): " << elementToStringG1(exponent) << " (Not directly meaningful in hex)\n";
+    std::cout << "[UNBLIND DEBUG] Exponent (from -o): (converted from mpz value)\n";
     mpz_clear(neg_o);
     
     element_t beta_pow;
@@ -147,7 +152,7 @@ UnblindSignature unblindSign(
     element_init_Zr(exponent, params.pairing);
     element_set_mpz(exponent, didInt);
     mpz_clear(didInt);
-    std::cout << "[UNBLIND DEBUG] Exponent for DID = (converted from didInt)\n";
+    std::cout << "[UNBLIND DEBUG] Exponent for DID (from didInt)\n";
     
     element_t beta_did;
     element_init_G1(beta_did, params.pairing);
@@ -155,7 +160,7 @@ UnblindSignature unblindSign(
     std::cout << "[UNBLIND DEBUG] beta_did = " << elementToStringG1(beta_did) << "\n";
     element_clear(exponent);
     
-    // multiplier = α₂ * beta_did, α₂ = eaKey.vkm1
+    // multiplier = α₂ * beta_did, burada α₂ = eaKey.vkm1
     element_t multiplier;
     element_init_G1(multiplier, params.pairing);
     element_mul(multiplier, eaKey.vkm1, beta_did);

@@ -393,7 +393,7 @@ for (int i = 0; i < voterCount; i++) {
     int numSigs = (int)pipelineResults[i].signatures.size();
     unblindResults[i].resize(numSigs);
     for (int j = 0; j < numSigs; j++) {
-        // BlindSign sırasında hangi admin tarafından imzalandığı bilgisi sig.debug.adminId saklanmış.
+        // Blind imza sırasında hangi admin tarafından imzalandığı sig.debug.adminId
         int adminId = pipelineResults[i].signatures[j].debug.adminId;  
         // Unblind işlemi:
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
