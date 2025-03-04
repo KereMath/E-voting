@@ -344,23 +344,6 @@ int main() {
     for (int i = 0; i < voterCount; i++) {
         pipelineResults[i].timing.blind_end = pipelineEnd;
     }
-// ... (pipelineResults doldurulduktan sonra)
-
-    for (int i = 0; i < voterCount; i++) {
-        int gotCount = static_cast<int>(pipelineResults[i].signatures.size());
-        std::cout << "Secmen " << (i+1) << " icin " << gotCount
-                << " adet imza alindi.\n";
-        for (int j = 0; j < gotCount; j++) {
-            BlindSignature &sig = pipelineResults[i].signatures[j];
-            std::cout << "Voter " << (i+1) << ", Imza " << (j+1) << " debug bilgileri:\n";
-            std::cout << "CheckKoR debug:\n" << sig.debug.checkKoR_result << "\n";
-            std::cout << "Computed Hash(comi): " << sig.debug.computed_hash_comi << "\n";
-            std::cout << "hx = " << sig.debug.hx << "\n";
-            std::cout << "comy = " << sig.debug.comy << "\n";
-            std::cout << "Computed cm = " << sig.debug.computed_cm << "\n";
-            std::cout << "---------------------------------\n";
-        }
-    }
 
     // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
