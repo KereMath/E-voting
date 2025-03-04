@@ -3,6 +3,7 @@
 
 #include "setup.h"
 #include <string>
+#include <vector>
 
 /* 
   KoRProof (πs): 
@@ -19,12 +20,16 @@ struct KoRProof {
    KoRProof için debug detayları
 */
 struct KoRProofDebug {
-    KoRProof proof;      // Asıl sonuç
-    std::string r1;      // r1 değeri
-    std::string r2;      // r2 değeri
-    std::string r3;      // r3 değeri
+    KoRProof proof;         // Asıl sonuç
+    std::string r1;         // r1 değeri
+    std::string r2;         // r2 değeri
+    std::string r3;         // r3 değeri
     std::string comi_prime; // Hesaplanan comi′ (g1^r1 · h1^r2)
-    std::string com_prime;  // Hesaplanan com′  (g1^r3 · h^r2)
+    std::string com_prime;  // Hesaplanan com′ (g1^r3 · h^r2)
+    std::string kor_c;      // Hash sonucu c'nin string gösterimi
+    std::string kor_s1;     // s1 değeri
+    std::string kor_s2;     // s2 değeri
+    std::string kor_s3;     // s3 değeri
 };
 
 /* 
@@ -62,7 +67,7 @@ struct PrepareBlindSignOutput {
     element_t h;
     element_t com;
     KoRProof  pi_s;
-    mpz_t o;  // Bu alan prepareBlindSign() içinde hesaplanıp saklanmalı.
+    mpz_t o;  // prepareBlindSign() içinde hesaplanıp saklanmalı.
     PrepareBlindSignDebug debug;
 };
 

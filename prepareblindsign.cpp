@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <stdexcept>
 
-// Yardımcı Fonksiyonlar (değişmedi)
+// Yardımcı Fonksiyonlar
 
 static void randomZr(element_t zr, TIACParams &params) {
     element_random(zr);  
@@ -20,13 +20,14 @@ static void didStringToMpz(const std::string &didStr, mpz_t rop, const mpz_t p) 
 }
 
 static std::string elementToStringG1(const element_t elem) {
-    int length = element_length_in_bytes(elem);
+    // PBC fonksiyonları mutable pointer beklediğinden const_cast kullanıyoruz.
+    int length = element_length_in_bytes(const_cast<element_t>(elem));
     std::vector<unsigned char> buf(length);
-    element_to_bytes(buf.data(), elem);
+    element_to_bytes(buf.data(), const_cast<element_t>(elem));
 
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
-    for(auto c : buf) {
+    for (auto c : buf) {
         oss << std::setw(2) << (int)c;
     }
     return oss.str();
@@ -39,19 +40,20 @@ static std::string mpzToString(const mpz_t value) {
     return str;
 }
 
-static void hashToG1(element_t outG1, TIACParams &params, element_t inElem) {
+static void hashToG1(element_t outG1, TIACParams &params, const element_t inElem) {
     std::string s = elementToStringG1(inElem); 
     element_from_hash(outG1, s.data(), s.size());
 }
 
-static void hashToZr(element_t outZr, TIACParams &params, const std::vector<element_t> &elems) {
+// hashToZr: alınan string'lerin birleşiminden hash hesaplar.
+static void hashToZr(element_t outZr, TIACParams &params, const std::vector<std::string> &elems) {
     std::ostringstream oss;
-    for(auto e : elems) {
-        oss << elementToStringG1(e);
+    for (const auto &s : elems) {
+        oss << s;
     }
     std::string msg = oss.str();
     unsigned char digest[SHA512_DIGEST_LENGTH];
-    SHA512((unsigned char*)msg.data(), msg.size(), digest);
+    SHA512(reinterpret_cast<const unsigned char*>(msg.data()), msg.size(), digest);
 
     mpz_t tmp;
     mpz_init(tmp);
@@ -64,7 +66,6 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<elem
 ////////////////////////////////////
 // 3) computeKoR (Sıralı Hesaplama) - Debug versiyonu
 ////////////////////////////////////
-
 static KoRProofDebug computeKoR(
     TIACParams &params,
     element_t com,   // G1
@@ -87,7 +88,6 @@ static KoRProofDebug computeKoR(
     randomZr(r2, params);
     randomZr(r3, params);
 
-    // Debug: r1, r2, r3 değerlerini saklayalım.
     {
         mpz_t temp;
         mpz_init(temp);
@@ -131,19 +131,17 @@ static KoRProofDebug computeKoR(
     element_init_Zr(proof.s2, params.pairing);
     element_init_Zr(proof.s3, params.pairing);
 
-    std::vector<element_t> toHash;
+    std::vector<std::string> toHash;
     toHash.reserve(7);
-    toHash.push_back(g1);
-    toHash.push_back(h);
-    toHash.push_back(h1);
-    toHash.push_back(com);
-    toHash.push_back(com_prime);
-    toHash.push_back(comi);
-    toHash.push_back(comi_prime);
+    toHash.push_back(elementToStringG1(g1));
+    toHash.push_back(elementToStringG1(h));
+    toHash.push_back(elementToStringG1(h1));
+    toHash.push_back(elementToStringG1(com));
+    toHash.push_back(elementToStringG1(com_prime));
+    toHash.push_back(elementToStringG1(comi));
+    toHash.push_back(elementToStringG1(comi_prime));
     hashToZr(proof.c, params, toHash);
-    debugResult.proof.c = proof.c; // zaten element, fakat debug string:
-    debugResult.proof.c; // kullanmadan önce string'e çevirelim
-    debugResult.kor_c = elementToStringG1(proof.c);  // Not: G1’ye ait hash değeri olsa da elementToStringG1 ile gösteriyoruz.
+    debugResult.kor_c = elementToStringG1(proof.c);
 
     mpz_t c_mpz;
     mpz_init(c_mpz);
@@ -189,24 +187,21 @@ static KoRProofDebug computeKoR(
 }
 
 ////////////////////////////////////
-// 4) prepareBlindSign (Sıralı hesaplama - Debug versiyonu)
+// 4) prepareBlindSign (Sıralı Hesaplama - Debug versiyonu)
 ////////////////////////////////////
 PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &didStr) {
     PrepareBlindSignOutput out;
     mpz_t oi, o;
     mpz_inits(oi, o, NULL);
 
-    // (1) Random değerleri sıralı olarak hesapla:
+    // (1) Rastgele değerler: oi ve o
     element_t tmp;
     element_init_Zr(tmp, params.pairing);
     element_random(tmp);
     element_to_mpz(oi, tmp);
-    // Debug: oi değeri
     out.debug.oi = mpzToString(oi);
     element_random(tmp);
     element_to_mpz(o, tmp);
-    // o değeri için debug:
-    // (o, KoR adımında da kullanılacak, o'yu prepare sonrasında debug kısmına ekleyeceğiz)
     element_clear(tmp);
 
     // (2) DID -> mpz dönüşümü
@@ -215,7 +210,7 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     didStringToMpz(didStr, didInt, params.prime_order);
     out.debug.didInt = mpzToString(didInt);
 
-    // (3) comi = g1^oi * h1^did hesaplaması:
+    // (3) comi = g1^oi * h1^did
     element_init_G1(out.comi, params.pairing);
     element_t g1_oi, h1_did;
     element_init_G1(g1_oi, params.pairing);
@@ -244,7 +239,7 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     hashToG1(out.h, params, out.comi);
     out.debug.h = elementToStringG1(out.h);
 
-    // (5) com = g1^o * h^did hesaplaması:
+    // (5) com = g1^o * h^did
     element_init_G1(out.com, params.pairing);
     element_t g1_o, h_did;
     element_init_G1(g1_o, params.pairing);
@@ -280,18 +275,16 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         didInt,
         o
     );
-    // πs kısmını aktaralım:
     out.pi_s = korDebug.proof;
-    // Debug bilgilerini aktaralım:
     out.debug.kor_r1 = korDebug.r1;
     out.debug.kor_r2 = korDebug.r2;
     out.debug.kor_r3 = korDebug.r3;
     out.debug.kor_comi_prime = korDebug.comi_prime;
     out.debug.kor_com_prime = korDebug.com_prime;
-    out.debug.kor_c = elementToStringG1(out.pi_s.c);
-    out.debug.kor_s1 = elementToStringG1(out.pi_s.s1);
-    out.debug.kor_s2 = elementToStringG1(out.pi_s.s2);
-    out.debug.kor_s3 = elementToStringG1(out.pi_s.s3);
+    out.debug.kor_c  = korDebug.kor_c;
+    out.debug.kor_s1 = korDebug.kor_s1;
+    out.debug.kor_s2 = korDebug.kor_s2;
+    out.debug.kor_s3 = korDebug.kor_s3;
 
     // (7) "o" alanını output yapısına ekle
     mpz_init(out.o);
