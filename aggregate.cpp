@@ -20,8 +20,8 @@ AggregateSignature aggregateSign(
     
     // (1) h: Tüm parçalarda h aynı kabul edildiğinden, ilk partial imzadan h alınır.
     element_init_G1(aggSig.h, params.pairing);
-    // Burada const olan parametreyi non-const hale getiriyoruz
-    element_set(aggSig.h, partialSigsWithAdmins[0].second.h); 
+    // const pointer'ı geçici bir pointer'a dönüştürmeden kullanalım.
+    element_set(aggSig.h, partialSigsWithAdmins[0].second.h);
     debugStream << "Aggregate h set from first partial signature.\n";
     
     // (2) s: Başlangıçta aggregate s, grup identity elemanı olarak ayarlanır.
@@ -33,12 +33,20 @@ AggregateSignature aggregateSign(
     debugStream << "Combining partial signatures:\n";
     for (size_t i = 0; i < partialSigsWithAdmins.size(); i++) {
         int adminID = partialSigsWithAdmins[i].first;  // Admin ID'si
+        // Element'i string'e çevirelim ve debug için ekleyelim
         std::string partStr = elementToStringG1(partialSigsWithAdmins[i].second.s_m); // s_m değeri alınır.
         debugStream << "  Partial signature " << (i+1)
                     << " produced by Admin " << (adminID + 1)
                     << ": s_m = " << partStr << "\n";
-        // element_set ve element_mul fonksiyonları için const olmayan veriler kullanmalıyız
-        element_mul(aggSig.s, aggSig.s, partialSigsWithAdmins[i].second.s_m); // s_m çarpımı
+        
+        // Burada element_set ve element_mul fonksiyonları const olmayan verilerle işlem yapar.
+        element_t s_m_copy;
+        element_init_G1(s_m_copy, params.pairing);
+        element_set(s_m_copy, partialSigsWithAdmins[i].second.s_m);  // Copy s_m to s_m_copy
+        
+        element_mul(aggSig.s, aggSig.s, s_m_copy); // s_m çarpımı
+        
+        element_clear(s_m_copy); // Bellek temizliği
     }
     debugStream << "Final aggregate s computed = " << elementToStringG1(aggSig.s) << "\n";
     
