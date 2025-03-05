@@ -128,8 +128,8 @@ bool verifyCredential(
     element_pow_zn(part6, pOut.sigmaRnd.h, s2_elem);
     
     // part7 = com^(c), here we use com (prepare phase)  
-    // NOTE: Since 'com' is passed as a const element_t, we need to cast it.
-    element_pow_zn(part7, const_cast<element_t>(com), c_elem);
+    // Since 'com' is a const element_t, we cast its first element pointer.
+    element_pow_zn(part7, const_cast<element_s*>(&com[0]), c_elem);
     
     // com_double = part5 · part6 · part7
     element_mul(com_double, part5, part6);
@@ -146,7 +146,7 @@ bool verifyCredential(
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG1(params.g2)
             << elementToStringG1(pOut.sigmaRnd.h)
-            << elementToStringG1(const_cast<element_t>(com))   // casting com as needed
+            << elementToStringG1(const_cast<element_s*>(&com[0]))   // casting com as needed
             << elementToStringG1(com_double)
             << elementToStringG1(pOut.k)
             << elementToStringG1(k_double);
