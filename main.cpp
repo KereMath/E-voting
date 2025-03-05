@@ -135,7 +135,6 @@ int main() {
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
 
-    std::cout << "Key generation time: " << keygen_us/1000.0 << " ms\n\n";
     // {
     //     char buf[1024];
     //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
