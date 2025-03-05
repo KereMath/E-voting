@@ -456,6 +456,31 @@ for (int i = 0; i < voterCount; i++) {
 
 //Provecredential
 
+// std::cout << "\n=== Unblind Signature Results ===\n";
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "user" << (i+1) << "prepared vars for prove";
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
+        std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
+        std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
+        std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
+    }
+   std::cout<<"o=" << preparedOutputs[i].o << "\n";
+   std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+        std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+        std::cout <<"did=" <<  dids[i].did<<"\n";
+        std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
+
+}
 
 
 
