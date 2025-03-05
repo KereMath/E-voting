@@ -167,6 +167,8 @@ ProveCredentialOutput proveCredential(
     std::cout << "[PROVE] s1 computed: " << elementToStringG1(s1) << "\n";
     
     // 5b) s2 = r2' − c·(didInt)
+    std::cout <<"markinda" <<"/n";
+
     element_t temp2;
     std::cout <<"dark1" <<"/n";
     element_init_Zr(temp2, params.pairing);
