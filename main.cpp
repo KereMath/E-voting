@@ -136,21 +136,21 @@ int main() {
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
 
     std::cout << "Key generation time: " << keygen_us/1000.0 << " ms\n\n";
-    {
-        char buf[1024];
-        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
-        std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
-    }
-    {
-        char buf[1024];
-        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
-        std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
-    }
-    {
-        char buf[1024];
-        element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
-        std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
-    }
+    // {
+    //     char buf[1024];
+    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
+    //     std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
+    // }
+    // {
+    //     char buf[1024];
+    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
+    //     std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
+    // }
+    // {
+    //     char buf[1024];
+    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
+    //     std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
+    // }
 
     // EA Authority'lerin detaylı yazdırılması
     // for (int i = 0; i < ne; i++) {
