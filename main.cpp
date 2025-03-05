@@ -428,18 +428,21 @@ auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindE
 // }
 
 // Aggregate imza hesaplama
+// --- Aggregate Signature Calculation ---
 std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
-    
+
 tbb::parallel_for(0, voterCount, [&](int i) {
-    // Her seçmenin aggregate imzası, unblindResults[i] içindeki partial imza parçalarının çarpımıyla elde edilir.
-    AggregateSignature aggSig = aggregateSign(params, unblindResults[i], keyOut.mvk, dids[i].did);
+    std::vector<std::pair<int, UnblindSignature>> &unblindPairs = unblindResultsWithAdmin[i];
+
+    // Her seçmenin aggregate imzası, admin ID'leriyle birlikte gönderiliyor.
+    AggregateSignature aggSig = aggregateSign(params, unblindPairs, keyOut.mvk, dids[i].did);
     aggregateResults[i] = aggSig;
 });
-    
+
 auto aggregateEnd = Clock::now();
 auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
-    
+
 // Aggregate sonuçlarını raporlama:
 std::cout << "\n=== Aggregate Signature Results ===\n";
 for (int i = 0; i < voterCount; i++) {
