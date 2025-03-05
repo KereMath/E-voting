@@ -457,65 +457,7 @@ for (int i = 0; i < voterCount; i++) {
 //Provecredential
 
 
-// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
-// ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
-
-
-// VerifyCredential Phase: ProveCredential çıktısını doğrulayalım.
-
-
-
-// --- ProveCredential Phase ---
-// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
-// 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
-// Burada, prepare aşamasından elde edilen 'o' değeri (mpz_t) de kullanılıyor.
-std::vector<ProveCredentialOutput> proveResults(voterCount);
-auto proveStart = Clock::now();
-
-tbb::parallel_for(0, voterCount, [&](int i) {
-    // ProveCredential, aggregateResults[i], keyOut.mvk ve dids[i].did ile birlikte,
-    // prepareBlindSign aşamasından gelen 'o' değeri (örneğin: preparedOutputs[i].o) kullanılarak çağrılır.
-    ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, preparedOutputs[i].o);
-    proveResults[i] = pOut;
-});
-
-auto proveEnd = Clock::now();
-auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
-
-// ProveCredential sonuçlarını raporlama:
-std::cout << "\n=== ProveCredential Results ===\n";
-for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " prove credential output:\n";
-    std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
-    std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
-    std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
-    std::cout << "    π_v = " << proveResults[i].proof_v << "\n";
-    std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
-    std::cout << "-------------------------\n";
-}
-std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
-
-
-// --- VerifyCredential Phase ---
-// Burada, preparedOutputs[i].com değeri (prepareBlindSign aşamasından) verifyCredential fonksiyonuna "com" olarak aktarılır.
-std::vector<bool> verifyResults(voterCount);
-auto verifyStart = Clock::now();
-tbb::parallel_for(0, voterCount, [&](int i) {
-    bool res = verifyCredential(params, proveResults[i], keyOut.mvk, aggregateResults[i], preparedOutputs[i].com);
-    verifyResults[i] = res;
-});
-auto verifyEnd = Clock::now();
-auto verify_us = std::chrono::duration_cast<std::chrono::microseconds>(verifyEnd - verifyStart).count();
-
-// Report verification results:
-std::cout << "\n=== VerifyCredential Results ===\n";
-for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " credential verification: " 
-              << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
-}
-std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
-
-
+//verifycredential
 
 
 
