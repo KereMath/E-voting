@@ -67,7 +67,7 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<std:
         outZrStr = str;
         free(str);
     }
-    std::cout << "[HASH TO Zr] Output (as mpz): " << outZrStr << "\n";
+    // std::cout << "[HASH TO Zr] Output (as mpz): " << outZrStr << "\n";
     mpz_clear(tmp);
 }
 
@@ -92,7 +92,7 @@ UnblindSignature unblindSign(
     // std::cout << "[UNBLIND] bsOut.comi = " << bsOut.debug.comi << "\n";
     // std::cout << "[UNBLIND] bsOut.h    = " << bsOut.debug.h << "\n";
     // std::cout << "[UNBLIND] bsOut.com  = " << bsOut.debug.com << "\n";
-    std::cout << "[UNBLIND] bsOut.o    = " << mpzToString(bsOut.o) << "\n";
+    // std::cout << "[UNBLIND] bsOut.o    = " << mpzToString(bsOut.o) << "\n";
     // std::cout << "[UNBLIND] EA Key vkm2 = " << elementToStringG1(eaKey.vkm2) << "\n";
     // std::cout << "[UNBLIND] EA Key vkm1 = " << elementToStringG1(eaKey.vkm1) << "\n";
     
