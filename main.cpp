@@ -430,18 +430,6 @@ auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindE
 // Aggregate imza hesaplama
 // --- Aggregate Signature Calculation ---
 // Önce unblindResultsWithAdmin yapısını oluşturuyoruz:
-std::vector<std::vector<std::pair<int, UnblindSignature>>> unblindResultsWithAdmin(voterCount);
-// Bu yapıyı, unblindsign işlemi sırasında doldurmanız gerekiyor.
-// Örneğin:
-tbb::parallel_for(0, voterCount, [&](int i) {
-    int numSigs = (int)pipelineResults[i].signatures.size();
-    unblindResultsWithAdmin[i].resize(numSigs);
-    tbb::parallel_for(0, numSigs, [&](int j) {
-        int adminId = pipelineResults[i].signatures[j].debug.adminId;
-        UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
-        unblindResultsWithAdmin[i][j] = {adminId, usig};
-    });
-});
 
 // Aggregate imza hesaplaması:
 std::vector<AggregateSignature> aggregateResults(voterCount);
