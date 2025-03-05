@@ -214,7 +214,8 @@ ProveCredentialOutput proveCredential(
     element_init_Zr(o_elem, params.pairing);
     element_set_mpz(o_elem, tempO);
     mpz_clear(tempO);
-    
+    std::cout << "[DEBUG] o value: " << mpzToString(o) << "\n";
+
     element_t temp3;
     element_init_Zr(temp3, params.pairing);
     element_mul(temp3, c_elem, o_elem);
