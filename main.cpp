@@ -22,6 +22,7 @@
 #include "provecredential.h"  // proveCredential fonksiyonunu içerir
 #include "verifycredential.h"  // verifyCredential tanımı
 #include "pairinginverify.h"
+#include "unblindResultsWithAdmin.h"  // Eğer ayrı header olarak eklediyseniz
 
 using Clock = std::chrono::steady_clock;
 
@@ -394,6 +395,7 @@ tbb::parallel_for(
     //Unblindsign
 // 14) Unblind Phase: Her seçmen için threshold (örneğin t adet) imza unblind edilecek.
 auto unblindStart = Clock::now();
+std::vector<std::vector<std::pair<int, UnblindSignature>>> unblindResultsWithAdmin(voterCount);
 
 std::vector< std::vector<UnblindSignature> > unblindResults(voterCount);
 tbb::parallel_for(0, voterCount, [&](int i) {
@@ -404,6 +406,8 @@ tbb::parallel_for(0, voterCount, [&](int i) {
         int adminId = pipelineResults[i].signatures[j].debug.adminId;
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
         unblindResults[i][j] = usig;
+        unblindResultsWithAdmin[i][j] = {adminId, usig}; // Admin ID'si ile birlikte sakla
+
     });
 });
 
