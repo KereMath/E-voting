@@ -22,7 +22,6 @@
 #include "provecredential.h"  // proveCredential fonksiyonunu içerir
 #include "verifycredential.h"  // verifyCredential tanımı
 #include "pairinginverify.h"
-#include "unblindResultsWithAdmin.h"  // Eğer ayrı header olarak eklediyseniz
 
 using Clock = std::chrono::steady_clock;
 
