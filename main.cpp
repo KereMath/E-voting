@@ -248,7 +248,7 @@ int main() {
     });
 // prepareBlindSign çağrılarından sonra:
     for (size_t i = 0; i < preparedOutputs.size(); i++) {
-    //     std::cout << "=== Voter " << i+1 << " Debug Bilgileri ===\n";
+        std::cout << "=== Voter " << i+1 << " Debug Bilgileri ===\n";
     //     std::cout << "oi         : " << preparedOutputs[i].debug.oi << "\n";
     //     std::cout << "didInt     : " << preparedOutputs[i].debug.didInt << "\n";
     //     std::cout << "comi       : " << preparedOutputs[i].debug.comi << "\n";
