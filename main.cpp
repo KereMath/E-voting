@@ -443,13 +443,13 @@ for (int i = 0; i < voterCount; i++) {
     auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
     
     // Aggregate sonuçlarını raporlama:
-    std::cout << "\n=== Aggregate Signature Results ===\n";
+    // std::cout << "\n=== Aggregate Signature Results ===\n";
     for (int i = 0; i < voterCount; i++) {
-        std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-        std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-        std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+        // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+        // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+        // std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
         // std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-        std::cout << "-------------------------\n";
+        // std::cout << "-------------------------\n";
     }
 
 
