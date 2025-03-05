@@ -350,12 +350,12 @@ tbb::parallel_for(
 
     // std::cout << "\n=== İmzalama Sonuçları ===\n";
     for (int i = 0; i < voterCount; i++) {
-        std::cout << "Voter " << (i+1) << " için:\n";
+        // std::cout << "Voter " << (i+1) << " için:\n";
         // Her seçmenin imzaları, hangi admin tarafından üretilmişse admin sırası ile yazdırılıyor.
         for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
             BlindSignature &sig = pipelineResults[i].signatures[j];
-            std::cout << "  Admin " << (sig.debug.adminId + 1)
-                    << " tarafından imzalandı. \n";
+            // std::cout << "  Admin " << (sig.debug.adminId + 1)
+            //         << " tarafından imzalandı. \n";
             // std::cout << "     h  = " << elemToStrG1(sig.h) << "\n";
             // std::cout << "     cm = " << elemToStrG1(sig.cm) << "\n";
         }
