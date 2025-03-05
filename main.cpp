@@ -361,7 +361,21 @@ tbb::parallel_for(
         }
         // std::cout << "-------------------------\n";
     }
-
+    std::vector<std::vector<int>> voterAdminIndexes(voterCount, std::vector<int>());
+    for (const auto &task : tasks) {
+        voterAdminIndexes[task.voterId].push_back(task.adminId);
+    }
+    
+    // Diziyi ekrana yazdıralım (admin numaralarını 1-indexed olarak göstermek için 1 ekleniyor)
+    std::cout << "\n=== Voter-Admin Indexes ===\n";
+    for (int i = 0; i < voterCount; i++) {
+        std::cout << "Voter " << (i+1) << " için: ";
+        for (int adminIndex : voterAdminIndexes[i]) {
+            std::cout << (adminIndex + 1) << " ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "===========================\n\n";
 
     // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
