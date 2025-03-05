@@ -541,7 +541,7 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
     std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
     std::cout << "    π_v = " << proveResults[i].proof_v << "\n";
-    std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
+    // std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     std::cout << "-------------------------\n";
 }
 std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
