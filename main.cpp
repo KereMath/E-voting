@@ -433,7 +433,7 @@ for (int i = 0; i < voterCount; i++) {
     
     tbb::parallel_for(0, voterCount, [&](int i) {
         // Her seçmenin aggregate imzası, unblindResults[i] (vector<UnblindSignature>) içindeki partial imza parçalarının çarpımıyla elde edilir.
-        AggregateSignature aggSig = aggregateSign(params,  unblindResultsWithAdmin[i].second, keyOut.mvk, dids[i].did);
+        AggregateSignature aggSig = aggregateSign(params, unblindResults[i], keyOut.mvk, dids[i].did);
         aggregateResults[i] = aggSig;
     });
     
