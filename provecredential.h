@@ -8,15 +8,15 @@
 #include <gmp.h>
 
 struct ProveCredentialSigmaRnd {
-    element_t h; // h'' from sigma'' (proof)
-    element_t s; // s'' from sigma'' (proof)
+    element_t h; // h'' from σ″
+    element_t s; // s'' from σ″
     std::string debug_info;
 };
 
 struct ProveCredentialOutput {
-    ProveCredentialSigmaRnd sigmaRnd; // sigma'' = (h'', s'')
-    element_t k;                      // k = α₂ * (β₂)^(did) * g₂^(r)
-    std::string proof_v;              // KoR tuple (c, s1, s2, s3)
+    ProveCredentialSigmaRnd sigmaRnd; // σ″ = (h'', s'')
+    element_t k;                      // k = α₂ · (β₂)^(did) · g₂^(r)
+    std::string proof_v;              // KoR tuple: (c, s1, s2, s3)
 };
 
 ProveCredentialOutput proveCredential(

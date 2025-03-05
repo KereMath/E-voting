@@ -523,19 +523,17 @@ std::cout << "o= " << buf << "\n";
 //provecred
 
 // --- ProveCredential Phase ---
-// prepareOutputs[i].o, prepare aşamasından alınan o değeridir.
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
-
 tbb::parallel_for(0, voterCount, [&](int i) {
+    // prepareOutputs[i].o: prepareBlindSign aşamasından alınan o değeri
     ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, preparedOutputs[i].o);
     proveResults[i] = pOut;
 });
-
 auto proveEnd = Clock::now();
 auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
 
-// ProveCredential sonuçlarını raporlayın:
+// ProveCredential sonuçlarını raporlama:
 std::cout << "\n=== ProveCredential Results ===\n";
 for (int i = 0; i < voterCount; i++) {
     std::cout << "Voter " << (i+1) << " prove credential output:\n";

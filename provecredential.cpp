@@ -5,10 +5,10 @@
 #include <stdexcept>
 #include <iostream>
 
-// Dışarıdan tanımlı: elementToStringG1 (const version)
+// Dışarıdan tanımlı: elementToStringG1 (const parametre alır)
 extern std::string elementToStringG1(const element_t elem);
 
-// Helper: Convert an mpz_t value to a std::string.
+// Helper: Convert an mpz_t value to std::string.
 static std::string mpzToString(const mpz_t value) {
     char* c_str = mpz_get_str(nullptr, 10, value);
     std::string str(c_str);
@@ -36,27 +36,27 @@ ProveCredentialOutput proveCredential(
     std::cout << "[PROVE] Random r': " << elementToStringG1(r_prime) << "\n";
     
     // --- Step 2: Compute h'' = h^(r') ---
-    element_t h_pp;
-    element_init_G1(h_pp, params.pairing);
-    element_pow_zn(h_pp, aggSig.h, r_prime);
-    std::cout << "[PROVE] h'' = h^(r') computed: " << elementToStringG1(h_pp) << "\n";
+    element_t h_dbl;
+    element_init_G1(h_dbl, params.pairing);
+    element_pow_zn(h_dbl, aggSig.h, r_prime);
+    std::cout << "[PROVE] h'' = h^(r') computed: " << elementToStringG1(h_dbl) << "\n";
     
     // --- Step 3: Compute s'' = s^(r') * (h'')^(r) ---
-    element_t s_rprime, h_pp_r, s_pp;
+    element_t s_rprime, h_pp_r, s_dbl;
     element_init_G1(s_rprime, params.pairing);
     element_init_G1(h_pp_r, params.pairing);
-    element_init_G1(s_pp, params.pairing);
+    element_init_G1(s_dbl, params.pairing);
     element_pow_zn(s_rprime, aggSig.s, r_prime);
-    element_pow_zn(h_pp_r, h_pp, r);
-    element_mul(s_pp, s_rprime, h_pp_r);
-    std::cout << "[PROVE] s'' = s^(r') * (h'')^(r) computed: " << elementToStringG1(s_pp) << "\n";
+    element_pow_zn(h_pp_r, h_dbl, r);
+    element_mul(s_dbl, s_rprime, h_pp_r);
+    std::cout << "[PROVE] s'' = s^(r') * (h'')^(r) computed: " << elementToStringG1(s_dbl) << "\n";
     
-    // --- Step 4: Set sigma'' = (h'', s'') ---
+    // --- Step 4: Set σ″ = (h'', s'') ---
     element_init_G1(output.sigmaRnd.h, params.pairing);
-    element_set(output.sigmaRnd.h, h_pp);
+    element_set(output.sigmaRnd.h, h_dbl);
     element_init_G1(output.sigmaRnd.s, params.pairing);
-    element_set(output.sigmaRnd.s, s_pp);
-    std::cout << "[PROVE] sigma'' set: h'' = " << elementToStringG1(output.sigmaRnd.h)
+    element_set(output.sigmaRnd.s, s_dbl);
+    std::cout << "[PROVE] σ″ set: h'' = " << elementToStringG1(output.sigmaRnd.h)
               << ", s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
     
     // --- Step 5: Process DID ---
@@ -72,19 +72,19 @@ ProveCredentialOutput proveCredential(
     // --- Step 6: Compute k = α₂ * (β₂)^(didInt) * g₂^(r) ---
     element_t beta_exp, g2_r;
     element_init_G1(beta_exp, params.pairing);
-    element_init_G1(g2_r, params.pairing);
     element_t expElem;
     element_init_Zr(expElem, params.pairing);
     element_set_mpz(expElem, didInt);
     element_pow_zn(beta_exp, mvk.beta2, expElem);
     element_clear(expElem);
+    element_init_G1(g2_r, params.pairing);
     element_pow_zn(g2_r, params.g2, r);
     element_init_G1(output.k, params.pairing);
     element_mul(output.k, mvk.alpha2, beta_exp);
     element_mul(output.k, output.k, g2_r);
     std::cout << "[PROVE] k computed: " << elementToStringG1(output.k) << "\n";
     
-    // --- Step 7: Compute KoR tuple using Algorithm 16 ---
+    // --- Step 7: Compute KoR tuple (Algorithm 16) ---
     // 7.1: Choose random r1', r2', r3' in Zp.
     element_t r1p, r2p, r3p;
     element_init_Zr(r1p, params.pairing);
@@ -116,7 +116,7 @@ ProveCredentialOutput proveCredential(
     element_init_G1(g1_r3p, params.pairing);
     element_init_G1(h_r2p, params.pairing);
     element_pow_zn(g1_r3p, params.g1, r3p);
-    element_pow_zn(h_r2p, h_pp, r2p);
+    element_pow_zn(h_r2p, h_dbl, r2p);
     element_mul(com_prime, g1_r3p, h_r2p);
     std::cout << "[PROVE] com' computed: " << elementToStringG1(com_prime) << "\n";
     
@@ -124,8 +124,8 @@ ProveCredentialOutput proveCredential(
     std::ostringstream hashOSS;
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG1(params.g2)
-            << elementToStringG1(h_pp)
-            << elementToStringG1(aggSig.s)   // Using aggregate s as com.
+            << elementToStringG1(h_dbl)
+            << elementToStringG1(aggSig.s)  // Using aggregate s as "com"
             << elementToStringG1(com_prime)
             << elementToStringG1(output.k)
             << elementToStringG1(k_prime);
@@ -141,7 +141,7 @@ ProveCredentialOutput proveCredential(
     std::string c_str = hashFinalOSS.str();
     std::cout << "[PROVE] Hash output (c_str): " << c_str << "\n";
     
-    // 7.5: Convert hash to element c in Zr.
+    // 7.5: Convert hash to element c in Zp.
     mpz_t c_mpz;
     mpz_init(c_mpz);
     if(mpz_set_str(c_mpz, c_str.c_str(), 16) != 0)
@@ -204,11 +204,19 @@ ProveCredentialOutput proveCredential(
     std::string kor_tuple = korOSS.str();
     std::cout << "[PROVE] KoR tuple computed: " << kor_tuple << "\n";
     
-    // Set the proof in output.
     output.proof_v = kor_tuple;
     std::cout << "[PROVE] Final Proof (π_v): " << output.proof_v << "\n";
     
-    // --- Clean up temporary elements for KoR computation ---
+    // --- Debug information ---
+    std::ostringstream dbg;
+    dbg << "h'' = " << elementToStringG1(output.sigmaRnd.h) << "\n";
+    dbg << "s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
+    dbg << "k   = " << elementToStringG1(output.k) << "\n";
+    dbg << "KoR tuple = " << output.proof_v << "\n";
+    output.sigmaRnd.debug_info = dbg.str();
+    std::cout << "[PROVE] Debug info:\n" << output.sigmaRnd.debug_info << "\n";
+    
+    // --- Clean up KoR temporary variables ---
     element_clear(r1p);
     element_clear(r2p);
     element_clear(r3p);
@@ -223,15 +231,6 @@ ProveCredentialOutput proveCredential(
     element_clear(s2);
     element_clear(s3);
     element_clear(o_elem);
-    
-    // --- Debug information ---
-    std::ostringstream dbg;
-    dbg << "h'' = " << elementToStringG1(output.sigmaRnd.h) << "\n";
-    dbg << "s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
-    dbg << "k   = " << elementToStringG1(output.k) << "\n";
-    dbg << "KoR tuple = " << output.proof_v << "\n";
-    output.sigmaRnd.debug_info = dbg.str();
-    std::cout << "[PROVE] Debug info:\n" << output.sigmaRnd.debug_info << "\n";
     
     // --- Clean up earlier temporary variables ---
     element_clear(r);
