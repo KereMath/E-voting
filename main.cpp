@@ -92,26 +92,26 @@ int main() {
     auto endSetup = Clock::now();
     auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
 
-    // {
-    //     char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
-    //     std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
-    //     free(p_str);
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.g1);
-    //     std::cout << "g1 =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.h1);
-    //     std::cout << "h1 =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.g2);
-    //     std::cout << "g2 =\n" << buf << "\n\n";
-    // }
+    {
+        char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
+        std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
+        free(p_str);
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", params.g1);
+        std::cout << "g1 =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", params.h1);
+        std::cout << "h1 =\n" << buf << "\n\n";
+    }
+    {
+        char buf[1024];
+        element_snprintf(buf, sizeof(buf), "%B", params.g2);
+        std::cout << "g2 =\n" << buf << "\n\n";
+    }
 
     // 3) Pairing testi
     element_t pairingTest;
@@ -457,7 +457,32 @@ for (int i = 0; i < voterCount; i++) {
 //Provecredential
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 //verifycredential
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
