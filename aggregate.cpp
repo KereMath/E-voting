@@ -5,8 +5,13 @@
 #include <stdexcept>
 #include <iostream>
 
-// Dışarıdan sağlanan fonksiyon: elementToStringG1 (örn. unblindsign.h'dan)
+// Yardımcı: G1 elemanını hex string'e çevirir.
 std::string elementToStringG1(element_t elem);
+
+// Yardımcı fonksiyon: const element_t'yi non-const element_s*'ye çevirir.
+static element_s* toNonConst(element_t in) {
+    return const_cast<element_s*>(in);
+}
 
 // aggregateSign fonksiyonu: Her seçmenin unblind edilmiş imza parçalarını aggregate eder.
 AggregateSignature aggregateSign(
@@ -20,7 +25,7 @@ AggregateSignature aggregateSign(
     
     // (1) h: Tüm parçalarda h aynı kabul edildiğinden, ilk partial imzadan h alınır.
     element_init_G1(aggSig.h, params.pairing);
-    element_set(aggSig.h, partialSigsWithAdmins[0].second.h);
+    element_set(aggSig.h, toNonConst(partialSigsWithAdmins[0].second.h));
     debugStream << "Aggregate h set from first partial signature.\n";
     
     // (2) s: Başlangıçta aggregate s, grup identity elemanı olarak ayarlanır.
@@ -32,20 +37,13 @@ AggregateSignature aggregateSign(
     debugStream << "Combining partial signatures:\n";
     for (size_t i = 0; i < partialSigsWithAdmins.size(); i++) {
         int adminID = partialSigsWithAdmins[i].first;  // Admin ID'si
-        std::string partStr = elementToStringG1(partialSigsWithAdmins[i].second.s_m);
-        
+        std::string partStr = elementToStringG1(toNonConst(partialSigsWithAdmins[i].second.s_m));
+
         debugStream << "  Partial signature " << (i+1)
                     << " produced by Admin " << (adminID + 1)
                     << ": s_m = " << partStr << "\n";
-        
-        // Elementi kullanmadan önce geçici bir kopyasını alalım.
-        element_t s_m_copy;
-        element_init_G1(s_m_copy, params.pairing);
-        element_set(s_m_copy, partialSigsWithAdmins[i].second.s_m);  
-        
-        element_mul(aggSig.s, aggSig.s, s_m_copy); // s_m çarpımı
-        
-        element_clear(s_m_copy); // Bellek temizliği
+
+        element_mul(aggSig.s, aggSig.s, toNonConst(partialSigsWithAdmins[i].second.s_m));
     }
     debugStream << "Final aggregate s computed = " << elementToStringG1(aggSig.s) << "\n";
     
