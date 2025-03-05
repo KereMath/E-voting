@@ -416,6 +416,7 @@ tbb::parallel_for(0, voterCount, [&](int i) {
     // İç döngüde de paralelleştirme (küçük eşik değerler için fazladan overhead yaratabilir)
     tbb::parallel_for(0, numSigs, [&](int j) {
         int adminId = pipelineResults[i].signatures[j].debug.adminId;
+        
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
         unblindResults[i][j] = usig;
     });
