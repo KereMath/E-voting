@@ -1,23 +1,28 @@
-#ifndef VERIFY_CREDENTIAL_H
-#define VERIFY_CREDENTIAL_H
+#ifndef PROVE_CREDENTIAL_H
+#define PROVE_CREDENTIAL_H
 
-#include "setup.h"
-#include "provecredential.h"
-#include "aggregate.h"
+#include "aggregate.h"  // AggregateSignature, MasterVerKey
+#include "setup.h"      // TIACParams
 #include <string>
 
-// verifyCredential:
-//   Inputs:
-//     - params: TIAC parameters (contains pairing, g1, g2, etc.)
-//     - pOut: ProveCredentialOutput (contains σRnd = (h'', s''), k and proof_v)
-//     - mvk: Master Verification Key (α₂, β₂, β₁)
-//     - aggSig: AggregateSignature (the aggregate signature, whose s component is used as com)
-//   Output:
-//     Returns true if both the KoR (Knowledge of Representation) check (Algorithm 17) and the pairing check (Algorithm 18)
-//     pass, otherwise returns false.
-bool verifyCredential(TIACParams &params,
-                      ProveCredentialOutput &pOut,
-                      MasterVerKey &mvk,
-                      AggregateSignature &aggSig);
+struct ProveCredentialSigmaRnd {
+    element_t h; // h'' = h^(r1)
+    element_t s; // s'' = s^(r1) * (h'')^(r2)
+    std::string debug_info;
+};
+
+struct ProveCredentialOutput {
+    ProveCredentialSigmaRnd sigmaRnd; // (h'', s'')
+    element_t k;                      // k = α₂ * (β₂)^(did) * g₂^(r2)
+    std::string proof_v;              // KoR tuple: (c, s1, s2, s3)
+};
+
+ProveCredentialOutput proveCredential(
+    TIACParams &params,
+    AggregateSignature &aggSig,
+    MasterVerKey &mvk,
+    const std::string &didStr,
+    const mpz_t o   // "o" value from the prepare phase
+);
 
 #endif

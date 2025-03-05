@@ -1,139 +1,175 @@
-#include "verifycredential.h"
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <iomanip>
+#include "provecredential.h"
 #include <openssl/sha.h>
+#include <sstream>
+#include <iomanip>
+#include <stdexcept>
+#include <iostream>
 
 // Dışarıdan tanımlı: elementToStringG1 artık const parametre alır.
 extern std::string elementToStringG1(const element_t elem);
 
-// Helper: Convert an mpz_t value to std::string (hex representation)
+// Helper: mpz_t değeri string'e çevirir.
 static std::string mpzToString(const mpz_t value) {
-    char* c_str = mpz_get_str(nullptr, 16, value);
+    char* c_str = mpz_get_str(nullptr, 10, value);
     std::string str(c_str);
     free(c_str);
     return str;
 }
 
-// Helper: Parse a hex string into a Zr element.
-static void parseElement(const std::string &hexStr, element_t &elem, TIACParams &params) {
-    mpz_t tmp;
-    mpz_init(tmp);
-    if (mpz_set_str(tmp, hexStr.c_str(), 16) != 0) {
-        throw std::runtime_error("verifyCredential: Error parsing hex string to mpz_t");
-    }
-    mpz_mod(tmp, tmp, params.prime_order);
-    element_set_mpz(elem, tmp);
-    mpz_clear(tmp);
-}
-
-bool verifyCredential(TIACParams &params,
-                      ProveCredentialOutput &pOut,
-                      MasterVerKey &mvk,
-                      AggregateSignature &aggSig) {
-    std::cout << "[VERIFY] Starting credential verification.\n";
-
-    // --- Step 1: Parse the KoR tuple (π_v) from pOut.proof_v ---
-    std::istringstream tupleStream(pOut.proof_v);
-    std::string c_str, s1_str, s2_str, s3_str;
-    if (!(tupleStream >> c_str >> s1_str >> s2_str >> s3_str)) {
-        std::cerr << "[VERIFY] Error: Failed to parse KoR tuple from proof_v.\n";
-        return false;
-    }
-    std::cout << "[VERIFY] Parsed KoR tuple:\n"
-              << "        c = " << c_str << "\n"
-              << "       s1 = " << s1_str << "\n"
-              << "       s2 = " << s2_str << "\n"
-              << "       s3 = " << s3_str << "\n";
-
-    // --- Step 2: Convert parsed strings to Zr elements ---
-    element_t c_elem, s1_elem, s2_elem, s3_elem;
-    element_init_Zr(c_elem, params.pairing);
-    element_init_Zr(s1_elem, params.pairing);
-    element_init_Zr(s2_elem, params.pairing);
-    element_init_Zr(s3_elem, params.pairing);
-    parseElement(c_str, c_elem, params);
-    parseElement(s1_str, s1_elem, params);
-    parseElement(s2_str, s2_elem, params);
-    parseElement(s3_str, s3_elem, params);
-
-    // --- Step 3: Compute k'' = g1^(s1) · (α₂)^(1-c) · k · (β₂)^(s2) ---
-    element_t k_double;
-    element_init_G1(k_double, params.pairing);
-
-    element_t part1, part2, part3, part4;
-    element_init_G1(part1, params.pairing);
-    element_init_G1(part2, params.pairing);
-    element_init_G1(part3, params.pairing);
-    element_init_G1(part4, params.pairing);
+ProveCredentialOutput proveCredential(
+    TIACParams &params,
+    AggregateSignature &aggSig,
+    MasterVerKey &mvk,
+    const std::string &didStr,
+    const mpz_t o   // "o" value from the prepare phase
+) {
+    std::cout << "[PROVE] Starting proveCredential function.\n";
+    ProveCredentialOutput output;
     
-    // part1 = g1^(s1)
-    element_pow_zn(part1, params.g1, s1_elem);
-    std::cout << "[VERIFY] part1 (g1^(s1)): " << elementToStringG1(part1) << "\n";
+    // --- Step 1: Choose random r1 and r2 in Zr ---
+    element_t r1, r2;
+    element_init_Zr(r1, params.pairing);
+    std::cout << "[DEBUG] Initialized r1 (Zr).\n";
+    element_init_Zr(r2, params.pairing);
+    std::cout << "[DEBUG] Initialized r2 (Zr).\n";
+    element_random(r1);
+    std::cout << "[DEBUG] Random r1: " << elementToStringG1(r1) << "\n";
+    element_random(r2);
+    std::cout << "[DEBUG] Random r2: " << elementToStringG1(r2) << "\n";
     
-    // Compute (1 - c) in Zr
-    element_t one, one_minus_c;
-    element_init_Zr(one, params.pairing);
-    element_init_Zr(one_minus_c, params.pairing);
-    element_set1(one);
-    element_sub(one_minus_c, one, c_elem);
+    // --- Step 2: Compute h'' = h^(r1) ---
+    element_t h_dbl;
+    element_init_G1(h_dbl, params.pairing);
+    std::cout << "[DEBUG] Initialized h_dbl (G1).\n";
+    element_pow_zn(h_dbl, aggSig.h, r1);
+    std::cout << "[DEBUG] h_dbl (h'') = aggSig.h^(r1): " << elementToStringG1(h_dbl) << "\n";
     
-    // part2 = (α₂)^(1-c)
-    element_pow_zn(part2, mvk.alpha2, one_minus_c);
-    std::cout << "[VERIFY] part2 (α₂^(1-c)): " << elementToStringG1(part2) << "\n";
+    // --- Step 3: Compute s'' = s^(r1) * (h'')^(r2) ---
+    element_t s_r1, h_dbl_r2, s_dbl;
+    element_init_G1(s_r1, params.pairing);
+    std::cout << "[DEBUG] Initialized s_r1 (G1).\n";
+    element_init_G1(h_dbl_r2, params.pairing);
+    std::cout << "[DEBUG] Initialized h_dbl_r2 (G1).\n";
+    element_init_G1(s_dbl, params.pairing);
+    std::cout << "[DEBUG] Initialized s_dbl (G1).\n";
+    element_pow_zn(s_r1, aggSig.s, r1);
+    std::cout << "[DEBUG] s_r1 = aggSig.s^(r1): " << elementToStringG1(s_r1) << "\n";
+    element_pow_zn(h_dbl_r2, h_dbl, r2);
+    std::cout << "[DEBUG] h_dbl_r2 = h_dbl^(r2): " << elementToStringG1(h_dbl_r2) << "\n";
+    element_mul(s_dbl, s_r1, h_dbl_r2);
+    std::cout << "[DEBUG] s_dbl (s'') = s_r1 * h_dbl_r2: " << elementToStringG1(s_dbl) << "\n";
     
-    // part3 = k (from pOut)
-    element_set(part3, pOut.k);
-    std::cout << "[VERIFY] part3 (k): " << elementToStringG1(part3) << "\n";
+    // --- Step 4: Set σ_Rnd = (h'', s'') ---
+    element_init_G1(output.sigmaRnd.h, params.pairing);
+    element_set(output.sigmaRnd.h, h_dbl);
+    std::cout << "[DEBUG] σ_Rnd.h set to h_dbl: " << elementToStringG1(output.sigmaRnd.h) << "\n";
+    element_init_G1(output.sigmaRnd.s, params.pairing);
+    element_set(output.sigmaRnd.s, s_dbl);
+    std::cout << "[DEBUG] σ_Rnd.s set to s_dbl: " << elementToStringG1(output.sigmaRnd.s) << "\n";
     
-    // part4 = (β₂)^(s2)
-    element_pow_zn(part4, mvk.beta2, s2_elem);
-    std::cout << "[VERIFY] part4 ((β₂)^(s2)): " << elementToStringG1(part4) << "\n";
+    // --- Step 5: Process DID ---
+    mpz_t didInt;
+    mpz_init(didInt);
+    if (mpz_set_str(didInt, didStr.c_str(), 16) != 0)
+        throw std::runtime_error("proveCredential: Invalid DID hex string");
+    mpz_mod(didInt, didInt, params.prime_order);
+    std::cout << "[DEBUG] didInt (mpz) = " << mpzToString(didInt) << "\n";
     
-    // Multiply parts to get k_double
-    element_mul(k_double, part1, part2);
-    element_mul(k_double, k_double, part3);
-    element_mul(k_double, k_double, part4);
-    std::cout << "[VERIFY] k_double computed: " << elementToStringG1(k_double) << "\n";
+    // --- Step 6: Compute com = g₁^(o) * h₁^(didInt) ---
+    element_t com_val, g1_o, h_did;
+    element_init_G1(com_val, params.pairing);
+    element_init_G1(g1_o, params.pairing);
+    element_init_G1(h_did, params.pairing);
+    // Convert o (mpz_t) to a Zr element:
+    element_t o_elem;
+    element_init_Zr(o_elem, params.pairing);
+    element_set_mpz(o_elem, const_cast<mpz_t>(o)); // const_cast kullanılıyor çünkü o parametresi const
+    std::cout << "[DEBUG] o_elem (from o) = " << elementToStringG1(o_elem) << "\n";
+    element_pow_zn(g1_o, params.g1, o_elem);
+    std::cout << "[DEBUG] g1_o = params.g1^(o): " << elementToStringG1(g1_o) << "\n";
+    element_pow_zn(h_did, params.h1, didInt);
+    std::cout << "[DEBUG] h_did = params.h1^(didInt): " << elementToStringG1(h_did) << "\n";
+    element_mul(com_val, g1_o, h_did);
+    std::cout << "[DEBUG] com computed: " << elementToStringG1(com_val) << "\n";
+    // Clear temporary elements for com computation
+    element_clear(g1_o);
+    element_clear(h_did);
+    element_clear(o_elem);
     
-    // --- Step 4: Compute com'' = g1^(s3) · h^(s2) · (com)^(c) ---
-    // Here, we use aggSig.s as "com".
-    element_t com_double;
-    element_init_G1(com_double, params.pairing);
+    // --- Step 7: Compute k = α₂ * (β₂)^(didInt) * g₂^(r2) ---
+    element_t beta_exp;
+    element_init_G1(beta_exp, params.pairing);
+    std::cout << "[DEBUG] Initialized beta_exp (G1).\n";
+    element_t expElem;
+    element_init_Zr(expElem, params.pairing);
+    std::cout << "[DEBUG] Initialized expElem (Zr) for DID exponent.\n";
+    element_set_mpz(expElem, didInt);
+    std::cout << "[DEBUG] expElem set to didInt: " << elementToStringG1(expElem) << " (Zr representation)\n";
+    element_pow_zn(beta_exp, mvk.beta2, expElem);
+    std::cout << "[DEBUG] beta_exp = mvk.beta2^(didInt): " << elementToStringG1(beta_exp) << "\n";
+    element_clear(expElem);
     
-    element_t part5, part6, part7;
-    element_init_G1(part5, params.pairing);
-    element_init_G1(part6, params.pairing);
-    element_init_G1(part7, params.pairing);
+    element_t g2_r2;
+    element_init_G1(g2_r2, params.pairing);
+    element_pow_zn(g2_r2, params.g2, r2);
+    std::cout << "[DEBUG] g2_r2 = params.g2^(r2): " << elementToStringG1(g2_r2) << "\n";
     
-    // part5 = g1^(s3)
-    element_pow_zn(part5, params.g1, s3_elem);
-    std::cout << "[VERIFY] part5 (g1^(s3)): " << elementToStringG1(part5) << "\n";
+    element_init_G1(output.k, params.pairing);
+    element_mul(output.k, mvk.alpha2, beta_exp);
+    element_mul(output.k, output.k, g2_r2);
+    std::cout << "[DEBUG] k computed: " << elementToStringG1(output.k) << "\n";
     
-    // part6 = h^(s2); here h is pOut.sigmaRnd.h
-    element_pow_zn(part6, pOut.sigmaRnd.h, s2_elem);
-    std::cout << "[VERIFY] part6 (h^(s2)): " << elementToStringG1(part6) << "\n";
+    // --- Step 8: KoR Tuple Computation (Algorithm 16) ---
+    // 8.1: Choose random r1', r2', r3' ∈ Zr.
+    element_t r1p, r2p, r3p;
+    element_init_Zr(r1p, params.pairing);
+    element_init_Zr(r2p, params.pairing);
+    element_init_Zr(r3p, params.pairing);
+    element_random(r1p);
+    element_random(r2p);
+    element_random(r3p);
+    std::cout << "[DEBUG] r1' = " << elementToStringG1(r1p) << "\n";
+    std::cout << "[DEBUG] r2' = " << elementToStringG1(r2p) << "\n";
+    std::cout << "[DEBUG] r3' = " << elementToStringG1(r3p) << "\n";
     
-    // part7 = (com)^(c); com is taken as aggSig.s
-    element_pow_zn(part7, aggSig.s, c_elem);
-    std::cout << "[VERIFY] part7 (com^(c)): " << elementToStringG1(part7) << "\n";
+    // 8.2: Compute k' = g₁^(r1') · α₂ · (β₂)^(r2').
+    element_t k_prime;
+    element_init_G1(k_prime, params.pairing);
+    element_t g1_r1p, beta2_r2p;
+    element_init_G1(g1_r1p, params.pairing);
+    element_init_G1(beta2_r2p, params.pairing);
+    element_pow_zn(g1_r1p, params.g1, r1p);
+    std::cout << "[DEBUG] g1^(r1') = " << elementToStringG1(g1_r1p) << "\n";
+    element_pow_zn(beta2_r2p, mvk.beta2, r2p);
+    std::cout << "[DEBUG] (β₂)^(r2') = " << elementToStringG1(beta2_r2p) << "\n";
+    element_mul(k_prime, g1_r1p, mvk.alpha2);
+    element_mul(k_prime, k_prime, beta2_r2p);
+    std::cout << "[DEBUG] k' computed = " << elementToStringG1(k_prime) << "\n";
     
-    element_mul(com_double, part5, part6);
-    element_mul(com_double, com_double, part7);
-    std::cout << "[VERIFY] com_double computed: " << elementToStringG1(com_double) << "\n";
+    // 8.3: Compute com' = g₁^(r3') · (h'')^(r2').
+    element_t com_prime;
+    element_init_G1(com_prime, params.pairing);
+    element_t g1_r3p, h_r2p;
+    element_init_G1(g1_r3p, params.pairing);
+    element_init_G1(h_r2p, params.pairing);
+    element_pow_zn(g1_r3p, params.g1, r3p);
+    std::cout << "[DEBUG] g1^(r3') = " << elementToStringG1(g1_r3p) << "\n";
+    element_pow_zn(h_r2p, h_dbl, r2p);
+    std::cout << "[DEBUG] (h_dbl)^(r2') = " << elementToStringG1(h_r2p) << "\n";
+    element_mul(com_prime, g1_r3p, h_r2p);
+    std::cout << "[DEBUG] com' computed = " << elementToStringG1(com_prime) << "\n";
     
-    // --- Step 5: Compute c' = Hash(g1, g2, h, com, com'', k, k'') ---
+    // 8.4: Compute c = Hash(g₁, g₂, h'', com, com', k, k').
     std::ostringstream hashOSS;
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG1(params.g2)
-            << elementToStringG1(pOut.sigmaRnd.h)
-            << elementToStringG1(aggSig.s)   // using aggSig.s as "com"
-            << elementToStringG1(com_double)
-            << elementToStringG1(pOut.k)
-            << elementToStringG1(k_double);
+            << elementToStringG1(h_dbl)
+            << elementToStringG1(com_val)      // Use computed "com" value instead of aggSig.s
+            << elementToStringG1(com_prime)
+            << elementToStringG1(output.k)
+            << elementToStringG1(k_prime);
     std::string hashInput = hashOSS.str();
-    std::cout << "[VERIFY] Hash input for c': " << hashInput << "\n";
+    std::cout << "[DEBUG] Hash input for c: " << hashInput << "\n";
     
     unsigned char hashDigest[SHA512_DIGEST_LENGTH];
     SHA512(reinterpret_cast<const unsigned char*>(hashInput.data()), hashInput.size(), hashDigest);
@@ -142,69 +178,115 @@ bool verifyCredential(TIACParams &params,
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
         hashFinalOSS << std::setw(2) << (int)hashDigest[i];
     }
-    std::string c_prime_str = hashFinalOSS.str();
-    std::cout << "[VERIFY] Hash output (c'): " << c_prime_str << "\n";
+    std::string c_str = hashFinalOSS.str();
+    std::cout << "[DEBUG] Hash output (c_str): " << c_str << "\n";
     
-    // Convert c_prime_str to an element in Zr.
-    element_t c_prime;
-    element_init_Zr(c_prime, params.pairing);
+    mpz_t c_mpz;
+    mpz_init(c_mpz);
+    if(mpz_set_str(c_mpz, c_str.c_str(), 16) != 0)
+        throw std::runtime_error("proveCredential: Error converting hash to mpz");
+    mpz_mod(c_mpz, c_mpz, params.prime_order);
+    element_t c_elem;
+    element_init_Zr(c_elem, params.pairing);
+    element_set_mpz(c_elem, c_mpz);
+    mpz_clear(c_mpz);
+    std::cout << "[DEBUG] c (as element in Zr): " << elementToStringG1(c_elem) << "\n";
+    
+    // --- Step 8.5: Compute KoR tuple components ---
+    // s1 = r1' − c · r1
+    element_t s1, s2, s3;
+    element_init_Zr(s1, params.pairing);
+    element_init_Zr(s2, params.pairing);
+    element_init_Zr(s3, params.pairing);
     {
-        mpz_t tmp;
-        mpz_init(tmp);
-        if (mpz_set_str(tmp, c_prime_str.c_str(), 16) != 0)
-            throw std::runtime_error("verifyCredential: Error converting c_prime string to mpz_t");
-        mpz_mod(tmp, tmp, params.prime_order);
-        element_set_mpz(c_prime, tmp);
-        mpz_clear(tmp);
+        element_t temp;
+        element_init_Zr(temp, params.pairing);
+        element_mul(temp, c_elem, r1);
+        element_sub(s1, r1p, temp);
+        element_clear(temp);
     }
-    std::cout << "[VERIFY] c_prime (as element): " << elementToStringG1(c_prime) << "\n";
+    std::cout << "[DEBUG] s1 computed: " << elementToStringG1(s1) << "\n";
     
-    // --- Step 6: KoR Check: Verify that c_prime equals c ---
-    bool kor_ok = (element_cmp(c_prime, c_elem) == 0);
-    std::cout << "[VERIFY] KoR check: " << (kor_ok ? "PASSED" : "FAILED") << "\n";
-    
-    // --- Step 7: Pairing Check (Algorithm 18) ---
-    element_t pairing_lhs, pairing_rhs;
-    element_init_GT(pairing_lhs, params.pairing);
-    element_init_GT(pairing_rhs, params.pairing);
-    pairing_apply(pairing_lhs, pOut.sigmaRnd.h, pOut.k, params.pairing);
-    pairing_apply(pairing_rhs, pOut.sigmaRnd.s, params.g2, params.pairing);
-    std::string lhsStr = elementToStringG1(pairing_lhs);
-    std::string rhsStr = elementToStringG1(pairing_rhs);
-    std::cout << "[VERIFY] Pairing LHS = " << lhsStr << "\n";
-    std::cout << "[VERIFY] Pairing RHS = " << rhsStr << "\n";
-    bool pairing_ok = (element_cmp(pairing_lhs, pairing_rhs) == 0);
-    std::cout << "[VERIFY] Pairing check: " << (pairing_ok ? "PASSED" : "FAILED") << "\n";
-    
-    // --- Final Verification: Both KoR and Pairing checks must pass ---
-    bool valid = kor_ok && pairing_ok;
-    if (valid) {
-        std::cout << "[VERIFY] Credential verification PASSED.\n";
-    } else {
-        std::cout << "[VERIFY] Credential verification FAILED.\n";
+    // s2 = r2' − c · (didInt)
+    element_t temp2;
+    element_init_Zr(temp2, params.pairing);
+    {
+        element_t expElem2;
+        element_init_Zr(expElem2, params.pairing);
+        element_set_mpz(expElem2, didInt);
+        element_mul(temp2, c_elem, expElem2);
+        element_sub(s2, r2p, temp2);
+        element_clear(expElem2);
     }
+    std::cout << "[DEBUG] s2 computed: " << elementToStringG1(s2) << "\n";
+    element_clear(temp2);
     
-    // --- Clean up temporary elements ---
+    // s3 = r3' − c · o
+    mpz_t tempO;
+    mpz_init(tempO);
+    mpz_set(tempO, o);
+    element_t o_elem;
+    element_init_Zr(o_elem, params.pairing);
+    element_set_mpz(o_elem, tempO);
+    mpz_clear(tempO);
+    std::cout << "[DEBUG] o (for s3 computation) = " << mpzToString(o) << "\n";
+    
+    element_t temp3;
+    element_init_Zr(temp3, params.pairing);
+    element_mul(temp3, c_elem, o_elem);
+    element_sub(s3, r3p, temp3);
+    std::cout << "[DEBUG] s3 computed: " << elementToStringG1(s3) << "\n";
+    element_clear(temp3);
+    
+    // --- Step 8.6: Construct the KoR tuple: πᵥ = (c, s1, s2, s3) ---
+    std::ostringstream korOSS;
+    korOSS << elementToStringG1(c_elem) << " "
+           << elementToStringG1(s1) << " "
+           << elementToStringG1(s2) << " "
+           << elementToStringG1(s3);
+    std::string kor_tuple = korOSS.str();
+    std::cout << "[DEBUG] KoR tuple computed: " << kor_tuple << "\n";
+    
+    // Set the proof in output to the tuple.
+    output.proof_v = kor_tuple;
+    std::cout << "[DEBUG] Final Proof (πᵥ): " << output.proof_v << "\n";
+    
+    // --- Clean up temporary elements for KoR computation ---
+    element_clear(r1p);
+    element_clear(r2p);
+    element_clear(r3p);
+    element_clear(k_prime);
+    element_clear(g1_r1p);
+    element_clear(beta2_r2p);
+    element_clear(g1_r3p);
+    element_clear(h_r2p);
+    element_clear(com_prime);
     element_clear(c_elem);
-    element_clear(s1_elem);
-    element_clear(s2_elem);
-    element_clear(s3_elem);
-    element_clear(one);
-    element_clear(one_minus_c);
-    element_clear(part1);
-    element_clear(part2);
-    element_clear(part3);
-    element_clear(part4);
-    element_clear(k_double);
-    element_clear(part5);
-    element_clear(part6);
-    element_clear(part7);
-    element_clear(com_double);
-    element_clear(c_prime);
-    element_clear(pairing_lhs);
-    element_clear(pairing_rhs);
+    element_clear(s1);
+    element_clear(s2);
+    element_clear(s3);
+    element_clear(o_elem);
     
-    // Note: r1p, r2p, r3p and other temporary elements used in proveCredential have already been cleared in that function.
+    // --- Debug Information ---
+    std::ostringstream dbg;
+    dbg << "h'' = " << elementToStringG1(output.sigmaRnd.h) << "\n";
+    dbg << "s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
+    dbg << "k   = " << elementToStringG1(output.k) << "\n";
+    dbg << "KoR tuple = " << output.proof_v << "\n";
+    output.sigmaRnd.debug_info = dbg.str();
+    std::cout << "[DEBUG] Debug Info:\n" << output.sigmaRnd.debug_info << "\n";
     
-    return valid;
+    // --- Clear temporary variables ---
+    element_clear(r1);
+    element_clear(r2);
+    element_clear(h_dbl);
+    element_clear(s_r1);
+    element_clear(h_dbl_r2);
+    element_clear(s_dbl);
+    element_clear(beta_exp);
+    element_clear(g2_r2);
+    mpz_clear(didInt);
+    
+    std::cout << "[PROVE] proveCredential completed successfully.\n";
+    return output;
 }
