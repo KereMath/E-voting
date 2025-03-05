@@ -415,23 +415,17 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 auto unblindEnd = Clock::now();
 auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
 
-// Unblind sonuçlarını raporlama:
-// std::cout << "\n=== Unblind Signature Results ===\n";
+std::cout << "\n=== Unblind Signature Results with Admin IDs ===\n";
 for (int i = 0; i < voterCount; i++) {
-    // std::cout << "Voter " << (i+1) << " unblind signatures:\n";
-    for (int j = 0; j < (int)unblindResults[i].size(); j++) {
-        UnblindSignature &usig = unblindResults[i][j];
-        // std::cout << "  Signature " << (j+1) << ":\n";
-        // std::cout << "     h   = " << elementToStringG1(usig.h) << "\n";
-        // std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
-        // std::cout << "     Debug - Hash(comi): " << usig.debug.hash_comi << "\n";
-        // std::cout << "     Debug - computed s_m: " << usig.debug.computed_s_m << "\n";
-        // std::cout << "     Debug - pairing LHS: " << usig.debug.pairing_lhs << "\n";
-        // std::cout << "     Debug - pairing RHS: " << usig.debug.pairing_rhs << "\n";
+    std::cout << "Voter " << (i + 1) << " unblind signatures:\n";
+    for (int j = 0; j < (int)unblindResultsWithAdmin[i].size(); j++) {
+        int adminId = unblindResultsWithAdmin[i][j].first; // Admin ID'sini al
+        UnblindSignature &usig = unblindResultsWithAdmin[i][j].second; // İlgili imzayı al
+        std::cout << "  Signature " << (j + 1) << " produced by Admin " << (adminId + 1) << ":\n";
+        std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
     }
-    // std::cout << "-------------------------\n";
+    std::cout << "-------------------------\n";
 }
-
 
     //Aggregate
     std::vector<AggregateSignature> aggregateResults(voterCount);
