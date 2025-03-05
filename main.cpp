@@ -21,6 +21,7 @@
 #include "aggregate.h" // aggregateSign fonksiyonunu kullanmak için
 #include "provecredential.h"  // proveCredential fonksiyonunu içerir
 #include "verifycredential.h"  // verifyCredential tanımı
+#include "pairinginverify.h"
 
 using Clock = std::chrono::steady_clock;
 
@@ -551,7 +552,12 @@ std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000
 
 
 //verifycredential
-
+std::cout << "\n=== Pairing Check Phase ===\n";
+for (int i = 0; i < voterCount; i++) {
+    bool pairing_ok = pairingCheck(params, proveResults[i]);
+    std::cout << "Voter " << (i+1) << " pairing check: " 
+              << (pairing_ok ? "PASSED" : "FAILED") << "\n";
+}
 
 
 
