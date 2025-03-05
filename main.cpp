@@ -497,8 +497,7 @@ std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000
 
 
 // --- VerifyCredential Phase ---
-// Verify the ProveCredential output using the verifyCredential function.
-// preparedOutputs[i].com (i.e., the "com" computed during prepareBlindSign) is passed as the com value.
+// Burada, preparedOutputs[i].com değeri (prepareBlindSign aşamasından) verifyCredential fonksiyonuna "com" olarak aktarılır.
 std::vector<bool> verifyResults(voterCount);
 auto verifyStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
