@@ -168,12 +168,25 @@ ProveCredentialOutput proveCredential(
     
     // 5b) s2 = r2' − c·(didInt)
     element_t temp2;
+    std:cout <<"dark1" <<"/n";
     element_init_Zr(temp2, params.pairing);
+    std:cout <<"dark2" <<"/n";
+
     element_mul(temp2, c_elem, expElem); // Note: expElem was used earlier; reinitialize it.
+    std:cout <<"dark3" <<"/n";
+
     element_init_Zr(expElem, params.pairing);
+    std:cout <<"dark4" <<"/n";
+
     element_set_mpz(expElem, didInt);
+    std:cout <<"dark5" <<"/n";
+
     element_mul(temp2, c_elem, expElem);
+    std:cout <<"dark6" <<"/n";
+
     element_sub(s2, r2p, temp2);
+    std:cout <<"dark7" <<"/n";
+
     element_clear(temp2);
     std::cout << "[PROVE] s2 computed: " << elementToStringG1(s2) << "\n";
     

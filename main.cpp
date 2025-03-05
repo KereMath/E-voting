@@ -469,19 +469,15 @@ for (int i = 0; i < voterCount; i++) {
 // 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
 // 16) ProveCredential Phase: Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
 // Burada, prepare aşamasından elde edilen 'o' değeri (mpz_t) de kullanılıyor.
-// --- ProveCredential Phase (Sıralı) ---
-// Her seçmenin aggregate imzası üzerinde imza kanıtı oluşturulacak.
-// Burada, prepareBlindSign aşamasından elde edilen 'o' değeri (preparedOutputs[i].o)
-// kullanılarak proveCredential çağrılıyor.
-
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
 
-for (int i = 0; i < voterCount; i++) {
-    // ProveCredential: inputlar: aggregateResults[i], keyOut.mvk, dids[i].did, ve prepare aşamasından o değeri
+tbb::parallel_for(0, voterCount, [&](int i) {
+    // ProveCredential, aggregateResults[i], keyOut.mvk ve dids[i].did ile birlikte,
+    // prepareBlindSign aşamasından gelen 'o' değeri (örneğin: preparedOutputs[i].o) kullanılarak çağrılır.
     ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, preparedOutputs[i].o);
     proveResults[i] = pOut;
-}
+});
 
 auto proveEnd = Clock::now();
 auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
@@ -489,7 +485,7 @@ auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd -
 // ProveCredential sonuçlarını raporlama:
 std::cout << "\n=== ProveCredential Results ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i + 1) << " prove credential output:\n";
+    std::cout << "Voter " << (i+1) << " prove credential output:\n";
     std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
     std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
     std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
@@ -498,6 +494,8 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "-------------------------\n";
 }
 std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
+
+
 
 
 
