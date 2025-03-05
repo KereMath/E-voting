@@ -5,12 +5,12 @@
 #include <iomanip>
 #include <openssl/sha.h>
 
-// Dışarıdan tanımlı: elementToStringG1 (const parametre alır)
+// Dışarıdan tanımlı: elementToStringG1 artık const parametre alır.
 extern std::string elementToStringG1(const element_t elem);
 
 // Helper: Convert an mpz_t to std::string.
 static std::string mpzToString(const mpz_t value) {
-    char* c_str = mpz_get_str(nullptr, 16, value); // base 16
+    char* c_str = mpz_get_str(nullptr, 16, value); // Hex representation
     std::string str(c_str);
     free(c_str);
     return str;
@@ -20,7 +20,6 @@ static std::string mpzToString(const mpz_t value) {
 static void parseElement(const std::string &hexStr, element_t &elem, TIACParams &params) {
     mpz_t tmp;
     mpz_init(tmp);
-    // mpz_set_str expects no "0x", so assume hexStr is plain hex.
     if(mpz_set_str(tmp, hexStr.c_str(), 16) != 0) {
         throw std::runtime_error("verifyCredential: Error parsing hex string to mpz_t");
     }
@@ -29,9 +28,12 @@ static void parseElement(const std::string &hexStr, element_t &elem, TIACParams 
     mpz_clear(tmp);
 }
 
-bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
+bool verifyCredential(TIACParams &params,
+                      ProveCredentialOutput &pOut,
+                      MasterVerKey &mvk,
+                      AggregateSignature &aggSig) {
     std::cout << "[VERIFY] Starting credential verification.\n";
-    
+
     // --- Parse KoR tuple from pOut.proof_v ---
     std::istringstream tupleStream(pOut.proof_v);
     std::string c_str, s1_str, s2_str, s3_str;
@@ -39,9 +41,9 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
         std::cerr << "[VERIFY] Error: Failed to parse KoR tuple from proof_v.\n";
         return false;
     }
-    std::cout << "[VERIFY] Parsed KoR tuple: c = " << c_str << ", s1 = " << s1_str 
+    std::cout << "[VERIFY] Parsed KoR tuple: c = " << c_str << ", s1 = " << s1_str
               << ", s2 = " << s2_str << ", s3 = " << s3_str << "\n";
-    
+
     // Initialize elements for c, s1, s2, s3 in Zr.
     element_t c_elem, s1_elem, s2_elem, s3_elem;
     element_init_Zr(c_elem, params.pairing);
@@ -57,7 +59,7 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
     // --- Compute k'' = g1^(s1) * (α₂)^(1-c) * k * (β₂)^(s2) ---
     element_t k_double;
     element_init_G1(k_double, params.pairing);
-    
+
     element_t part1, part2, part3, part4;
     element_init_G1(part1, params.pairing);
     element_init_G1(part2, params.pairing);
@@ -66,9 +68,9 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
     
     // part1 = g1^(s1)
     element_pow_zn(part1, params.g1, s1_elem);
-    std::cout << "[VERIFY] part1 = g1^(s1): " << elementToStringG1(part1) << "\n";
+    std::cout << "[VERIFY] part1 (g1^(s1)): " << elementToStringG1(part1) << "\n";
     
-    // Compute (1 - c) in Zr:
+    // Compute (1 - c) in Zr.
     element_t one, one_minus_c;
     element_init_Zr(one, params.pairing);
     element_init_Zr(one_minus_c, params.pairing);
@@ -77,15 +79,15 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
     
     // part2 = (α₂)^(1-c)
     element_pow_zn(part2, mvk.alpha2, one_minus_c);
-    std::cout << "[VERIFY] part2 = α₂^(1-c): " << elementToStringG1(part2) << "\n";
+    std::cout << "[VERIFY] part2 (α₂^(1-c)): " << elementToStringG1(part2) << "\n";
     
-    // part3 = k (already computed in proveCredential)
+    // part3 = k (from pOut)
     element_set(part3, pOut.k);
-    std::cout << "[VERIFY] part3 = k: " << elementToStringG1(part3) << "\n";
+    std::cout << "[VERIFY] part3 (k): " << elementToStringG1(part3) << "\n";
     
     // part4 = (β₂)^(s2)
     element_pow_zn(part4, mvk.beta2, s2_elem);
-    std::cout << "[VERIFY] part4 = β₂^(s2): " << elementToStringG1(part4) << "\n";
+    std::cout << "[VERIFY] part4 ((β₂)^(s2)): " << elementToStringG1(part4) << "\n";
     
     // k_double = part1 * part2 * part3 * part4
     element_mul(k_double, part1, part2);
@@ -105,15 +107,15 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
     
     // part5 = g1^(s3)
     element_pow_zn(part5, params.g1, s3_elem);
-    std::cout << "[VERIFY] part5 = g1^(s3): " << elementToStringG1(part5) << "\n";
+    std::cout << "[VERIFY] part5 (g1^(s3)): " << elementToStringG1(part5) << "\n";
     
-    // part6 = h^(s2); here h is h″ (i.e., pOut.sigmaRnd.h)
+    // part6 = h^(s2); here h is pOut.sigmaRnd.h
     element_pow_zn(part6, pOut.sigmaRnd.h, s2_elem);
-    std::cout << "[VERIFY] part6 = h^(s2): " << elementToStringG1(part6) << "\n";
+    std::cout << "[VERIFY] part6 (h^(s2)): " << elementToStringG1(part6) << "\n";
     
     // part7 = (com)^(c); com is taken as aggSig.s
     element_pow_zn(part7, aggSig.s, c_elem);
-    std::cout << "[VERIFY] part7 = com^(c): " << elementToStringG1(part7) << "\n";
+    std::cout << "[VERIFY] part7 (com^(c)): " << elementToStringG1(part7) << "\n";
     
     element_mul(com_double, part5, part6);
     element_mul(com_double, com_double, part7);
@@ -124,7 +126,7 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG1(params.g2)
             << elementToStringG1(pOut.sigmaRnd.h)
-            << elementToStringG1(aggSig.s)   // using aggregate s as "com"
+            << elementToStringG1(aggSig.s)   // using aggSig.s as "com"
             << elementToStringG1(com_double)
             << elementToStringG1(pOut.k)
             << elementToStringG1(k_double);
@@ -141,7 +143,7 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
     std::string c_prime_str = hashFinalOSS.str();
     std::cout << "[VERIFY] Hash output (c'): " << c_prime_str << "\n";
     
-    // Convert c_prime_str to element in Zr
+    // Convert c_prime_str to an element in Zr.
     element_t c_prime;
     element_init_Zr(c_prime, params.pairing);
     {
@@ -200,10 +202,11 @@ bool verifyCredential(TIACParams &params, ProveCredentialOutput &pOut) {
     element_clear(pairing_lhs);
     element_clear(pairing_rhs);
     
-    // Clear KoR tuple temporary elements for steps 7.2, 7.3, 7.6, 7.7:
-    // (g1_r1p, beta2_r2p, g1_r3p, h_r2p, com_prime, s1, s2, s3, o_elem)
-    // For brevity, we assume these were cleared in the steps below.
-    // (Burada her bir init edilmiş temporary element clear edilmiştir.)
+    // Clear temporary KoR computation elements.
+    element_clear(r1p);
+    element_clear(r2p);
+    element_clear(r3p);
+    // (Diğer temporary elemanlar (g1_r1p, beta2_r2p, g1_r3p, h_r2p, etc.) clear edilmiş olmalı.)
     
     return valid;
 }

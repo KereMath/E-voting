@@ -497,11 +497,11 @@ std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000
 
 
 // --- VerifyCredential Phase ---
-// ProveCredential çıktılarını doğrulayalım.
+// ProveCredential çıktısını doğrulayalım. (mvk ve aggSig de ekleniyor)
 std::vector<bool> verifyResults(voterCount);
 auto verifyStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
-    bool res = verifyCredential(params, proveResults[i]);
+    bool res = verifyCredential(params, proveResults[i], keyOut.mvk, aggregateResults[i]);
     verifyResults[i] = res;
 });
 auto verifyEnd = Clock::now();
