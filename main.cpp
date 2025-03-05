@@ -474,7 +474,7 @@ for (int i = 0; i < voterCount; i++) {
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
         std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
     }
-   std::cout<<"o=" << preparedOutputs[i].o << "\n";
+//    std::cout<<"o=" << preparedOutputs[i].o << "\n";
    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
         std::cout <<"did=" <<  dids[i].did<<"\n";
