@@ -458,7 +458,7 @@ for (int i = 0; i < voterCount; i++) {
 
 // std::cout << "\n=== Unblind Signature Results ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "user" << (i+1) << "prepared vars for prove";
+    std::cout << "user" << (i+1) << "prepared vars for prove" <<"\n\n";
     {
         char buf[1024];
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
@@ -474,10 +474,12 @@ for (int i = 0; i < voterCount; i++) {
         element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
         std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
     }
-//    std::cout<<"o=" << preparedOutputs[i].o << "\n";
+    char buf[1024];
+mpz_get_str(buf, 10, preparedOutputs[i].o);
+std::cout << "o= " << buf << "\n";
    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-        std::cout <<"did=" <<  dids[i].did<<"\n";
+        std::cout <<" did = " <<  dids[i].did<<"\n";
         std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
 
 }
