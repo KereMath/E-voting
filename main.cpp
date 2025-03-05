@@ -252,8 +252,8 @@ int main() {
     //     std::cout << "oi         : " << preparedOutputs[i].debug.oi << "\n";
     //     std::cout << "didInt     : " << preparedOutputs[i].debug.didInt << "\n";
     //     std::cout << "comi       : " << preparedOutputs[i].debug.comi << "\n";
-    //     std::cout << "h          : " << preparedOutputs[i].debug.h << "\n";
-    //     std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
+        std::cout << "h          : " << preparedOutputs[i].debug.h << "\n";
+        std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
     //     std::cout << "--- KoR Debug ---\n";
     //     std::cout << "r1         : " << preparedOutputs[i].debug.kor_r1 << "\n";
     //     std::cout << "r2         : " << preparedOutputs[i].debug.kor_r2 << "\n";
@@ -421,7 +421,7 @@ for (int i = 0; i < voterCount; i++) {
         std::cout << "     h   = " << elementToStringG1(usig.h) << "\n";
         std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
         // std::cout << "     Debug - Hash(comi): " << usig.debug.hash_comi << "\n";
-        std::cout << "     Debug - computed s_m: " << usig.debug.computed_s_m << "\n";
+        // std::cout << "     Debug - computed s_m: " << usig.debug.computed_s_m << "\n";
         // std::cout << "     Debug - pairing LHS: " << usig.debug.pairing_lhs << "\n";
         // std::cout << "     Debug - pairing RHS: " << usig.debug.pairing_rhs << "\n";
     }
@@ -444,13 +444,13 @@ for (int i = 0; i < voterCount; i++) {
     
     // Aggregate sonuçlarını raporlama:
     std::cout << "\n=== Aggregate Signature Results ===\n";
-    for (int i = 0; i < voterCount; i++) {
-        std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-        std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-        std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-        std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-        std::cout << "-------------------------\n";
-    }
+    // for (int i = 0; i < voterCount; i++) {
+    //     std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+    //     std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+    //     std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+    //     std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
+    //     std::cout << "-------------------------\n";
+    // }
 
 
 
