@@ -20,6 +20,7 @@ AggregateSignature aggregateSign(
     
     // (1) h: Tüm parçalarda h aynı kabul edildiğinden, ilk partial imzadan h alınır.
     element_init_G1(aggSig.h, params.pairing);
+    // const_cast kullanmadan doğrudan işlemi gerçekleştiriyoruz:
     element_set(aggSig.h, partialSigsWithAdmins[0].second.h); // Hangi admin tarafından üretildiğini bilmiyoruz.
     debugStream << "Aggregate h set from first partial signature.\n";
     
@@ -36,6 +37,7 @@ AggregateSignature aggregateSign(
         debugStream << "  Partial signature " << (i+1)
                     << " produced by Admin " << (adminID + 1)
                     << ": s_m = " << partStr << "\n";
+        // Burada const_cast kullanımı yerine doğrudan işlemi gerçekleştiriyoruz:
         element_mul(aggSig.s, aggSig.s, partialSigsWithAdmins[i].second.s_m); // s_m çarpımı
     }
     debugStream << "Final aggregate s computed = " << elementToStringG1(aggSig.s) << "\n";
