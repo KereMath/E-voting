@@ -500,7 +500,7 @@ for (int i = 0; i < voterCount; i++) {
               << (cumulativeBlind_us / 1000.0) << " ms\n";
     std::cout << "\n[UNBLIND] Total Unblind Phase Time = " << (unblind_us / 1000.0) << " ms\n";
     std::cout << "\n[AGGREGATE] Total Aggregate Phase Time = " << (aggregate_us / 1000.0) << " ms\n";
-    std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
+
 
     // threads.txt dosyasını kapat
     threadLog.close();
