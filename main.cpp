@@ -417,7 +417,7 @@ for (int i = 0; i < voterCount; i++) {
     // std::cout << "Voter " << (i+1) << " unblind signatures:\n";
     for (int j = 0; j < (int)unblindResults[i].size(); j++) {
         UnblindSignature &usig = unblindResults[i][j];
-        // std::cout << "  Signature " << (j+1) << ":\n";
+        std::cout << "  Signature " << (j+1) << ":\n";
         std::cout << "     h   = " << elementToStringG1(usig.h) << "\n";
         std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
         // std::cout << "     Debug - Hash(comi): " << usig.debug.hash_comi << "\n";
