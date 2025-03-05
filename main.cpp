@@ -520,6 +520,35 @@ std::cout << "o= " << buf << "\n";
 
 
 
+//provecred
+
+// --- ProveCredential Phase ---
+// prepareOutputs[i].o, prepare aşamasından alınan o değeridir.
+std::vector<ProveCredentialOutput> proveResults(voterCount);
+auto proveStart = Clock::now();
+
+tbb::parallel_for(0, voterCount, [&](int i) {
+    ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, preparedOutputs[i].o);
+    proveResults[i] = pOut;
+});
+
+auto proveEnd = Clock::now();
+auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
+
+// ProveCredential sonuçlarını raporlayın:
+std::cout << "\n=== ProveCredential Results ===\n";
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "Voter " << (i+1) << " prove credential output:\n";
+    std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
+    std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
+    std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
+    std::cout << "    π_v = " << proveResults[i].proof_v << "\n";
+    std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
+    std::cout << "-------------------------\n";
+}
+std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
+
+
 
 
 
