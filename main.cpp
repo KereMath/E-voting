@@ -211,11 +211,11 @@ int main() {
     }
     auto endDIDGen = Clock::now();
     auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
-    std::cout << "=== DID Generation ===\n";
+    // std::cout << "=== DID Generation ===\n";
     for (int i = 0; i < voterCount; i++) {
         char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
-        std::cout << "Secmen " << (i+1) << " icin x   = " << x_str << "\n"
-                  << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
+        // std::cout << "Secmen " << (i+1) << " icin x   = " << x_str << "\n"
+        //           << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
         free(x_str);
     }
 
@@ -248,12 +248,12 @@ int main() {
     });
 // prepareBlindSign çağrılarından sonra:
     for (size_t i = 0; i < preparedOutputs.size(); i++) {
-        std::cout << "=== Voter " << i+1 << " Debug Bilgileri ===\n";
+        // std::cout << "=== Voter " << i+1 << " Debug Bilgileri ===\n";
     //     std::cout << "oi         : " << preparedOutputs[i].debug.oi << "\n";
     //     std::cout << "didInt     : " << preparedOutputs[i].debug.didInt << "\n";
     //     std::cout << "comi       : " << preparedOutputs[i].debug.comi << "\n";
-        std::cout << "h          : " << preparedOutputs[i].debug.h << "\n";
-        std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
+        // std::cout << "h          : " << preparedOutputs[i].debug.h << "\n";
+        // std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
     //     std::cout << "--- KoR Debug ---\n";
     //     std::cout << "r1         : " << preparedOutputs[i].debug.kor_r1 << "\n";
     //     std::cout << "r2         : " << preparedOutputs[i].debug.kor_r2 << "\n";
