@@ -191,8 +191,8 @@ element_clear(beta_pow);
     };
     result.debug.pairing_lhs = gtToString(pairing_lhs);
     result.debug.pairing_rhs = gtToString(pairing_rhs);
-    // std::cout << "[UNBLIND DEBUG] pairing_lhs (GT) = " << result.debug.pairing_lhs << "\n";
-    // std::cout << "[UNBLIND DEBUG] pairing_rhs (GT) = " << result.debug.pairing_rhs << "\n";
+    std::cout << "[UNBLIND DEBUG] pairing_lhs (GT) = " << result.debug.pairing_lhs << "\n";
+    std::cout << "[UNBLIND DEBUG] pairing_rhs (GT) = " << result.debug.pairing_rhs << "\n";
     
     bool pairing_ok = (element_cmp(pairing_lhs, pairing_rhs) == 0);
     element_clear(pairing_lhs);
