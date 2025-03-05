@@ -479,7 +479,7 @@ std::cout << "prepared common vars for prove" <<"\n\n";
     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
     std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
 }
-std::cout << "-------------------------------------------------------------------------------------------------";
+std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
 for (int i = 0; i < voterCount; i++) {
     std::cout << "user " << (i+1) << " prepared vars for prove" <<"\n\n";
     char buf[1024];
@@ -489,7 +489,7 @@ std::cout << "o= " << buf << "\n";
         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
         std::cout <<" did = " <<  dids[i].did<<"\n";
         std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
-        std::cout << "-------------------------------------------------------------------------------------------------";
+        std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
 
 }
 
