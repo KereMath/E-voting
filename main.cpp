@@ -366,16 +366,16 @@ tbb::parallel_for(
         voterAdminIndexes[task.voterId].push_back(task.adminId);
     }
     
-    // Diziyi ekrana yazdıralım (admin numaralarını 1-indexed olarak göstermek için 1 ekleniyor)
-    std::cout << "\n=== Voter-Admin Indexes ===\n";
-    for (int i = 0; i < voterCount; i++) {
-        std::cout << "Voter " << (i+1) << " için: ";
-        for (int adminIndex : voterAdminIndexes[i]) {
-            std::cout << (adminIndex + 1) << " ";
-        }
-        std::cout << "\n";
-    }
-    std::cout << "===========================\n\n";
+    // // Diziyi ekrana yazdıralım (admin numaralarını 1-indexed olarak göstermek için 1 ekleniyor)
+    // std::cout << "\n=== Voter-Admin Indexes ===\n";
+    // for (int i = 0; i < voterCount; i++) {
+    //     std::cout << "Voter " << (i+1) << " için: ";
+    //     for (int adminIndex : voterAdminIndexes[i]) {
+    //         std::cout << (adminIndex + 1) << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
+    // std::cout << "===========================\n\n";
 
     // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
@@ -427,19 +427,17 @@ auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindE
 
 // Unblind sonuçlarını raporlama:
 // std::cout << "\n=== Unblind Signature Results ===\n";
+// Unblind sonuçlarını raporlama:
+std::cout << "\n=== Unblind Signature Results with Admin Indexes ===\n";
 for (int i = 0; i < voterCount; i++) {
-    // std::cout << "Voter " << (i+1) << " unblind signatures:\n";
+    std::cout << "Voter " << (i+1) << " unblind signatures:\n";
     for (int j = 0; j < (int)unblindResults[i].size(); j++) {
         UnblindSignature &usig = unblindResults[i][j];
-        // std::cout << "  Signature " << (j+1) << ":\n";
-        // std::cout << "     h   = " << elementToStringG1(usig.h) << "\n";
-        // std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
-        // std::cout << "     Debug - Hash(comi): " << usig.debug.hash_comi << "\n";
-        // std::cout << "     Debug - computed s_m: " << usig.debug.computed_s_m << "\n";
-        // std::cout << "     Debug - pairing LHS: " << usig.debug.pairing_lhs << "\n";
-        // std::cout << "     Debug - pairing RHS: " << usig.debug.pairing_rhs << "\n";
+        std::cout << "  Signature " << (j+1) << ":\n";
+        std::cout << "     Produced by Admin " << (usig.debug.adminId + 1) << "\n";
+        std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
     }
-    // std::cout << "-------------------------\n";
+    std::cout << "-------------------------\n";
 }
 
 
