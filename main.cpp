@@ -498,10 +498,11 @@ std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000
 
 // --- VerifyCredential Phase ---
 // Verify the ProveCredential output using the verifyCredential function.
+// preparedOutputs[i].com (i.e., the "com" computed during prepareBlindSign) is passed as the com value.
 std::vector<bool> verifyResults(voterCount);
 auto verifyStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
-    bool res = verifyCredential(params, proveResults[i], keyOut.mvk, aggregateResults[i]);
+    bool res = verifyCredential(params, proveResults[i], keyOut.mvk, aggregateResults[i], preparedOutputs[i].com);
     verifyResults[i] = res;
 });
 auto verifyEnd = Clock::now();
@@ -510,7 +511,7 @@ auto verify_us = std::chrono::duration_cast<std::chrono::microseconds>(verifyEnd
 // Report verification results:
 std::cout << "\n=== VerifyCredential Results ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " credential verification: "
+    std::cout << "Voter " << (i+1) << " credential verification: " 
               << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
 }
 std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
