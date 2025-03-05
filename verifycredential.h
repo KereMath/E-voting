@@ -7,20 +7,17 @@
 #include "keygen.h"
 #include <string>
 
-// verifyCredential: Verifies the credential proof by checking the KoR tuple and pairing equality.
-// Input:
-//    - params: System parameters
-//    - pOut: ProveCredentialOutput structure (contains σRnd and k, and KoR tuple proof_v)
-//    - mvk: Master verification key (contains α₂, β₂, etc.)
-//    - aggSig: Aggregate signature (used for obtaining some parameters; e.g. its s may be needed)
-//    - com: The commitment computed during the prepare phase (i.e., preparedOutputs[i].com)
-// Output: true if verification passes; false otherwise.
+// verifyCredential: ProveCredential çıktısını (πᵥ, σRnd, k) alır, 
+// Master Verification Key (mvk) ve Aggregate Signature (aggSig) ile birlikte, 
+// ayrıca prepare aşamasında hesaplanan "com" değerini kullanarak,
+// KoR tuple kontrolü ve pairing kontrolü yapar. 
+// Döndürülen değer: true (doğrulama başarılı) veya false (başarısız).
 bool verifyCredential(
     TIACParams &params,
     ProveCredentialOutput &pOut,
     MasterVerKey &mvk,
     AggregateSignature &aggSig,
-    const element_t com
+    const element_t com  // com: prepare aşamasından gelen değer (örneğin, preparedOutputs[i].com)
 );
 
 #endif

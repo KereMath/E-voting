@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-// Extern: elementToStringG1 now accepts a const element_t parameter.
+// Dışarıdan tanımlı: elementToStringG1 artık const parametre alır.
 extern std::string elementToStringG1(const element_t elem);
 
 // Helper: Convert an mpz_t value to a std::string.
@@ -37,7 +37,7 @@ bool verifyCredential(
     ProveCredentialOutput &pOut,
     MasterVerKey &mvk,
     AggregateSignature &aggSig,
-    const element_t com  // The commitment computed in the prepare phase
+    const element_t com  // prepare aşamasından gelen "com" değeri
 ) {
     std::cout << "[VERIFY] Starting credential verification.\n";
     
@@ -84,14 +84,14 @@ bool verifyCredential(
     // part1 = g1^(s1)
     element_pow_zn(part1, params.g1, s1_elem);
     
-    // one_minus_c = 1 - c in Zr
+    // one_minus_c = 1 − c in Zr
     element_t one, one_minus_c;
     element_init_Zr(one, params.pairing);
     element_init_Zr(one_minus_c, params.pairing);
     element_set1(one);
     element_sub(one_minus_c, one, c_elem);
     
-    // part2 = (mvk.alpha2)^(1 - c)
+    // part2 = (mvk.alpha2)^(1 − c)
     element_pow_zn(part2, mvk.alpha2, one_minus_c);
     
     // part3 = k (from pOut)
@@ -100,7 +100,7 @@ bool verifyCredential(
     // part4 = (mvk.beta2)^(s2)
     element_pow_zn(part4, mvk.beta2, s2_elem);
     
-    // k_double = part1 * part2 * part3 * part4
+    // k_double = part1 · part2 · part3 · part4
     element_mul(k_double, part1, part2);
     element_mul(k_double, k_double, part3);
     element_mul(k_double, k_double, part4);
@@ -127,10 +127,11 @@ bool verifyCredential(
     // part6 = h^(s2) where h is pOut.sigmaRnd.h (i.e. h'')
     element_pow_zn(part6, pOut.sigmaRnd.h, s2_elem);
     
-    // part7 = com^(c), using the provided com (from prepare phase)
-    element_pow_zn(part7, com, c_elem);
+    // part7 = com^(c), here we use com (prepare phase)  
+    // NOTE: Since 'com' is passed as a const element_t, we need to cast it.
+    element_pow_zn(part7, const_cast<element_t>(com), c_elem);
     
-    // com_double = part5 * part6 * part7
+    // com_double = part5 · part6 · part7
     element_mul(com_double, part5, part6);
     element_mul(com_double, com_double, part7);
     
@@ -145,7 +146,7 @@ bool verifyCredential(
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG1(params.g2)
             << elementToStringG1(pOut.sigmaRnd.h)
-            << elementToStringG1(com)
+            << elementToStringG1(const_cast<element_t>(com))   // casting com as needed
             << elementToStringG1(com_double)
             << elementToStringG1(pOut.k)
             << elementToStringG1(k_double);
