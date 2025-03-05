@@ -354,8 +354,8 @@ tbb::parallel_for(
         // Her seçmenin imzaları, hangi admin tarafından üretilmişse admin sırası ile yazdırılıyor.
         for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
             BlindSignature &sig = pipelineResults[i].signatures[j];
-            // std::cout << "  Admin " << (sig.debug.adminId + 1)
-            //         << " tarafından imzalandı. \n";
+            std::cout << "  Admin " << (sig.debug.adminId + 1)
+                    << " tarafından imzalandı. \n";
             // std::cout << "     h  = " << elemToStrG1(sig.h) << "\n";
             // std::cout << "     cm = " << elemToStrG1(sig.cm) << "\n";
         }
@@ -436,8 +436,6 @@ for (int i = 0; i < voterCount; i++) {
     tbb::parallel_for(0, voterCount, [&](int i) {
         // Her seçmenin aggregate imzası, unblindResults[i] (vector<UnblindSignature>) içindeki partial imza parçalarının çarpımıyla elde edilir.
         AggregateSignature aggSig = aggregateSign(params, unblindResults[i], keyOut.mvk, dids[i].did);
-        std::cout << "Voter " << (i+1) << " aggregate signature debug info:\n" << aggSig.debug_info << "\n";
-
         aggregateResults[i] = aggSig;
     });
     
