@@ -23,8 +23,6 @@ struct UnblindSignature {
         std::string computed_s_m; // Hesaplanan sₘ = cm·(β₂)^(–o)
         std::string pairing_lhs;  // e(h, α₂·(β₂)^(DID)) (string gösterimi)
         std::string pairing_rhs;  // e(sₘ, g2) (string gösterimi)
-        int adminId;                // İmzayı üreten adminin indeksi
-
     } debug;
 };
 
