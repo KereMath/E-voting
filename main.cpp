@@ -415,41 +415,40 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 auto unblindEnd = Clock::now();
 auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
 
-std::cout << "\n=== Unblind Signature Results with Admin IDs ===\n";
+// std::cout << "\n=== Unblind Signature Results with Admin IDs ===\n";
+// for (int i = 0; i < voterCount; i++) {
+//     std::cout << "Voter " << (i + 1) << " unblind signatures:\n";
+//     for (int j = 0; j < (int)unblindResultsWithAdmin[i].size(); j++) {
+//         int adminId = unblindResultsWithAdmin[i][j].first; // Admin ID'sini al
+//         UnblindSignature &usig = unblindResultsWithAdmin[i][j].second; // İlgili imzayı al
+//         std::cout << "  Signature " << (j + 1) << " produced by Admin " << (adminId + 1) << ":\n";
+//         std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
+//     }
+//     std::cout << "-------------------------\n";
+// }
+
+// Aggregate imza hesaplama
+std::vector<AggregateSignature> aggregateResults(voterCount);
+auto aggregateStart = Clock::now();
+    
+tbb::parallel_for(0, voterCount, [&](int i) {
+    // Her seçmenin aggregate imzası, unblindResults[i] içindeki partial imza parçalarının çarpımıyla elde edilir.
+    AggregateSignature aggSig = aggregateSign(params, unblindResults[i], keyOut.mvk, dids[i].did);
+    aggregateResults[i] = aggSig;
+});
+    
+auto aggregateEnd = Clock::now();
+auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
+    
+// Aggregate sonuçlarını raporlama:
+std::cout << "\n=== Aggregate Signature Results ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i + 1) << " unblind signatures:\n";
-    for (int j = 0; j < (int)unblindResultsWithAdmin[i].size(); j++) {
-        int adminId = unblindResultsWithAdmin[i][j].first; // Admin ID'sini al
-        UnblindSignature &usig = unblindResultsWithAdmin[i][j].second; // İlgili imzayı al
-        std::cout << "  Signature " << (j + 1) << " produced by Admin " << (adminId + 1) << ":\n";
-        std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
-    }
+    std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+    std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+    std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
     std::cout << "-------------------------\n";
 }
-
-    //Aggregate
-    std::vector<AggregateSignature> aggregateResults(voterCount);
-    auto aggregateStart = Clock::now();
-    
-    tbb::parallel_for(0, voterCount, [&](int i) {
-        // Her seçmenin aggregate imzası, unblindResults[i] (vector<UnblindSignature>) içindeki partial imza parçalarının çarpımıyla elde edilir.
-        AggregateSignature aggSig = aggregateSign(params, unblindResults[i], keyOut.mvk, dids[i].did);
-        aggregateResults[i] = aggSig;
-    });
-    
-    auto aggregateEnd = Clock::now();
-    auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
-    
-    // Aggregate sonuçlarını raporlama:
-    // std::cout << "\n=== Aggregate Signature Results ===\n";
-    for (int i = 0; i < voterCount; i++) {
-        // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-        // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-        // std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-        // std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-        // std::cout << "-------------------------\n";
-    }
-
 
 
 //Provecredential
