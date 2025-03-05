@@ -497,7 +497,7 @@ std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000
 
 
 // --- VerifyCredential Phase ---
-// ProveCredential çıktısını doğrulayalım. (mvk ve aggSig de ekleniyor)
+// Verify the ProveCredential output using the verifyCredential function.
 std::vector<bool> verifyResults(voterCount);
 auto verifyStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
@@ -507,10 +507,10 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 auto verifyEnd = Clock::now();
 auto verify_us = std::chrono::duration_cast<std::chrono::microseconds>(verifyEnd - verifyStart).count();
 
-// VerifyCredential sonuçlarını raporlama:
+// Report verification results:
 std::cout << "\n=== VerifyCredential Results ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " credential verification: " 
+    std::cout << "Voter " << (i+1) << " credential verification: "
               << (verifyResults[i] ? "PASSED" : "FAILED") << "\n";
 }
 std::cout << "\n[VERIFY] Total VerifyCredential Phase Time = " << (verify_us / 1000.0) << " ms\n";
