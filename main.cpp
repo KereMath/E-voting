@@ -247,7 +247,7 @@ int main() {
         preparedOutputs[i] = bsOut;
     });
 // prepareBlindSign çağrılarından sonra:
-    // for (size_t i = 0; i < preparedOutputs.size(); i++) {
+    for (size_t i = 0; i < preparedOutputs.size(); i++) {
     //     std::cout << "=== Voter " << i+1 << " Debug Bilgileri ===\n";
     //     std::cout << "oi         : " << preparedOutputs[i].debug.oi << "\n";
     //     std::cout << "didInt     : " << preparedOutputs[i].debug.didInt << "\n";
@@ -265,7 +265,7 @@ int main() {
     //     std::cout << "s2         : " << preparedOutputs[i].debug.kor_s2 << "\n";
     //     std::cout << "s3         : " << preparedOutputs[i].debug.kor_s3 << "\n";
     //     std::cout << "============================\n\n";
-    // }
+    }
 
     // 8) Kör imza görevleri için tek bir "SignTask" havuzu
    // 8) Kör imza görevleri için tek bir "SignTask" havuzu
