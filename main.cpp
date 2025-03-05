@@ -395,18 +395,19 @@ tbb::parallel_for(
 // 14) Unblind Phase: Her seçmen için threshold (örneğin t adet) imza unblind edilecek.
 auto unblindStart = Clock::now();
 std::vector<std::vector<std::pair<int, UnblindSignature>>> unblindResultsWithAdmin(voterCount);
+std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
 
-std::vector< std::vector<UnblindSignature> > unblindResults(voterCount);
 tbb::parallel_for(0, voterCount, [&](int i) {
     int numSigs = (int)pipelineResults[i].signatures.size();
     unblindResults[i].resize(numSigs);
-    // İç döngüde de paralelleştirme (küçük eşik değerler için fazladan overhead yaratabilir)
+    unblindResultsWithAdmin[i].resize(numSigs); // Alt vektörün boyutunu ayarla
+
+    // İç döngüde de paralelleştirme (küçük eşik değerler için overhead yaratabilir)
     tbb::parallel_for(0, numSigs, [&](int j) {
         int adminId = pipelineResults[i].signatures[j].debug.adminId;
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
         unblindResults[i][j] = usig;
         unblindResultsWithAdmin[i][j] = {adminId, usig}; // Admin ID'si ile birlikte sakla
-
     });
 });
 
