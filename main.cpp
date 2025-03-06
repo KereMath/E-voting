@@ -427,12 +427,7 @@ for (int i = 0; i < voterCount; i++) {
 }
 
     //Aggregate
- // ... (önceki kodlar)
-
-// Aggregate imza hesaplaması:
-// unblindResultsWithAdmin: vector<vector<pair<int, UnblindSignature>>>
-// Aggregate imza hesaplaması:
-// 'params.prime_order' grup mertebesi (p) mpz_t olarak geçiliyor.
+ // Aggregate imza hesaplaması:
 std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {

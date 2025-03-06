@@ -15,7 +15,7 @@
 */
 struct AggregateSignature {
     element_t h;           // Tüm partial imzaların ortak h değeri
-    element_t s;           // Her partial imzanın s_m değerlerinin, Lagrange katsayılarıyla ağırlıklı çarpımından elde edilen s
+    element_t s;           // Her partial imzanın s_m değerlerinin Lagrange katsayılarıyla ağırlıklı çarpımından elde edilen s
     std::string debug_info;// Hesaplama sırasında toplanan debug çıktıları (λ değerleri, s_m^(λ) vb.)
 };
 
@@ -28,7 +28,7 @@ struct AggregateSignature {
          (Her pair’in first’i admin ID’si, second’ı ilgili UnblindSignature)
     - mvk: Master verification key (mvk = (α₂, β₂, β₁)); burada mvk.vkm1 = α₂, mvk.vkm2 = β₂ kullanılacak.
     - didStr: Seçmenin DID (hex string) (protokolde yer alabilir, bu örnekte kullanılmıyor).
-    - groupOrder: Grup mertebesi p (mpz_t).
+    - groupOrder: Grup mertebesi (p) mpz_t.
   Çıktı:
     - AggregateSignature: Nihai aggregate imza σ = (h, s) ve debug bilgileri.
 */
