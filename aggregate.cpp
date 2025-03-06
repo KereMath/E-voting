@@ -18,17 +18,19 @@ static inline element_s* toNonConst(const element_s* in) {
 // Lagrange katsayısını hesaplar:
 // outCoeff = ∏ ( id_j / (id_j - id_i) )  (j ≠ i) mod p
 void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
-    // Belirli admin kombinasyonları için önceden hesaplanmış değerleri kullan
+    // Admin index sırası ile admin ID'si arasındaki ilişki
+    // idx -> Dizideki sıra (0-based)
+    // allIDs[idx] -> Admin ID değeri
+    
+    // Doğrudan idx değerine göre sabit Lagrange katsayıları 
     if (allIDs.size() == 2) {
-        // 2 admin için: {1, 2}
-        int id_i = allIDs[idx];
-        
-        if (id_i == 1) {
-            // lambda1 = 2 (2 admin için)
+        // 2 admin için hardcoded değerler
+        if (idx == 0) {
+            // Birinci admin için lambda = 2
             element_set_si(outCoeff, 2);
             return;
-        } else if (id_i == 2) {
-            // lambda2 = -1 ≡ (p-1) mod p (2 admin için)
+        } else if (idx == 1) {
+            // İkinci admin için lambda = -1 (p-1 olarak)
             mpz_t p_minus_1;
             mpz_init(p_minus_1);
             mpz_sub_ui(p_minus_1, groupOrder, 1); // p-1
@@ -37,23 +39,21 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
             return;
         }
     } else if (allIDs.size() == 3) {
-        // 3 admin için: {1, 2, 3}
-        int id_i = allIDs[idx];
-        
-        if (id_i == 1) {
-            // lambda1 = 3 (3 admin için)
+        // 3 admin için hardcoded değerler
+        if (idx == 0) {
+            // Birinci admin için lambda = 3
             element_set_si(outCoeff, 3);
             return;
-        } else if (id_i == 2) {
-            // lambda2 = -3 ≡ (p-3) mod p (3 admin için)
+        } else if (idx == 1) {
+            // İkinci admin için lambda = -3 (p-3 olarak)
             mpz_t p_minus_3;
             mpz_init(p_minus_3);
             mpz_sub_ui(p_minus_3, groupOrder, 3); // p-3
             element_set_mpz(outCoeff, p_minus_3);
             mpz_clear(p_minus_3);
             return;
-        } else if (id_i == 3) {
-            // lambda3 = 1 (3 admin için)
+        } else if (idx == 2) {
+            // Üçüncü admin için lambda = 1
             element_set1(outCoeff);
             return;
         }
