@@ -35,26 +35,7 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
 
             return;
         }
-    } else if (allIDs.size() == 3) {
-        // 3 admin için hardcoded değerler
-        if (idx == 0) {
-            // Birinci admin için lambda = 3
-            element_set_si(outCoeff, 3);
-            return;
-        } else if (idx == 1) {
-            // İkinci admin için lambda = -3 (p-3 olarak)
-            mpz_t p_minus_3;
-            mpz_init(p_minus_3);
-            mpz_sub_ui(p_minus_3, groupOrder, 3); // p-3
-            element_set_mpz(outCoeff, p_minus_3);
-            mpz_clear(p_minus_3);
-            return;
-        } else if (idx == 2) {
-            // Üçüncü admin için lambda = 1
-            element_set1(outCoeff);
-            return;
-        }
-    }
+    } 
     
     // Genel durum - hesaplama yöntemini kullan
     element_set1(outCoeff); // outCoeff = 1
