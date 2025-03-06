@@ -31,11 +31,8 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
             return;
         } else if (idx == 1) {
             // İkinci admin için lambda = -1 (p-1 olarak)
-            mpz_t p_minus_1;
-            mpz_init(p_minus_1);
-            mpz_sub_ui(p_minus_1, groupOrder, 1); // p-1
-            element_set_mpz(outCoeff, -1);
-            mpz_clear(p_minus_1);
+            element_set_si(outCoeff, -1);
+
             return;
         }
     } else if (allIDs.size() == 3) {
