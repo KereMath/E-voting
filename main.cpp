@@ -260,7 +260,7 @@ int main() {
     //     std::cout << "r3         : " << preparedOutputs[i].debug.kor_r3 << "\n";
     //     std::cout << "comi_prime : " << preparedOutputs[i].debug.kor_comi_prime << "\n";
     //     std::cout << "com_prime  : " << preparedOutputs[i].debug.kor_com_prime << "\n";
-    //     std::cout << "c          : " << preparedOutputs[i].debug.kor_c << "\n";
+        std::cout << "c          : " << preparedOutputs[i].debug.kor_c << "\n";
     //     std::cout << "s1         : " << preparedOutputs[i].debug.kor_s1 << "\n";
     //     std::cout << "s2         : " << preparedOutputs[i].debug.kor_s2 << "\n";
     //     std::cout << "s3         : " << preparedOutputs[i].debug.kor_s3 << "\n";
