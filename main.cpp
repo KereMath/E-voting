@@ -428,8 +428,7 @@ for (int i = 0; i < voterCount; i++) {
 
     //Aggregate
  // --- Aggregate imza hesaplama ---
-// unblindResultsWithAdmin artık vector<vector<pair<int, UnblindSignature>>>
-// Bu yapıyı aggregateSign fonksiyonuna geçiyoruz. Grup mertebesi olarak params.prime_order kullanıyoruz.
+// unblindResultsWithAdmin: vector<vector<pair<int, UnblindSignature>>>
 std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {

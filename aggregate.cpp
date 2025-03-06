@@ -10,30 +10,26 @@
 // Dışarıdan sağlanan fonksiyon: elementToStringG1 (örn. unblindsign.h'dan)
 std::string elementToStringG1(element_t elem);
 
-// Yardımcı: const element_t'yi non-const element_s*'ye çevirir.
+// Helper: const element_t'yi non-const pointer'a çevirir.
+// (Not: element_t aslında element_s[1] tipinde olduğundan, dizinin ilk elemanının adresını kullanıyoruz.)
 static element_s* toNonConst(element_t in) {
-    return const_cast<element_s*>(in);
+    return const_cast<element_s*>(&in[0]);
 }
 
-// Lagrange katsayısını hesaplayan fonksiyon.
-// allIDs: Partial imzaları üreten admin ID’lerini içeren vektör.
-// idx: Hangi partial imza için katsayı hesaplanıyor (0 tabanlı).
-// groupOrder: Grubun mertebesi p (mpz_t)
-// pairing: PBC pairing (Zr elemanlarının oluşturulması için)
-static void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
+void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
     // outCoeff başlangıçta 1 olarak ayarlanır.
     element_set1(outCoeff);
 
     mpz_t num, den, invDen, tmp;
     mpz_inits(num, den, invDen, tmp, NULL);
 
-    int id_i = allIDs[idx]; // Bu partial imzayı üreten adminin ID'si
+    int id_i = allIDs[idx];
 
     for (size_t j = 0; j < allIDs.size(); j++) {
         if (j == idx) continue;
         int id_j = allIDs[j];
 
-        // num = id_j (örneğin; formül sisteminize göre değişebilir)
+        // num = id_j mod groupOrder
         mpz_set_si(num, id_j);
         mpz_mod(num, num, groupOrder);
 
@@ -45,18 +41,17 @@ static void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int
             throw std::runtime_error("computeLagrangeCoefficient: mpz_invert() failed");
         }
 
-        // ratio = (num * invDen) mod groupOrder
+        // tmp = (num * invDen) mod groupOrder
         mpz_mul(tmp, num, invDen);
         mpz_mod(tmp, tmp, groupOrder);
 
-        // Convert tmp to a Zr element and multiply outCoeff by it.
+        // Convert tmp to a Zr element.
         element_t ratio;
         element_init_Zr(ratio, pairing);
         element_set_mpz(ratio, tmp);
         element_mul(outCoeff, outCoeff, ratio);
         element_clear(ratio);
     }
-
     mpz_clears(num, den, invDen, tmp, NULL);
 }
 
@@ -70,45 +65,44 @@ AggregateSignature aggregateSign(
     AggregateSignature aggSig;
     std::ostringstream debugStream;
 
-    // (1) h: Partial imzaların hepsinin h değeri aynı kabul edildiğinden, ilk partial imzadan alınır.
+    // (1) h: Tüm partial imzaların h değeri aynı kabul edildiğinden, ilk partial imzadan alınır.
     element_init_G1(aggSig.h, params.pairing);
-    element_set(aggSig.h, toNonConst(partialSigsWithAdmins[0].second.h));
+    // partialSigsWithAdmins[0].second.h is an element_t (element_s[1]); bunun ilk elemanının adresini alıyoruz.
+    element_set(aggSig.h, const_cast<element_s*>(&(partialSigsWithAdmins[0].second.h[0])));
     debugStream << "Aggregate h set from first partial signature.\n";
 
-    // (2) s: Başlangıçta aggregate s, grup identity elemanı (1) olarak ayarlanır.
+    // (2) s: Aggregate s başlangıçta grup identity (1) olarak ayarlanır.
     element_init_G1(aggSig.s, params.pairing);
     element_set1(aggSig.s);
     debugStream << "Initial aggregate s set to identity.\n";
 
-    // Tüm admin ID’lerini toplayalım:
+    // Tüm admin ID’lerini toplayalım.
     std::vector<int> allIDs;
     for (size_t i = 0; i < partialSigsWithAdmins.size(); i++) {
         allIDs.push_back(partialSigsWithAdmins[i].first);
     }
 
-    // (3) Her partial imza için: s_m^(lambda) hesaplanır ve aggregate s ile çarpılır.
     debugStream << "Combining partial signatures with Lagrange coefficients:\n";
+    // (3) Her partial imza için:
     for (size_t i = 0; i < partialSigsWithAdmins.size(); i++) {
         int adminID = partialSigsWithAdmins[i].first;
-
-        // Lagrange katsayısını hesapla:
+        // Lagrange katsayısını hesapla.
         element_t lambda;
         element_init_Zr(lambda, params.pairing);
         computeLagrangeCoefficient(lambda, allIDs, i, groupOrder, params.pairing);
 
-        // s_m^(lambda) hesapla:
+        // s_m^(lambda) hesapla.
         element_t s_m_exp;
         element_init_G1(s_m_exp, params.pairing);
-        element_pow_zn(s_m_exp, toNonConst(partialSigsWithAdmins[i].second.s_m), lambda);
+        element_pow_zn(s_m_exp, const_cast<element_s*>(&(partialSigsWithAdmins[i].second.s_m[0])), lambda);
 
-        // Aggregate s ile çarp:
+        // Aggregate s ile çarp.
         element_mul(aggSig.s, aggSig.s, s_m_exp);
 
-        // Debug çıktısı:
         std::string partStr = elementToStringG1(s_m_exp);
         debugStream << "  Partial signature " << (i+1)
                     << " from Admin " << (adminID + 1)
-                    << ": s_m^(lambda) = " << partStr << "\n";
+                    << ": s_m^(λ) = " << partStr << "\n";
 
         element_clear(lambda);
         element_clear(s_m_exp);
