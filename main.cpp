@@ -431,6 +431,11 @@ for (int i = 0; i < voterCount; i++) {
 
 // Aggregate imza hesaplaması:
 // unblindResultsWithAdmin: vector<vector<pair<int, UnblindSignature>>>
+// ...
+// (Aggregate imza hesaplaması öncesinde)
+// Burada, unblindResultsWithAdmin: vector<vector<pair<int, UnblindSignature>>>
+// ve unblindResults: vector<vector<UnblindSignature>> kullanılabilir.
+// Ancak aggregate hesaplamasında Lagrange katsayıları için sadece unblindResultsWithAdmin kullanılacak.
 std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
