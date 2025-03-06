@@ -394,15 +394,14 @@ tbb::parallel_for(
     //Unblindsign
 // 14) Unblind Phase: Her seçmen için threshold (örneğin t adet) imza unblind edilecek.
 auto unblindStart = Clock::now();
+
 std::vector<std::vector<std::pair<int, UnblindSignature>>> unblindResultsWithAdmin(voterCount);
 std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
-
 tbb::parallel_for(0, voterCount, [&](int i) {
-    int numSigs = (int)pipelineResults[i].signatures.size();
+    int numSigs = (int) pipelineResults[i].signatures.size();
     unblindResults[i].resize(numSigs);
     unblindResultsWithAdmin[i].resize(numSigs); // Alt vektörün boyutunu ayarla
 
-    // İç döngüde de paralelleştirme (küçük eşik değerler için overhead yaratabilir)
     tbb::parallel_for(0, numSigs, [&](int j) {
         int adminId = pipelineResults[i].signatures[j].debug.adminId;
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
@@ -430,24 +429,23 @@ for (int i = 0; i < voterCount; i++) {
     //Aggregate
     std::vector<AggregateSignature> aggregateResults(voterCount);
     auto aggregateStart = Clock::now();
-    
     tbb::parallel_for(0, voterCount, [&](int i) {
-        // Her seçmenin aggregate imzası, unblindResults[i] (vector<UnblindSignature>) içindeki partial imza parçalarının çarpımıyla elde edilir.
-        AggregateSignature aggSig = aggregateSign(params, unblindResults[i], keyOut.mvk, dids[i].did);
+        // Her seçmenin aggregate imzası, unblindResultsWithAdmin[i] içindeki partial imza parçalarının
+        // çarpımından elde edilir.
+        AggregateSignature aggSig = aggregateSign(params, unblindResultsWithAdmin[i], keyOut.mvk, dids[i].did);
         aggregateResults[i] = aggSig;
     });
-    
     auto aggregateEnd = Clock::now();
     auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
     
     // Aggregate sonuçlarını raporlama:
-    // std::cout << "\n=== Aggregate Signature Results ===\n";
+    std::cout << "\n=== Aggregate Signature Results ===\n";
     for (int i = 0; i < voterCount; i++) {
-        // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-        // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-        // std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-        // std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-        // std::cout << "-------------------------\n";
+        std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+        std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+        std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+        std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
+        std::cout << "-------------------------\n";
     }
 
 
