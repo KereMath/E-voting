@@ -427,7 +427,9 @@ for (int i = 0; i < voterCount; i++) {
 }
 
     //Aggregate
- // --- Aggregate imza hesaplama ---
+ // ... (önceki kodlar)
+
+// Aggregate imza hesaplaması:
 // unblindResultsWithAdmin: vector<vector<pair<int, UnblindSignature>>>
 std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
