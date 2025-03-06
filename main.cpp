@@ -430,8 +430,7 @@ for (int i = 0; i < voterCount; i++) {
     std::vector<AggregateSignature> aggregateResults(voterCount);
     auto aggregateStart = Clock::now();
     tbb::parallel_for(0, voterCount, [&](int i) {
-        // Her seçmenin aggregate imzası, unblindResultsWithAdmin[i] içindeki partial imza parçalarının
-        // çarpımından elde edilir.
+        // Her seçmenin aggregate imzası, unblindResultsWithAdmin[i] içindeki partial imza parçalarının çarpımıyla elde edilir.
         AggregateSignature aggSig = aggregateSign(params, unblindResultsWithAdmin[i], keyOut.mvk, dids[i].did);
         aggregateResults[i] = aggSig;
     });
@@ -447,7 +446,6 @@ for (int i = 0; i < voterCount; i++) {
         std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
         std::cout << "-------------------------\n";
     }
-
 
 
 //Provecredential
