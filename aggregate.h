@@ -25,9 +25,9 @@ struct AggregateSignature {
   Girdi:
     - params: TIAC parametreleri.
     - partialSigsWithAdmins: Her seçmenin unblind edilmiş imza parçalarını içeren vector<pair<Admin ID, UnblindSignature>>.
-      (Her pair’in first’i admin ID’si, second’ı ilgili UnblindSignature)
+         (Her pair’in first’i admin ID’si, second’ı ilgili UnblindSignature)
     - mvk: Master verification key (mvk = (α₂, β₂, β₁)); burada mvk.vkm1 = α₂, mvk.vkm2 = β₂ kullanılacak.
-    - didStr: Seçmenin DID (hex string) (bu örnekte kullanılmıyor ama imza protokolünde yer alabilir)
+    - didStr: Seçmenin DID (hex string) (protokolde yer alabilir, bu örnekte kullanılmıyor).
     - groupOrder: Grup mertebesi p (mpz_t).
   Çıktı:
     - AggregateSignature: Nihai aggregate imza σ = (h, s) ve debug bilgileri.

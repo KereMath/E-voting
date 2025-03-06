@@ -10,13 +10,13 @@
 // Dışarıdan sağlanan fonksiyon: elementToStringG1 (örneğin, unblindsign.h'dan)
 std::string elementToStringG1(element_t elem);
 
-// Helper: const element_t (yani const element_s[1])'nin ilk elemanının adresini non-const pointer olarak döndürür.
-static inline element_s* toNonConst(const element_s in[1]) {
-    return const_cast<element_s*>(in);
+// Helper: const element_t (yani const element_s[1])'nin ilk elemanının adresini non-const element_t olarak döndürür.
+static inline element_t toNonConst(const element_t in) {
+    return const_cast<element_t>(in);
 }
 
 // Lagrange katsayısını hesaplar:
-// outCoeff = ∏_{j≠i} (id_j/(id_j - id_i)) mod p
+// outCoeff = ∏ ( id_j / (id_j - id_i) )  (j≠i) mod p
 void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
     element_set1(outCoeff); // outCoeff = 1
     mpz_t num, den, invDen, tmp;
@@ -55,7 +55,8 @@ AggregateSignature aggregateSign(
     
     // (1) h: Tüm partial imzaların h değeri aynı kabul edildiğinden, ilk partial imzadan h alınır.
     element_init_G1(aggSig.h, params.pairing);
-    element_set(aggSig.h, toNonConst(partialSigsWithAdmins[0].second.h));
+    // partialSigsWithAdmins[0].second.h is an element_t, so we take the address of its first element.
+    element_set(aggSig.h, toNonConst(&(partialSigsWithAdmins[0].second.h[0])));
     debugStream << "Aggregate h set from first partial signature.\n";
     
     // (2) s: Aggregate s başlangıçta identity (1) olarak ayarlanır.
@@ -83,10 +84,10 @@ AggregateSignature aggregateSign(
                     << " from Admin " << (adminID + 1)
                     << " is: " << lambdaBuf << "\n";
                     
-        // s_m^(λ) hesapla.
+        // s_m^(λ) hesapla: partialSigsWithAdmins[i].second.s_m is an element_t, so use its address.
         element_t s_m_exp;
         element_init_G1(s_m_exp, params.pairing);
-        element_pow_zn(s_m_exp, toNonConst(partialSigsWithAdmins[i].second.s_m), lambda);
+        element_pow_zn(s_m_exp, toNonConst(&(partialSigsWithAdmins[i].second.s_m[0])), lambda);
         
         char s_m_expBuf[1024];
         element_snprintf(s_m_expBuf, sizeof(s_m_expBuf), "%B", s_m_exp);
