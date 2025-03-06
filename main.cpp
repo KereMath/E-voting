@@ -427,25 +427,29 @@ for (int i = 0; i < voterCount; i++) {
 }
 
     //Aggregate
-    std::vector<AggregateSignature> aggregateResults(voterCount);
-    auto aggregateStart = Clock::now();
-    tbb::parallel_for(0, voterCount, [&](int i) {
-        // Her seçmenin aggregate imzası, unblindResultsWithAdmin[i] içindeki partial imza parçalarının çarpımıyla elde edilir.
-        AggregateSignature aggSig = aggregateSign(params, unblindResultsWithAdmin[i], keyOut.mvk, dids[i].did);
-        aggregateResults[i] = aggSig;
-    });
-    auto aggregateEnd = Clock::now();
-    auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
-    
-    // Aggregate sonuçlarını raporlama:
-    std::cout << "\n=== Aggregate Signature Results ===\n";
-    for (int i = 0; i < voterCount; i++) {
-        std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-        std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-        std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-        std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-        std::cout << "-------------------------\n";
-    }
+ // ... (önceki kodlar)
+
+// Aggregate imza hesaplaması:
+// unblindResultsWithAdmin: vector<vector<pair<int, UnblindSignature>>>
+std::vector<AggregateSignature> aggregateResults(voterCount);
+auto aggregateStart = Clock::now();
+tbb::parallel_for(0, voterCount, [&](int i) {
+    AggregateSignature aggSig = aggregateSign(params, unblindResultsWithAdmin[i], keyOut.mvk, dids[i].did, params.prime_order);
+    aggregateResults[i] = aggSig;
+});
+auto aggregateEnd = Clock::now();
+auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
+
+// Aggregate sonuçlarını raporlama:
+std::cout << "\n=== Aggregate Signature Results ===\n";
+for (int i = 0; i < voterCount; i++) {
+    std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+    std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+    std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
+    std::cout << "-------------------------\n";
+}
+
 
 
 //Provecredential
