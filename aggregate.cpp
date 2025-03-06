@@ -18,6 +18,48 @@ static inline element_s* toNonConst(const element_s* in) {
 // Lagrange katsayısını hesaplar:
 // outCoeff = ∏ ( id_j / (id_j - id_i) )  (j ≠ i) mod p
 void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
+    // Belirli admin kombinasyonları için önceden hesaplanmış değerleri kullan
+    if (allIDs.size() == 2) {
+        // 2 admin için: {1, 2}
+        int id_i = allIDs[idx];
+        
+        if (id_i == 1) {
+            // lambda1 = 2 (2 admin için)
+            element_set_si(outCoeff, 2);
+            return;
+        } else if (id_i == 2) {
+            // lambda2 = -1 ≡ (p-1) mod p (2 admin için)
+            mpz_t p_minus_1;
+            mpz_init(p_minus_1);
+            mpz_sub_ui(p_minus_1, groupOrder, 1); // p-1
+            element_set_mpz(outCoeff, p_minus_1);
+            mpz_clear(p_minus_1);
+            return;
+        }
+    } else if (allIDs.size() == 3) {
+        // 3 admin için: {1, 2, 3}
+        int id_i = allIDs[idx];
+        
+        if (id_i == 1) {
+            // lambda1 = 3 (3 admin için)
+            element_set_si(outCoeff, 3);
+            return;
+        } else if (id_i == 2) {
+            // lambda2 = -3 ≡ (p-3) mod p (3 admin için)
+            mpz_t p_minus_3;
+            mpz_init(p_minus_3);
+            mpz_sub_ui(p_minus_3, groupOrder, 3); // p-3
+            element_set_mpz(outCoeff, p_minus_3);
+            mpz_clear(p_minus_3);
+            return;
+        } else if (id_i == 3) {
+            // lambda3 = 1 (3 admin için)
+            element_set1(outCoeff);
+            return;
+        }
+    }
+    
+    // Genel durum - hesaplama yöntemini kullan
     element_set1(outCoeff); // outCoeff = 1
     mpz_t num, den, invDen, tmp;
     mpz_inits(num, den, invDen, tmp, NULL);
@@ -34,11 +76,15 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
         // Denominator: id_j - id_i
         mpz_set_si(den, id_j - id_i);
         
-        // Sonucu pozitif yaparak tutarlı modüler aritmetik uygulayalım
+        // Negatif değerler için: -x ≡ p-x (mod p)
         if (mpz_sgn(den) < 0) {
-            mpz_add(den, den, groupOrder);
+            // den değerini pozitif eşdeğerine dönüştür
+            mpz_neg(den, den);               // den = -den
+            mpz_mod(den, den, groupOrder);   // den = den mod p
+            mpz_sub(den, groupOrder, den);   // den = p - den
+        } else {
+            mpz_mod(den, den, groupOrder);
         }
-        mpz_mod(den, den, groupOrder);
         
         // Compute modular inverse of denominator
         if (mpz_invert(invDen, den, groupOrder) == 0) {
