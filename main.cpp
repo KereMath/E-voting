@@ -436,7 +436,7 @@ std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
     // Her seçmenin aggregate imzası, unblindResultsWithAdmin[i] içindeki partial imza parçalarının çarpımıyla elde edilir.
-    // Burada 'params.prime_order' grup mertebesi (p) olarak ekleniyor.
+    // Burada, 'params.prime_order' grup mertebesi (p) olarak geçiliyor.
     AggregateSignature aggSig = aggregateSign(params, unblindResultsWithAdmin[i], keyOut.mvk, dids[i].did, params.prime_order);
     aggregateResults[i] = aggSig;
 });
