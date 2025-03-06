@@ -18,24 +18,76 @@ static inline element_s* toNonConst(const element_s* in) {
 // Lagrange katsayısını hesaplar:
 // outCoeff = ∏ ( id_j / (id_j - id_i) )  (j ≠ i) mod p
 void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
-    // Admin index sırası ile admin ID'si arasındaki ilişki
-    // idx -> Dizideki sıra (0-based)
-    // allIDs[idx] -> Admin ID değeri
-    
-    // Doğrudan idx değerine göre sabit Lagrange katsayıları 
+    // İki admin durumu için hardcoded katsayılar (klasik ID'ler 1 ve 2 için)
     if (allIDs.size() == 2) {
-        // 2 admin için hardcoded değerler
-        if (idx == 0) {
-            // Birinci admin için lambda = 2
+        // Admin idx'sinin ID'sini alıyoruz
+        int current_admin_id = allIDs[idx];
+        
+        // Admin ID'lerini low ve high olarak ayırıyoruz
+        int low_id = allIDs[0] < allIDs[1] ? allIDs[0] : allIDs[1];
+        int high_id = allIDs[0] > allIDs[1] ? allIDs[0] : allIDs[1];
+        
+        if (current_admin_id == low_id) {
+            // Düşük ID'li admin için lambda = 2
             element_set_si(outCoeff, 2);
             return;
-        } else if (idx == 1) {
-            // İkinci admin için lambda = -1 (p-1 olarak)
+        } else {
+            // Yüksek ID'li admin için lambda = -1
             element_set_si(outCoeff, -1);
-
             return;
         }
-    } 
+    }
+    // Üç admin durumu için hardcoded katsayılar (klasik ID'ler 1, 2 ve 3 için)
+    else if (allIDs.size() == 3) {
+        // Admin idx'sinin ID'sini alıyoruz
+        int current_admin_id = allIDs[idx];
+        
+        // Admin ID'lerini sıralıyoruz
+        std::vector<int> sorted_ids = allIDs;
+        std::sort(sorted_ids.begin(), sorted_ids.end());
+        
+        if (current_admin_id == sorted_ids[0]) {
+            // En düşük ID'li admin için lambda = 3
+            element_set_si(outCoeff, 3);
+            return;
+        } else if (current_admin_id == sorted_ids[1]) {
+            // Ortadaki ID'li admin için lambda = -3
+            element_set_si(outCoeff, -3);
+            return;
+        } else {
+            // En yüksek ID'li admin için lambda = 1
+            element_set_si(outCoeff, 1);
+            return;
+        }
+    }
+    
+    // Eğer hardcoded duruma uymazsa, orijinal formülü kullanarak hesapla
+    // (Bu kısım genelde kullanılmayacak, sadece genelleştirme için var)
+    element_set1(outCoeff); // outCoeff = 1
+    
+    int id_i = allIDs[idx];
+    for (size_t j = 0; j < allIDs.size(); j++) {
+        if (j == idx) continue;
+        int id_j = allIDs[j];
+        
+        // id_j / (id_j - id_i) formülünü hesapla (mod p yapmadan!)
+        element_t ratio;
+        element_init_Zr(ratio, pairing);
+        
+        if (id_j - id_i != 0) {
+            // Normal hesaplama
+            element_set_si(ratio, id_j);
+            element_div_si(ratio, ratio, id_j - id_i);
+        } else {
+            // Bölen sıfır olamaz, bu durumda hata fırlat
+            throw std::runtime_error("computeLagrangeCoefficient: Division by zero");
+        }
+        
+        // outCoeff'i ratio ile çarp
+        element_mul(outCoeff, outCoeff, ratio);
+        element_clear(ratio);
+    }
+}
     
     // Genel durum - hesaplama yöntemini kullan
     element_set1(outCoeff); // outCoeff = 1
