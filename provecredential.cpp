@@ -130,8 +130,12 @@ ProveCredentialOutput proveCredential(
     // g1^o
     element_t o_elem;
     element_init_Zr(o_elem, params.pairing);
-    element_set_mpz(o_elem, const_cast<mpz_t>(o));
-    element_pow_zn(g1_o, params.g1, o_elem);
+    mpz_t temp;
+    mpz_init(temp);
+    mpz_set(temp, o);
+    element_set_mpz(o_elem, temp);
+    mpz_clear(temp);
+        element_pow_zn(g1_o, params.g1, o_elem);
     
     // h^DIDi
     element_t did_elem;
