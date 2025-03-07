@@ -423,7 +423,7 @@ for (int i = 0; i < voterCount; i++) {
         // std::cout << "  Signature " << (j + 1) << " produced by Admin " << (adminId + 1) << ":\n";
         // std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
     }
-    std::cout << "-------------------------\n";
+    // std::cout << "-------------------------\n";
 }
 
     //Aggregate
@@ -438,7 +438,7 @@ auto aggregateEnd = Clock::now();
 auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
 
 // Aggregate sonuçlarını raporlama:
-std::cout << "\n=== Aggregate Signature Results ===\n";
+// std::cout << "\n=== Aggregate Signature Results ===\n";
 for (int i = 0; i < voterCount; i++) {
     // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
     // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
