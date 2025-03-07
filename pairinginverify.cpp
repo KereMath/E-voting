@@ -8,7 +8,7 @@
 extern std::string elementToStringG1(const element_t elem);
 
 bool pairingCheck(TIACParams &params, ProveCredentialOutput &pOut) {
-    std::cout << "[PAIRING CHECK] Starting pairing check...\n";
+    // std::cout << "[PAIRING CHECK] Starting pairing check...\n";
 
     // Pairing hesaplamalarını yap: LHS = e(h'', k), RHS = e(s'', g2)
     element_t pairing_lhs, pairing_rhs;
@@ -33,14 +33,14 @@ bool pairingCheck(TIACParams &params, ProveCredentialOutput &pOut) {
     std::string lhsStr = gtToString(pairing_lhs);
     std::string rhsStr = gtToString(pairing_rhs);
 
-    std::cout << "[PAIRING CHECK] Pairing LHS = " << lhsStr << "\n";
-    std::cout << "[PAIRING CHECK] Pairing RHS = " << rhsStr << "\n";
+    // std::cout << "[PAIRING CHECK] Pairing LHS = " << lhsStr << "\n";
+    // std::cout << "[PAIRING CHECK] Pairing RHS = " << rhsStr << "\n";
 
     bool valid = (element_cmp(pairing_lhs, pairing_rhs) == 0);
     if (valid)
-        std::cout << "[PAIRING CHECK] Pairing correct: e(h'', k) equals e(s'', g2).\n";
+        // std::cout << "[PAIRING CHECK] Pairing correct: e(h'', k) equals e(s'', g2).\n";
     else
-        std::cout << "[PAIRING CHECK] Pairing failed: e(h'', k) does not equal e(s'', g2).\n";
+        // std::cout << "[PAIRING CHECK] Pairing failed: e(h'', k) does not equal e(s'', g2).\n";
 
     element_clear(pairing_lhs);
     element_clear(pairing_rhs);

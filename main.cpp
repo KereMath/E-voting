@@ -260,7 +260,7 @@ int main() {
     //     std::cout << "r3         : " << preparedOutputs[i].debug.kor_r3 << "\n";
     //     std::cout << "comi_prime : " << preparedOutputs[i].debug.kor_comi_prime << "\n";
     //     std::cout << "com_prime  : " << preparedOutputs[i].debug.kor_com_prime << "\n";
-        std::cout << "c          : " << preparedOutputs[i].debug.kor_c << "\n";
+        // std::cout << "c          : " << preparedOutputs[i].debug.kor_c << "\n";
     //     std::cout << "s1         : " << preparedOutputs[i].debug.kor_s1 << "\n";
     //     std::cout << "s2         : " << preparedOutputs[i].debug.kor_s2 << "\n";
     //     std::cout << "s3         : " << preparedOutputs[i].debug.kor_s3 << "\n";
@@ -414,9 +414,9 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 auto unblindEnd = Clock::now();
 auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
 
-std::cout << "\n=== Unblind Signature Results with Admin IDs ===\n";
+// std::cout << "\n=== Unblind Signature Results with Admin IDs ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i + 1) << " unblind signatures:\n";
+    // std::cout << "Voter " << (i + 1) << " unblind signatures:\n";
     for (int j = 0; j < (int)unblindResultsWithAdmin[i].size(); j++) {
         int adminId = unblindResultsWithAdmin[i][j].first; // Admin ID'sini al
         UnblindSignature &usig = unblindResultsWithAdmin[i][j].second; // İlgili imzayı al
