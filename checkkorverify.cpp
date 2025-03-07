@@ -3,9 +3,16 @@
 #include <iostream>
 #include <vector>
 #include <openssl/sha.h>
+#include <cstring>  // For strlen
+#include <iomanip>  // For setw, setfill
+
+// Helper function to handle const element_s* (make a non-const copy)
+static inline element_s* toNonConst(const element_s* in) {
+    return const_cast<element_s*>(in);
+}
 
 // Helper function to extract element from string
-bool extractElementFromString(const std::string &input, element_t &output, pairing_t pairing, bool isZr = false) {
+bool extractElementFromString(const std::string &input, element_t output, pairing_t pairing, bool isZr = false) {
     try {
         if (isZr) {
             element_init_Zr(output, pairing);
@@ -132,18 +139,27 @@ bool checkKoRVerify(
     element_pow_zn(g2_s1, params.g2, s1);
     
     // alpha2^(1-c)
-    element_t alpha2_pow;
+    element_t alpha2_pow, alpha2_copy;
     element_init_G2(alpha2_pow, params.pairing);
-    element_pow_zn(alpha2_pow, mvk.alpha2, one_minus_c);
+    element_init_G2(alpha2_copy, params.pairing);
+    element_set(alpha2_copy, toNonConst(&mvk.alpha2[0]));
+    element_pow_zn(alpha2_pow, alpha2_copy, one_minus_c);
     
     // beta2^s2
-    element_t beta2_s2;
+    element_t beta2_s2, beta2_copy;
     element_init_G2(beta2_s2, params.pairing);
-    element_pow_zn(beta2_s2, mvk.beta2, s2);
+    element_init_G2(beta2_copy, params.pairing);
+    element_set(beta2_copy, toNonConst(&mvk.beta2[0]));
+    element_pow_zn(beta2_s2, beta2_copy, s2);
+    
+    // Create a copy of k for non-const use
+    element_t k_copy;
+    element_init_G2(k_copy, params.pairing);
+    element_set(k_copy, toNonConst(&proveOutput.k[0]));
     
     // Multiply all components
     element_mul(k_prime_prime, g2_s1, alpha2_pow);
-    element_mul(k_prime_prime, k_prime_prime, proveOutput.k);
+    element_mul(k_prime_prime, k_prime_prime, k_copy);
     element_mul(k_prime_prime, k_prime_prime, beta2_s2);
     
     // Calculate com_prime_prime = g1^s3 * h^s2 * com^c
@@ -173,7 +189,7 @@ bool checkKoRVerify(
     std::string hash_result = computeHash(
         params.g1, params.g2, params.h1,
         com, com_prime_prime,
-        proveOutput.k, k_prime_prime,
+        k_copy, k_prime_prime,
         params.pairing
     );
     
@@ -206,8 +222,11 @@ bool checkKoRVerify(
     element_clear(one_minus_c);
     element_clear(k_prime_prime);
     element_clear(g2_s1);
+    element_clear(alpha2_copy);
     element_clear(alpha2_pow);
+    element_clear(beta2_copy);
     element_clear(beta2_s2);
+    element_clear(k_copy);
     element_clear(com_prime_prime);
     element_clear(g1_s3);
     element_clear(h_s2);
