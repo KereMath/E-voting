@@ -20,6 +20,7 @@ static inline element_s* toNonConst(const element_s* in) {
 // outCoeff = ∏ ( id_j / (id_j - id_i) )  (j ≠ i) mod p
 void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
     // İki admin durumu için hardcoded katsayılar
+    std::cout<<"darkidar" <<"/n";
     std::cout << "Admin IDs: "; for(int id : allIDs) std::cout << id << " "; std::cout << std::endl;
     if (allIDs.size() == 2) {
         // Admin idx'sinin ID'sini alıyoruz
