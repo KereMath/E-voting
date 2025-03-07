@@ -99,10 +99,11 @@ ProveCredentialOutput proveCredential(
     
     // 7.2: Compute k' = g2^(r1') * α₂ * (β₂)^(r2') - FIXED: now using g2 instead of g1
     element_t k_prime;
-    element_init_G1(k_prime, params.pairing);
+    element_init_G2(k_prime, params.pairing);    // G1 yerine G2
     element_t g2_r1p, beta2_r2p;  // Changed g1_r1p to g2_r1p
-    element_init_G1(g2_r1p, params.pairing);  // Changed from g1_r1p
-    element_init_G1(beta2_r2p, params.pairing);
+    element_init_G2(g2_r1p, params.pairing);     // G1 yerine G2
+    element_init_G2(beta2_r2p, params.pairing);  // G1 yerine G2
+
     element_pow_zn(g2_r1p, params.g2, r1p);  // Using g2 now
     element_pow_zn(beta2_r2p, mvk.beta2, r2p);
     element_mul(k_prime, g2_r1p, mvk.alpha2);
