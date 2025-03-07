@@ -97,35 +97,57 @@ ProveCredentialOutput proveCredential(
     // std::cout << "[PROVE] Random r2' = " << elementToStringG1(r2p) << "\n";
     // std::cout << "[PROVE] Random r3' = " << elementToStringG1(r3p) << "\n";
     
-    // 7.2: Compute k' = g1^(r1') * α₂ * (β₂)^(r2').
+    // 7.2: Compute k' = g2^(r1') * α₂ * (β₂)^(r2') - FIXED: now using g2 instead of g1
     element_t k_prime;
     element_init_G1(k_prime, params.pairing);
-    element_t g1_r1p, beta2_r2p;
-    element_init_G1(g1_r1p, params.pairing);
+    element_t g2_r1p, beta2_r2p;  // Changed g1_r1p to g2_r1p
+    element_init_G1(g2_r1p, params.pairing);  // Changed from g1_r1p
     element_init_G1(beta2_r2p, params.pairing);
-    element_pow_zn(g1_r1p, params.g1, r1p);
+    element_pow_zn(g2_r1p, params.g2, r1p);  // Using g2 now
     element_pow_zn(beta2_r2p, mvk.beta2, r2p);
-    element_mul(k_prime, g1_r1p, mvk.alpha2);
+    element_mul(k_prime, g2_r1p, mvk.alpha2);
     element_mul(k_prime, k_prime, beta2_r2p);
     // std::cout << "[PROVE] k' computed: " << elementToStringG1(k_prime) << "\n";
     
-    // 7.3: Compute com' = g1^(r3') * (h'')^(r2').
+    // 7.3: Compute com' = g1^(r3') * h^(r2') - FIXED: now using params.h1 instead of h_dbl
     element_t com_prime;
     element_init_G1(com_prime, params.pairing);
     element_t g1_r3p, h_r2p;
     element_init_G1(g1_r3p, params.pairing);
     element_init_G1(h_r2p, params.pairing);
     element_pow_zn(g1_r3p, params.g1, r3p);
-    element_pow_zn(h_r2p, h_dbl, r2p);
+    element_pow_zn(h_r2p, params.h1, r2p);  // Using params.h1 (h) instead of h_dbl (h'')
     element_mul(com_prime, g1_r3p, h_r2p);
     // std::cout << "[PROVE] com' computed: " << elementToStringG1(com_prime) << "\n";
     
-    // 7.4: Compute c = Hash(g1, g2, h'', com, com', k, k').
+    // Create a com element for the hash calculation - this is g1^o * h^DIDi
+    element_t com;
+    element_init_G1(com, params.pairing);
+    element_t g1_o, h_did;
+    element_init_G1(g1_o, params.pairing);
+    element_init_G1(h_did, params.pairing);
+    
+    // g1^o
+    element_t o_elem;
+    element_init_Zr(o_elem, params.pairing);
+    element_set_mpz(o_elem, o);
+    element_pow_zn(g1_o, params.g1, o_elem);
+    
+    // h^DIDi
+    element_t did_elem;
+    element_init_Zr(did_elem, params.pairing);
+    element_set_mpz(did_elem, didInt);
+    element_pow_zn(h_did, params.h1, did_elem);
+    
+    // com = g1^o * h^DIDi
+    element_mul(com, g1_o, h_did);
+    
+    // 7.4: Compute c = Hash(g1, g2, h, com, com', k, k') - FIXED: now using params.h1 and com
     std::ostringstream hashOSS;
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG1(params.g2)
-            << elementToStringG1(h_dbl)
-            << elementToStringG1(aggSig.s)  // Using aggregate s as "com"
+            << elementToStringG1(params.h1)  // Using h instead of h''
+            << elementToStringG1(com)        // Using com instead of aggSig.s
             << elementToStringG1(com_prime)
             << elementToStringG1(output.k)
             << elementToStringG1(k_prime);
@@ -170,27 +192,15 @@ ProveCredentialOutput proveCredential(
     // 7.7: Compute s2 = r2' − c · (didInt).
     element_t temp2;
     element_init_Zr(temp2, params.pairing);
-    element_t expElem2;
-    element_init_Zr(expElem2, params.pairing);
-    element_set_mpz(expElem2, didInt);
-    element_mul(temp2, c_elem, expElem2);
+    element_mul(temp2, c_elem, did_elem);  // Using did_elem which we already set up
     element_sub(s2, r2p, temp2);
-    element_clear(expElem2);
     element_clear(temp2);
     // std::cout << "[PROVE] s2 computed: " << elementToStringG1(s2) << "\n";
     
     // 7.8: Compute s3 = r3' − c · o.
-    mpz_t tempO;
-    mpz_init(tempO);
-    mpz_set(tempO, o);
-    element_t o_elem;
-    element_init_Zr(o_elem, params.pairing);
-    element_set_mpz(o_elem, tempO);
-    mpz_clear(tempO);
-    // std::cout << "[PROVE] o value: " << mpzToString(o) << "\n";
     element_t temp3;
     element_init_Zr(temp3, params.pairing);
-    element_mul(temp3, c_elem, o_elem);
+    element_mul(temp3, c_elem, o_elem);  // Using o_elem which we already set up
     element_sub(s3, r3p, temp3);
     element_clear(temp3);
     // std::cout << "[PROVE] s3 computed: " << elementToStringG1(s3) << "\n";
@@ -232,7 +242,7 @@ ProveCredentialOutput proveCredential(
     element_clear(r2p);
     element_clear(r3p);
     element_clear(k_prime);
-    element_clear(g1_r1p);
+    element_clear(g2_r1p);
     element_clear(beta2_r2p);
     element_clear(g1_r3p);
     element_clear(h_r2p);
@@ -242,6 +252,10 @@ ProveCredentialOutput proveCredential(
     element_clear(s2);
     element_clear(s3);
     element_clear(o_elem);
+    element_clear(did_elem);
+    element_clear(com);
+    element_clear(g1_o);
+    element_clear(h_did);
     
     // --- Clean up earlier temporary variables ---
     element_clear(r);
