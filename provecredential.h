@@ -16,6 +16,14 @@ struct ProveCredentialSigmaRnd {
 struct ProveCredentialOutput {
     ProveCredentialSigmaRnd sigmaRnd; // σ″ = (h'', s'')
     element_t k;                      // k = α₂ · (β₂)^(did) · g₂^(r)
+    
+    // Direct storage of proof elements (no parsing needed)
+    element_t c;
+    element_t s1;
+    element_t s2;
+    element_t s3;
+    
+    // Keep the string version for backwards compatibility
     std::string proof_v;              // KoR tuple: (c, s1, s2, s3)
 };
 

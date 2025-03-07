@@ -195,7 +195,18 @@ ProveCredentialOutput proveCredential(
     element_clear(temp3);
     // std::cout << "[PROVE] s3 computed: " << elementToStringG1(s3) << "\n";
     
-    // 7.9: Construct the KoR tuple: π_v = (c, s1, s2, s3)
+    // Store the proof elements directly in the output struct
+    element_init_Zr(output.c, params.pairing);
+    element_init_Zr(output.s1, params.pairing);
+    element_init_Zr(output.s2, params.pairing);
+    element_init_Zr(output.s3, params.pairing);
+    
+    element_set(output.c, c_elem);
+    element_set(output.s1, s1);
+    element_set(output.s2, s2);
+    element_set(output.s3, s3);
+    
+    // 7.9: Also construct the KoR tuple string for backwards compatibility: π_v = (c, s1, s2, s3)
     std::ostringstream korOSS;
     korOSS << elementToStringG1(c_elem) << " "
            << elementToStringG1(s1) << " "

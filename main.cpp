@@ -537,8 +537,7 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
     std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
     std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
-    std::cout << "    π_v = " << proveResults[i].proof_v << "\n";
-    // std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
+    std::cout << "    π_v = " << proveResults[i].proof_v << "\n";    // std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     std::cout << "-------------------------\n";
 }
 std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
@@ -561,6 +560,8 @@ std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
 for (int i = 0; i < voterCount; i++) {
     bool pairing_ok = pairingCheck(params, proveResults[i]);
     bool kor_ok = checkKoRVerify(params, proveResults[i], keyOut.mvk, preparedOutputs[i].debug.com);
+
+
     
     bool verified = pairing_ok && kor_ok;
     std::cout << "Voter " << (i+1) << " verification: " 

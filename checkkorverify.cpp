@@ -55,34 +55,6 @@ bool elementFromHexString(const std::string &hexStr, element_t result, pairing_t
     }
 }
 
-// Parse the KoR proof tuple from string
-bool parseKoRProof(const std::string &proof_v, element_t c, element_t s1, element_t s2, element_t s3, pairing_t pairing) {
-    std::istringstream ss(proof_v);
-    std::string c_str, s1_str, s2_str, s3_str;
-    
-    if (!(ss >> c_str >> s1_str >> s2_str >> s3_str)) {
-        std::cerr << "Failed to parse KoR proof elements\n";
-        return false;
-    }
-    
-    // Debug output
-    std::cout << "[KoR-VERIFY] Parsing proof components:" << std::endl;
-    std::cout << "[KoR-VERIFY] c_str: " << c_str << std::endl;
-    std::cout << "[KoR-VERIFY] s1_str: " << s1_str << std::endl;
-    std::cout << "[KoR-VERIFY] s2_str: " << s2_str << std::endl;
-    std::cout << "[KoR-VERIFY] s3_str: " << s3_str << std::endl;
-    
-    if (!elementFromHexString(c_str, c, pairing, true) ||
-        !elementFromHexString(s1_str, s1, pairing, true) ||
-        !elementFromHexString(s2_str, s2, pairing, true) ||
-        !elementFromHexString(s3_str, s3, pairing, true)) {
-        std::cerr << "Failed to extract elements from hex strings\n";
-        return false;
-    }
-    
-    return true;
-}
-
 // Compute hash using the same approach as in provecredential.cpp
 void hashToZr(element_t outZr, TIACParams &params, element_t g1, element_t g2, 
               element_t h, element_t com, element_t com_prime, element_t k, element_t k_prime) {
@@ -130,23 +102,12 @@ bool checkKoRVerify(
 ) {
     std::cout << "[KoR-VERIFY] Starting Knowledge of Representation verification..." << std::endl;
     
-    // Parse the proof elements
-    element_t c, s1, s2, s3;
-    if (!parseKoRProof(proveOutput.proof_v, c, s1, s2, s3, params.pairing)) {
-        std::cerr << "[KoR-VERIFY] Failed to parse proof elements!" << std::endl;
-        return false;
-    }
-    
-    // Parse the commitment - using the same elementFromHexString function
+    // Parse the commitment
     element_t com;
     element_init_G1(com, params.pairing);
     if (!elementFromHexString(comStr, com, params.pairing)) {
         std::cerr << "[KoR-VERIFY] Failed to parse commitment!" << std::endl;
         element_clear(com);
-        element_clear(c);
-        element_clear(s1);
-        element_clear(s2);
-        element_clear(s3);
         return false;
     }
     
@@ -154,7 +115,22 @@ bool checkKoRVerify(
     element_t one_minus_c;
     element_init_Zr(one_minus_c, params.pairing);
     element_set1(one_minus_c);
-    element_sub(one_minus_c, one_minus_c, c);
+    
+    // Create non-const copies of the proof elements
+    element_t c_copy, s1_copy, s2_copy, s3_copy;
+    element_init_Zr(c_copy, params.pairing);
+    element_init_Zr(s1_copy, params.pairing);
+    element_init_Zr(s2_copy, params.pairing);
+    element_init_Zr(s3_copy, params.pairing);
+    
+    // Copy the values from the proof output
+    element_set(c_copy, toNonConst(&proveOutput.c[0]));
+    element_set(s1_copy, toNonConst(&proveOutput.s1[0]));
+    element_set(s2_copy, toNonConst(&proveOutput.s2[0]));
+    element_set(s3_copy, toNonConst(&proveOutput.s3[0]));
+    
+    // Calculate 1-c
+    element_sub(one_minus_c, one_minus_c, c_copy);
     
     // Calculate k_prime_prime = g2^(s1) * alpha2^(1-c) * k * beta2^s2
     element_t k_prime_prime;
@@ -163,7 +139,7 @@ bool checkKoRVerify(
     // g2^(s1)
     element_t g2_s1;
     element_init_G2(g2_s1, params.pairing);
-    element_pow_zn(g2_s1, params.g2, s1);
+    element_pow_zn(g2_s1, params.g2, s1_copy);
     
     // alpha2^(1-c)
     element_t alpha2_pow, alpha2_copy;
@@ -177,7 +153,7 @@ bool checkKoRVerify(
     element_init_G2(beta2_s2, params.pairing);
     element_init_G2(beta2_copy, params.pairing);
     element_set(beta2_copy, toNonConst(&mvk.beta2[0]));
-    element_pow_zn(beta2_s2, beta2_copy, s2);
+    element_pow_zn(beta2_s2, beta2_copy, s2_copy);
     
     // Create a copy of k for non-const use
     element_t k_copy;
@@ -196,17 +172,17 @@ bool checkKoRVerify(
     // g1^s3
     element_t g1_s3;
     element_init_G1(g1_s3, params.pairing);
-    element_pow_zn(g1_s3, params.g1, s3);
+    element_pow_zn(g1_s3, params.g1, s3_copy);
     
     // h^s2
     element_t h_s2;
     element_init_G1(h_s2, params.pairing);
-    element_pow_zn(h_s2, params.h1, s2);
+    element_pow_zn(h_s2, params.h1, s2_copy);
     
     // com^c
     element_t com_c;
     element_init_G1(com_c, params.pairing);
-    element_pow_zn(com_c, com, c);
+    element_pow_zn(com_c, com, c_copy);
     
     // Multiply all components
     element_mul(com_prime_prime, g1_s3, h_s2);
@@ -221,21 +197,21 @@ bool checkKoRVerify(
              com, com_prime_prime, k_copy, k_prime_prime);
     
     // Check if c_prime == c
-    bool result = (element_cmp(c_prime, c) == 0);
+    bool result = (element_cmp(c_prime, c_copy) == 0);
     
     // Debug output
     char c_buf[1024], c_prime_buf[1024];
-    element_snprintf(c_buf, sizeof(c_buf), "%B", c);
+    element_snprintf(c_buf, sizeof(c_buf), "%B", c_copy);
     element_snprintf(c_prime_buf, sizeof(c_prime_buf), "%B", c_prime);
     std::cout << "[KoR-VERIFY] c      = " << c_buf << std::endl;
     std::cout << "[KoR-VERIFY] c'     = " << c_prime_buf << std::endl;
     std::cout << "[KoR-VERIFY] Result = " << (result ? "PASSED" : "FAILED") << std::endl;
     
     // Clean up
-    element_clear(c);
-    element_clear(s1);
-    element_clear(s2);
-    element_clear(s3);
+    element_clear(c_copy);
+    element_clear(s1_copy);
+    element_clear(s2_copy);
+    element_clear(s3_copy);
     element_clear(com);
     element_clear(one_minus_c);
     element_clear(k_prime_prime);
