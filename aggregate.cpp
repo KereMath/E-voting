@@ -46,22 +46,6 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
         // {0, 2} admin çifti (herhangi bir sırada)
         else if (has0 && has2) {
             if (current_admin_id == 0) {
-                // Admin ID 0 için λ = -1/2, (p-1)/2 olarak hesapla
-                mpz_t p_minus_1, half_result;
-                mpz_inits(p_minus_1, half_result, NULL);
-                
-                // p-1 hesapla
-                mpz_sub_ui(p_minus_1, groupOrder, 1);
-                
-                // (p-1)/2 hesapla
-                mpz_tdiv_q_ui(half_result, p_minus_1, 2);
-                
-                // Element'e ata
-                element_set_mpz(outCoeff, half_result);
-                
-                mpz_clears(p_minus_1, half_result, NULL);
-            } else { // current_admin_id == 2
-                // Admin ID 2 için λ = 3/2, (p+3)/2 olarak hesapla
                 mpz_t p_plus_3, half_result;
                 mpz_inits(p_plus_3, half_result, NULL);
                 
@@ -75,6 +59,24 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
                 element_set_mpz(outCoeff, half_result);
                 
                 mpz_clears(p_plus_3, half_result, NULL);
+            } else { // current_admin_id == 2
+                // Admin ID 2 için λ = 3/2, (p+3)/2 olarak hesapla
+
+
+
+                mpz_t p_minus_1, half_result;
+                mpz_inits(p_minus_1, half_result, NULL);
+                
+                // p-1 hesapla
+                mpz_sub_ui(p_minus_1, groupOrder, 1);
+                
+                // (p-1)/2 hesapla
+                mpz_tdiv_q_ui(half_result, p_minus_1, 2);
+                
+                // Element'e ata
+                element_set_mpz(outCoeff, half_result);
+                
+                mpz_clears(p_minus_1, half_result, NULL);
             }
         }
         // {1, 2} admin çifti (herhangi bir sırada)
