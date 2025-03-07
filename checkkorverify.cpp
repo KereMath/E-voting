@@ -55,45 +55,6 @@ bool elementFromHexString(const std::string &hexStr, element_t result, pairing_t
     }
 }
 
-// Compute hash using the same approach as in provecredential.cpp
-void hashToZr(element_t outZr, TIACParams &params, element_t g1, element_t g2, 
-              element_t h, element_t com, element_t com_prime, element_t k, element_t k_prime) {
-    // Build a hash input string by concatenating all element string representations
-    std::ostringstream hashOSS;
-    hashOSS << elementToStringG1(g1)
-            << elementToStringG1(g2)
-            << elementToStringG1(h)
-            << elementToStringG1(com)
-            << elementToStringG1(com_prime)
-            << elementToStringG1(k)
-            << elementToStringG1(k_prime);
-    std::string hashInput = hashOSS.str();
-    
-    // Calculate SHA512 hash
-    unsigned char hashDigest[SHA512_DIGEST_LENGTH];
-    SHA512(reinterpret_cast<const unsigned char*>(hashInput.data()), hashInput.size(), hashDigest);
-    
-    // Convert hash to hex string
-    std::ostringstream hashFinalOSS;
-    hashFinalOSS << std::hex << std::setfill('0');
-    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        hashFinalOSS << std::setw(2) << (int)hashDigest[i];
-    }
-    std::string hash_str = hashFinalOSS.str();
-    
-    // Convert hash to element in Zp
-    mpz_t hash_mpz;
-    mpz_init(hash_mpz);
-    if(mpz_set_str(hash_mpz, hash_str.c_str(), 16) != 0) {
-        mpz_clear(hash_mpz);
-        throw std::runtime_error("checkKoRVerify: Error converting hash to mpz");
-    }
-    
-    mpz_mod(hash_mpz, hash_mpz, params.prime_order);
-    element_set_mpz(outZr, hash_mpz);
-    mpz_clear(hash_mpz);
-}
-
 bool checkKoRVerify(
     TIACParams &params,
     const ProveCredentialOutput &proveOutput,
@@ -111,11 +72,6 @@ bool checkKoRVerify(
         return false;
     }
     
-    // Calculate 1-c
-    element_t one_minus_c;
-    element_init_Zr(one_minus_c, params.pairing);
-    element_set1(one_minus_c);
-    
     // Create non-const copies of the proof elements
     element_t c_copy, s1_copy, s2_copy, s3_copy;
     element_init_Zr(c_copy, params.pairing);
@@ -130,6 +86,9 @@ bool checkKoRVerify(
     element_set(s3_copy, toNonConst(&proveOutput.s3[0]));
     
     // Calculate 1-c
+    element_t one_minus_c;
+    element_init_Zr(one_minus_c, params.pairing);
+    element_set1(one_minus_c);
     element_sub(one_minus_c, one_minus_c, c_copy);
     
     // Calculate k_prime_prime = g2^(s1) * alpha2^(1-c) * k * beta2^s2
@@ -188,13 +147,61 @@ bool checkKoRVerify(
     element_mul(com_prime_prime, g1_s3, h_s2);
     element_mul(com_prime_prime, com_prime_prime, com_c);
     
-    // Compute c_prime using the same hash function as in provecredential.cpp
+    // Compute c_prime using the same hash function as in proveCredential.cpp
     element_t c_prime;
     element_init_Zr(c_prime, params.pairing);
-    
-    // Use the optimized hash function that avoids std::vector<element_t>
-    hashToZr(c_prime, params, params.g1, params.g2, params.h1, 
-             com, com_prime_prime, k_copy, k_prime_prime);
+
+    // Exact same hash computation as in proveCredential.cpp
+    std::ostringstream hashOSS;
+    hashOSS << elementToStringG1(params.g1)
+            << elementToStringG1(params.g2)
+            << elementToStringG1(proveOutput.sigmaRnd.h)  // h'' from the proof
+            << elementToStringG1(com)                     // com input (aggSig.s in proveCredential)
+            << elementToStringG1(com_prime_prime)         // com' calculated 
+            << elementToStringG1(k_copy)                  // k from the proof
+            << elementToStringG1(k_prime_prime);          // k'' calculated
+
+    std::string hashInput = hashOSS.str();
+
+    unsigned char hashDigest[SHA512_DIGEST_LENGTH];
+    SHA512(reinterpret_cast<const unsigned char*>(hashInput.data()), hashInput.size(), hashDigest);
+
+    std::ostringstream hashFinalOSS;
+    hashFinalOSS << std::hex << std::setfill('0');
+    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
+        hashFinalOSS << std::setw(2) << (int)hashDigest[i];
+    }
+    std::string c_prime_str = hashFinalOSS.str();
+
+    // Convert hash to element in Zp
+    mpz_t c_prime_mpz;
+    mpz_init(c_prime_mpz);
+    if(mpz_set_str(c_prime_mpz, c_prime_str.c_str(), 16) != 0) {
+        mpz_clear(c_prime_mpz);
+        element_clear(c_prime);
+        element_clear(com);
+        element_clear(c_copy);
+        element_clear(s1_copy);
+        element_clear(s2_copy);
+        element_clear(s3_copy);
+        element_clear(one_minus_c);
+        element_clear(k_prime_prime);
+        element_clear(g2_s1);
+        element_clear(alpha2_copy);
+        element_clear(alpha2_pow);
+        element_clear(beta2_copy);
+        element_clear(beta2_s2);
+        element_clear(k_copy);
+        element_clear(com_prime_prime);
+        element_clear(g1_s3);
+        element_clear(h_s2);
+        element_clear(com_c);
+        throw std::runtime_error("checkKoRVerify: Error converting hash to mpz");
+    }
+
+    mpz_mod(c_prime_mpz, c_prime_mpz, params.prime_order);
+    element_set_mpz(c_prime, c_prime_mpz);
+    mpz_clear(c_prime_mpz);
     
     // Check if c_prime == c
     bool result = (element_cmp(c_prime, c_copy) == 0);
