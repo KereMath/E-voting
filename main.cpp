@@ -22,6 +22,7 @@
 #include "provecredential.h"  // proveCredential fonksiyonunu içerir
 #include "verifycredential.h"  // verifyCredential tanımı
 #include "pairinginverify.h"
+#include "checkkorverify.h"
 
 using Clock = std::chrono::steady_clock;
 
@@ -547,19 +548,26 @@ std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000
 
 
 //verifycredential
-std::cout << "\n=== Pairing Check Phase ===\n";
+
+
+
+
+
+// Add this to the includes section at the top of main.cpp
+
+// Add this after the pairingCheck section
+// --- KoR Verification Phase ---
+std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
 for (int i = 0; i < voterCount; i++) {
     bool pairing_ok = pairingCheck(params, proveResults[i]);
-    std::cout << "Voter " << (i+1) << " pairing check: " 
-              << (pairing_ok ? "PASSED" : "FAILED") << "\n";
+    bool kor_ok = checkKoRVerify(params, proveResults[i], keyOut.mvk, preparedOutputs[i].debug.com);
+    
+    bool verified = pairing_ok && kor_ok;
+    std::cout << "Voter " << (i+1) << " verification: " 
+              << (verified ? "VERIFIED DONE ✓" : "FAILED ✗") 
+              << " (Pairing: " << (pairing_ok ? "OK" : "FAIL") 
+              << ", KoR: " << (kor_ok ? "OK" : "FAIL") << ")\n";
 }
-
-
-
-
-
-
-
 
 
 
