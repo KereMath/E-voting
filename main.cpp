@@ -574,8 +574,6 @@ for (int i = 0; i < voterCount; i++) {
 
 
 
-
-
     // 12) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
