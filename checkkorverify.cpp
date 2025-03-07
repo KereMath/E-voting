@@ -196,7 +196,7 @@ bool checkKoRVerify(
     // h^s2 - Using aggSig_h instead of params.h1
     element_t h_s2;
     element_init_G1(h_s2, params.pairing);
-    element_pow_zn(h_s2, aggSig_h, s2_copy);  // Use aggSig_h here
+    element_pow_zn(h_s2, toNonConst(&aggSig_h[0]), s2_copy);  // Use toNonConst helper
     debugPrintElement("h_s2 (h^s2)", h_s2);
     
     // com^c
