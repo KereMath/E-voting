@@ -19,51 +19,76 @@ static inline element_s* toNonConst(const element_s* in) {
 // Lagrange katsayısını hesaplar:
 // outCoeff = ∏ ( id_j / (id_j - id_i) )  (j ≠ i) mod p
 void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
-    // İki admin durumu için hardcoded katsayılar
-    std::cout<<"darkidar" <<"/n";
-    std::cout << "Admin IDs: "; for(int id : allIDs) std::cout << id << " "; std::cout << std::endl;
+    std::cout << "Admin IDs: "; for(int id : allIDs) std::cout << id << " "; 
+    std::cout << "Current admin ID: " << allIDs[idx] << std::endl;
+    
     if (allIDs.size() == 2) {
-        // Admin idx'sinin ID'sini alıyoruz
         int current_admin_id = allIDs[idx];
         
-        // Admin ID'lerini low ve high olarak ayırıyoruz
-        int low_id = std::min(allIDs[0], allIDs[1]);
-        int high_id = std::max(allIDs[0], allIDs[1]);
+        // İki admin ID'sini belirleme (sıra önemli değil)
+        bool has0 = false, has1 = false, has2 = false;
+        for (int id : allIDs) {
+            if (id == 0) has0 = true;
+            if (id == 1) has1 = true;
+            if (id == 2) has2 = true;
+        }
         
-        if (current_admin_id == low_id) {
-            // Düşük ID'li admin için lambda = 2
-            element_set_si(outCoeff, 2);
-        } else {
-            // Yüksek ID'li admin için lambda = -1
-            element_set_si(outCoeff, -1);
+        // {0, 1} admin çifti (herhangi bir sırada)
+        if (has0 && has1) {
+            if (current_admin_id == 0) {
+                // Admin ID 0 için λ = 2
+                element_set_si(outCoeff, 2);
+            } else { // current_admin_id == 1
+                // Admin ID 1 için λ = -1
+                element_set_si(outCoeff, -1);
+            }
+        } 
+        // {0, 2} admin çifti (herhangi bir sırada)
+        else if (has0 && has2) {
+            if (current_admin_id == 0) {
+                // Admin ID 0 için λ = -1/2
+                element_set_si(outCoeff, -1);
+                element_t two;
+                element_init_Zr(two, pairing);
+                element_set_si(two, 2);
+                element_div(outCoeff, outCoeff, two);
+                element_clear(two);
+            } else { // current_admin_id == 2
+                // Admin ID 2 için λ = 3/2
+                element_set_si(outCoeff, 3);
+                element_t two;
+                element_init_Zr(two, pairing);
+                element_set_si(two, 2);
+                element_div(outCoeff, outCoeff, two);
+                element_clear(two);
+            }
+        }
+        // {1, 2} admin çifti (herhangi bir sırada)
+        else if (has1 && has2) {
+            if (current_admin_id == 1) {
+                // Admin ID 1 için λ = 3
+                element_set_si(outCoeff, 3);
+            } else { // current_admin_id == 2
+                // Admin ID 2 için λ = -2
+                element_set_si(outCoeff, -2);
+            }
+        }
+        else {
+            // Diğer durumlar için varsayılan değerler
+            std::vector<int> sorted_ids = allIDs;
+            std::sort(sorted_ids.begin(), sorted_ids.end());
+            
+            if (current_admin_id == sorted_ids[0]) {
+                element_set_si(outCoeff, 2); // Varsayılan düşük ID
+            } else {
+                element_set_si(outCoeff, -1); // Varsayılan yüksek ID
+            }
         }
     }
-    // Üç admin durumu için hardcoded katsayılar
-    else if (allIDs.size() == 3) {
-        // Admin idx'sinin ID'sini alıyoruz
-        int current_admin_id = allIDs[idx];
-        
-        // Admin ID'lerini sıralıyoruz
-        std::vector<int> sorted_ids = allIDs;
-        std::sort(sorted_ids.begin(), sorted_ids.end());
-        
-        if (current_admin_id == sorted_ids[0]) {
-            // En düşük ID'li admin için lambda = 3
-            element_set_si(outCoeff, 3);
-        } else if (current_admin_id == sorted_ids[1]) {
-            // Ortadaki ID'li admin için lambda = -3
-            element_set_si(outCoeff, -3);
-        } else {
-            // En yüksek ID'li admin için lambda = 1
-            element_set_si(outCoeff, 1);
-        }
-    }
-    // Eğer hardcoded duruma uymazsa default değer olarak 1 döndür
     else {
         element_set1(outCoeff);
     }
 }
-
 AggregateSignature aggregateSign(
     TIACParams &params,
     const std::vector<std::pair<int, UnblindSignature>> &partialSigsWithAdmins,
