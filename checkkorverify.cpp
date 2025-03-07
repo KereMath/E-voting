@@ -29,6 +29,24 @@ std::string elementToStringG1(const element_t elem) {
     return oss.str();
 }
 
+// New function for G2 elements
+std::string elementToStringG2(const element_t elem) {
+    // Use toNonConst to handle the const parameter
+    element_t elem_nonconst;
+    elem_nonconst[0] = *toNonConst(&elem[0]);
+    
+    int len = element_length_in_bytes(elem_nonconst);
+    std::vector<unsigned char> buf(len);
+    element_to_bytes(buf.data(), elem_nonconst);
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned char c : buf) {
+        oss << std::setw(2) << (int)c;
+    }
+    return oss.str();
+}
+
 // Helper function to convert hex string back to element
 bool elementFromHexString(const std::string &hexStr, element_t result, pairing_t pairing, bool isZr = false) {
     try {
@@ -66,7 +84,8 @@ bool checkKoRVerify(
     TIACParams &params,
     const ProveCredentialOutput &proveOutput,
     const MasterVerKey &mvk,
-    const std::string &comStr
+    const std::string &comStr,
+    const element_t aggSig_h  // New parameter for aggregate signature h
 ) {
     std::cout << "[KoR-VERIFY] Starting Knowledge of Representation verification..." << std::endl;
     
@@ -174,10 +193,10 @@ bool checkKoRVerify(
     element_pow_zn(g1_s3, params.g1, s3_copy);
     debugPrintElement("g1_s3 (g1^s3)", g1_s3);
     
-    // h^s2
+    // h^s2 - Using aggSig_h instead of params.h1
     element_t h_s2;
     element_init_G1(h_s2, params.pairing);
-    element_pow_zn(h_s2, params.h1, s2_copy);
+    element_pow_zn(h_s2, aggSig_h, s2_copy);  // Use aggSig_h here
     debugPrintElement("h_s2 (h^s2)", h_s2);
     
     // com^c
@@ -196,15 +215,15 @@ bool checkKoRVerify(
     element_t c_prime;
     element_init_Zr(c_prime, params.pairing);
 
-    // Exact same hash computation as in proveCredential.cpp
+    // Exact same hash computation as in proveCredential.cpp, but with G2 serialization
     std::ostringstream hashOSS;
     hashOSS << elementToStringG1(params.g1)
-            << elementToStringG1(params.g2)
-            << elementToStringG1(params.h1)             // h (not h'')
-            << elementToStringG1(com)                   // com input
-            << elementToStringG1(com_prime_prime)       // com' calculated 
-            << elementToStringG1(k_copy)                // k from the proof
-            << elementToStringG1(k_prime_prime);        // k'' calculated
+            << elementToStringG2(params.g2)   // Use G2 serialization
+            << elementToStringG1(aggSig_h)    // Use aggSig_h instead of params.h1
+            << elementToStringG1(com)
+            << elementToStringG1(com_prime_prime)
+            << elementToStringG2(k_copy)      // Use G2 serialization
+            << elementToStringG2(k_prime_prime); // Use G2 serialization
 
     std::string hashInput = hashOSS.str();
     std::cout << "[KoR-DEBUG] Hash input (hex, truncated): " << hashInput.substr(0, 64) << "..." << std::endl;

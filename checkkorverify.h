@@ -20,9 +20,9 @@ bool checkKoRVerify(
     TIACParams &params,
     const ProveCredentialOutput &proveOutput,
     const MasterVerKey &mvk,
-    const std::string &com
+    const std::string &comStr,
+    const element_t aggSig_h  // New parameter for aggregate signature h
 );
-
 /**
  * Helper function to parse the KoR proof tuple from string
  * 
