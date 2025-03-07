@@ -155,7 +155,7 @@ bool checkKoRVerify(
     std::ostringstream hashOSS;
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG1(params.g2)
-            << elementToStringG1(proveOutput.sigmaRnd.h)  // h'' from the proof
+            << elementToStringG1(params.h1)             // h (not h'')
             << elementToStringG1(com)                     // com input (aggSig.s in proveCredential)
             << elementToStringG1(com_prime_prime)         // com' calculated 
             << elementToStringG1(k_copy)                  // k from the proof
