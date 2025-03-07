@@ -37,9 +37,9 @@ bool pairingCheck(TIACParams &params, ProveCredentialOutput &pOut) {
     // std::cout << "[PAIRING CHECK] Pairing RHS = " << rhsStr << "\n";
 
     bool valid = (element_cmp(pairing_lhs, pairing_rhs) == 0);
-    if (valid)
+    // if (valid)
         // std::cout << "[PAIRING CHECK] Pairing correct: e(h'', k) equals e(s'', g2).\n";
-    else
+    // else
         // std::cout << "[PAIRING CHECK] Pairing failed: e(h'', k) does not equal e(s'', g2).\n";
 
     element_clear(pairing_lhs);
