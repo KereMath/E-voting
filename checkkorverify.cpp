@@ -13,9 +13,13 @@ static inline element_s* toNonConst(const element_s* in) {
 
 // Use the same function as in the rest of the code to maintain consistency
 std::string elementToStringG1(const element_t elem) {
-    int len = element_length_in_bytes(elem);
+    // Use toNonConst to handle the const parameter
+    element_t elem_nonconst;
+    elem_nonconst[0] = *toNonConst(&elem[0]);
+    
+    int len = element_length_in_bytes(elem_nonconst);
     std::vector<unsigned char> buf(len);
-    element_to_bytes(buf.data(), elem);
+    element_to_bytes(buf.data(), elem_nonconst);
 
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
