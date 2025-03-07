@@ -6,8 +6,13 @@
 #include <cstring>
 #include <iomanip>
 
-// Use the same elemToStrG1 function as in blindsign.h
-std::string elementToStringG1(element_t elem) {
+// Helper: const element_s*'yi non-const element_s*'ye dönüştürür.
+static inline element_s* toNonConst(const element_s* in) {
+    return const_cast<element_s*>(in);
+}
+
+// Use the same function as in the rest of the code to maintain consistency
+std::string elementToStringG1(const element_t elem) {
     int len = element_length_in_bytes(elem);
     std::vector<unsigned char> buf(len);
     element_to_bytes(buf.data(), elem);
@@ -57,8 +62,11 @@ bool parseKoRProof(const std::string &proof_v, element_t c, element_t s1, elemen
     }
     
     // Debug output
-    std::cout << "[KoR-VERIFY] Parsing proof string: " << proof_v << std::endl;
+    std::cout << "[KoR-VERIFY] Parsing proof components:" << std::endl;
     std::cout << "[KoR-VERIFY] c_str: " << c_str << std::endl;
+    std::cout << "[KoR-VERIFY] s1_str: " << s1_str << std::endl;
+    std::cout << "[KoR-VERIFY] s2_str: " << s2_str << std::endl;
+    std::cout << "[KoR-VERIFY] s3_str: " << s3_str << std::endl;
     
     if (!elementFromHexString(c_str, c, pairing, true) ||
         !elementFromHexString(s1_str, s1, pairing, true) ||
@@ -71,24 +79,43 @@ bool parseKoRProof(const std::string &proof_v, element_t c, element_t s1, elemen
     return true;
 }
 
-// Consistent hashToZr function matching the one in blindsign.cpp
-void hashToZr(element_t outZr, TIACParams &params, const std::vector<element_t> &elements) {
-    std::ostringstream oss;
-    for (auto elem : elements) {
-        oss << elementToStringG1(elem);
+// Compute hash using the same approach as in provecredential.cpp
+void hashToZr(element_t outZr, TIACParams &params, element_t g1, element_t g2, 
+              element_t h, element_t com, element_t com_prime, element_t k, element_t k_prime) {
+    // Build a hash input string by concatenating all element string representations
+    std::ostringstream hashOSS;
+    hashOSS << elementToStringG1(g1)
+            << elementToStringG1(g2)
+            << elementToStringG1(h)
+            << elementToStringG1(com)
+            << elementToStringG1(com_prime)
+            << elementToStringG1(k)
+            << elementToStringG1(k_prime);
+    std::string hashInput = hashOSS.str();
+    
+    // Calculate SHA512 hash
+    unsigned char hashDigest[SHA512_DIGEST_LENGTH];
+    SHA512(reinterpret_cast<const unsigned char*>(hashInput.data()), hashInput.size(), hashDigest);
+    
+    // Convert hash to hex string
+    std::ostringstream hashFinalOSS;
+    hashFinalOSS << std::hex << std::setfill('0');
+    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
+        hashFinalOSS << std::setw(2) << (int)hashDigest[i];
     }
-    std::string data = oss.str();
-
-    unsigned char digest[SHA512_DIGEST_LENGTH];
-    SHA512(reinterpret_cast<const unsigned char*>(data.data()), data.size(), digest);
-
-    mpz_t tmp;
-    mpz_init(tmp);
-    mpz_import(tmp, SHA512_DIGEST_LENGTH, 1, 1, 0, 0, digest);
-    mpz_mod(tmp, tmp, params.prime_order);
-
-    element_set_mpz(outZr, tmp);
-    mpz_clear(tmp);
+    std::string hash_str = hashFinalOSS.str();
+    
+    // Convert hash to element in Zp
+    mpz_t hash_mpz;
+    mpz_init(hash_mpz);
+    if(mpz_set_str(hash_mpz, hash_str.c_str(), 16) != 0) {
+        mpz_clear(hash_mpz);
+        throw std::runtime_error("checkKoRVerify: Error converting hash to mpz");
+    }
+    
+    mpz_mod(hash_mpz, hash_mpz, params.prime_order);
+    element_set_mpz(outZr, hash_mpz);
+    mpz_clear(hash_mpz);
 }
 
 bool checkKoRVerify(
@@ -106,12 +133,16 @@ bool checkKoRVerify(
         return false;
     }
     
-    // Parse the commitment
+    // Parse the commitment - using the same elementFromHexString function
     element_t com;
     element_init_G1(com, params.pairing);
     if (!elementFromHexString(comStr, com, params.pairing)) {
         std::cerr << "[KoR-VERIFY] Failed to parse commitment!" << std::endl;
         element_clear(com);
+        element_clear(c);
+        element_clear(s1);
+        element_clear(s2);
+        element_clear(s3);
         return false;
     }
     
@@ -177,27 +208,23 @@ bool checkKoRVerify(
     element_mul(com_prime_prime, g1_s3, h_s2);
     element_mul(com_prime_prime, com_prime_prime, com_c);
     
-    // Compute the hash using the same method as in blindsign.cpp
+    // Compute c_prime using the same hash function as in provecredential.cpp
     element_t c_prime;
     element_init_Zr(c_prime, params.pairing);
     
-    std::vector<element_t> toHash;
-    toHash.push_back(params.g1);
-    toHash.push_back(params.g2);
-    toHash.push_back(params.h1);
-    toHash.push_back(com);
-    toHash.push_back(com_prime_prime);
-    toHash.push_back(k_copy);
-    toHash.push_back(k_prime_prime);
-    
-    hashToZr(c_prime, params, toHash);
+    // Use the optimized hash function that avoids std::vector<element_t>
+    hashToZr(c_prime, params, params.g1, params.g2, params.h1, 
+             com, com_prime_prime, k_copy, k_prime_prime);
     
     // Check if c_prime == c
     bool result = (element_cmp(c_prime, c) == 0);
     
     // Debug output
-    std::cout << "[KoR-VERIFY] c      = " << elementToStringG1(c) << std::endl;
-    std::cout << "[KoR-VERIFY] c'     = " << elementToStringG1(c_prime) << std::endl;
+    char c_buf[1024], c_prime_buf[1024];
+    element_snprintf(c_buf, sizeof(c_buf), "%B", c);
+    element_snprintf(c_prime_buf, sizeof(c_prime_buf), "%B", c_prime);
+    std::cout << "[KoR-VERIFY] c      = " << c_buf << std::endl;
+    std::cout << "[KoR-VERIFY] c'     = " << c_prime_buf << std::endl;
     std::cout << "[KoR-VERIFY] Result = " << (result ? "PASSED" : "FAILED") << std::endl;
     
     // Clean up
