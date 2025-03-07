@@ -30,7 +30,7 @@ std::string elementToStringG1(const element_t elem) {
 }
 
 // New function for G2 elements
-std::string elementToStringG2(const element_t elem) {
+static std::string elementToStringG2(const element_t elem) {
     // Use toNonConst to handle the const parameter
     element_t elem_nonconst;
     elem_nonconst[0] = *toNonConst(&elem[0]);
