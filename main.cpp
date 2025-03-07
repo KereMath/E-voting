@@ -420,8 +420,8 @@ for (int i = 0; i < voterCount; i++) {
     for (int j = 0; j < (int)unblindResultsWithAdmin[i].size(); j++) {
         int adminId = unblindResultsWithAdmin[i][j].first; // Admin ID'sini al
         UnblindSignature &usig = unblindResultsWithAdmin[i][j].second; // İlgili imzayı al
-        std::cout << "  Signature " << (j + 1) << " produced by Admin " << (adminId + 1) << ":\n";
-        std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
+        // std::cout << "  Signature " << (j + 1) << " produced by Admin " << (adminId + 1) << ":\n";
+        // std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
     }
     std::cout << "-------------------------\n";
 }
@@ -440,11 +440,11 @@ auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggreg
 // Aggregate sonuçlarını raporlama:
 std::cout << "\n=== Aggregate Signature Results ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-    std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-    std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-    std::cout << "-------------------------\n";
+    // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+    // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+    // std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+    // std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
+    // std::cout << "-------------------------\n";
 }
 
 
