@@ -117,16 +117,21 @@ bool checkKoRVerify(
     
     // Create non-const copies of the proof elements
     element_t c_copy, s1_copy, s2_copy, s3_copy;
-    element_init_Zr(c_copy, params.pairing);
+    element_init_Zr(c_copy,  params.pairing);
     element_init_Zr(s1_copy, params.pairing);
     element_init_Zr(s2_copy, params.pairing);
     element_init_Zr(s3_copy, params.pairing);
-    
-    // Copy the values from the proof output
-    element_set(c_copy, toNonConst(&proveOutput.c[0]));
-    element_set(s1_copy, toNonConst(&proveOutput.s1[0]));
-    element_set(s2_copy, toNonConst(&proveOutput.s2[0]));
-    element_set(s3_copy, toNonConst(&proveOutput.s3[0]));
+
+    element_set(c_copy,  proveOutput.c);
+    element_set(s1_copy, proveOutput.s1);
+    element_set(s2_copy, proveOutput.s2);
+    element_set(s3_copy, proveOutput.s3);
+
+    // Debug print (isteğe bağlı)
+    debugPrintElement("c_copy",  c_copy);
+    debugPrintElement("s1_copy", s1_copy);
+    debugPrintElement("s2_copy", s2_copy);
+    debugPrintElement("s3_copy", s3_copy);
     
     // Debug print proof elements
     debugPrintElement("c_copy", c_copy);
