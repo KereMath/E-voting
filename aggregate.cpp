@@ -15,6 +15,62 @@ std::string elementToStringG1(element_t elem);
 static inline element_s* toNonConst(const element_s* in) {
     return const_cast<element_s*>(in);
 }
+#include <vector>
+#include <gmp.h>
+#include <pbc/pbc.h>
+#include <algorithm>
+
+/********************************************/
+/* KESİR YARDIMCI FONKSİYONU:
+   setFraction(outCoeff, groupOrder, num, den) -> outCoeff = (num/den) mod p
+   (p = groupOrder).
+   Örnek: (8/3) mod p gibi bir değeri, p içinde tam bölünecek şekilde 
+   p*k + num'i den'e böleriz.
+*/
+static void setFraction(element_t outCoeff, const mpz_t groupOrder, long numerator, long denominator)
+{
+    mpz_t r, tmp, quotient;
+    mpz_inits(r, tmp, quotient, NULL);
+
+    // r = (p mod den)
+    mpz_mod_ui(r, groupOrder, (unsigned long)denominator);
+    unsigned long r_ui = mpz_get_ui(r);
+
+    // (r_ui*k + numerator) mod denominator = 0 olacak k'yi [0..den-1] içinde bul.
+    long solution_k = -1;
+    for (long k = 0; k < denominator; k++) {
+        long val = (long)((r_ui * k + numerator) % denominator);
+        // negatif mod düzeltmesi:
+        if (val < 0)
+            val = (val % denominator + denominator) % denominator;
+
+        if (val == 0) {
+            solution_k = k;
+            break;
+        }
+    }
+
+    // tmp = p*k (p grup mertebesi)
+    mpz_mul_si(tmp, groupOrder, solution_k);
+
+    // tmp = p*k + numerator (veya -|numerator|)
+    if (numerator >= 0) {
+        mpz_add_ui(tmp, tmp, (unsigned long)numerator);
+    } else {
+        mpz_sub_ui(tmp, tmp, (unsigned long)(-numerator));
+    }
+
+    // quotient = tmp / denominator
+    mpz_tdiv_q_ui(quotient, tmp, (unsigned long)denominator);
+
+    // Sonucu element'e ata
+    element_set_mpz(outCoeff, quotient);
+
+    mpz_clears(r, tmp, quotient, NULL);
+}
+
+/********************************************/
+/* ASIL FONKSİYON */
 void computeLagrangeCoefficient(
     element_t outCoeff, 
     const std::vector<int> &allIDs, 
@@ -279,6 +335,7 @@ void computeLagrangeCoefficient(
         element_set1(outCoeff);
     }
 }
+
 AggregateSignature aggregateSign(
     TIACParams &params,
     const std::vector<std::pair<int, UnblindSignature>> &partialSigsWithAdmins,
