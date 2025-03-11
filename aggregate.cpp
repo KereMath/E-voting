@@ -368,14 +368,63 @@ void computeLagrangeCoefficient(
         }
         // (6) {1,4,5}
         else if (has1 && has4 && has5) {
+            // (1,4,5):
+            //   Katsayı(1) = 5/3
+            //   Katsayı(4) = -5/3
+            //   Katsayı(5) = 1
+        
+            mpz_t mod3, tmp;
+            mpz_inits(mod3, tmp, NULL);
+        
+            mpz_mod_ui(mod3, groupOrder, 3);
+            unsigned long r = mpz_get_ui(mod3);  // p mod 3 (0,1,2) - normalde 0 olmaz, p asalsa 3'e bölünmüyordur
+        
             if (shiftedCurrentAdminID == 1) {
-                setFraction(outCoeff, groupOrder, 5, 3); // 5/3
-            } else if (shiftedCurrentAdminID == 4) {
-                setFraction(outCoeff, groupOrder, -5, 3); // -5/3
-            } else {
-                element_set_si(outCoeff, 1); // 1
+                // 5/3
+                //   - p ≡ 2 (mod 3) => (2p + 5)/3
+                //   - p ≡ 1 (mod 3) => (p + 5)/3
+        
+                if (r == 2) {
+                    // tmp = 2p + 5
+                    mpz_mul_ui(tmp, groupOrder, 2);
+                    mpz_add_ui(tmp, tmp, 5);
+                } else {
+                    // r == 1
+                    // tmp = p + 5
+                    mpz_set(tmp, groupOrder);
+                    mpz_add_ui(tmp, tmp, 5);
+                }
+                // tmp / 3 (exact)
+                mpz_divexact_ui(tmp, tmp, 3);
+                element_set_mpz(outCoeff, tmp);
             }
+            else if (shiftedCurrentAdminID == 4) {
+                // -5/3
+                //   - p ≡ 2 (mod 3) => (p - 5)/3
+                //   - p ≡ 1 (mod 3) => (2p - 5)/3
+        
+                if (r == 2) {
+                    // tmp = p - 5
+                    mpz_set(tmp, groupOrder);
+                    mpz_sub_ui(tmp, tmp, 5);
+                } else {
+                    // r == 1
+                    // tmp = 2p - 5
+                    mpz_mul_ui(tmp, groupOrder, 2);
+                    mpz_sub_ui(tmp, tmp, 5);
+                }
+                // tmp / 3 (exact)
+                mpz_divexact_ui(tmp, tmp, 3);
+                element_set_mpz(outCoeff, tmp);
+            }
+            else {
+                // shiftedCurrentAdminID == 5 => katsayı 1
+                element_set_si(outCoeff, 1);
+            }
+        
+            mpz_clears(mod3, tmp, NULL);
         }
+        
         // (7) {2,3,4}
         else if (has2 && has3 && has4) {
             if (shiftedCurrentAdminID == 2) {
