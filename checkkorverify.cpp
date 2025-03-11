@@ -37,13 +37,14 @@ static void create_element_copy(element_t dest, const element_t src, pairing_t p
     
     // Copy by serializing to bytes and back
     unsigned char buf[1024];
-    size_t len = element_length_in_bytes_compressed(src_ptr);
+    // Use const_cast to remove const qualifier when calling PBC functions
+    size_t len = element_length_in_bytes_compressed(const_cast<element_s*>(src_ptr));
     if (len > sizeof(buf)) {
         std::cerr << "Element too large for buffer" << std::endl;
         return;
     }
     
-    element_to_bytes_compressed(buf, (element_ptr)src_ptr);
+    element_to_bytes_compressed(buf, const_cast<element_s*>(src_ptr));
     element_from_bytes_compressed(dest_ptr, buf);
 }
 
@@ -54,13 +55,13 @@ static std::string element_to_hex_string(const element_t elem) {
     
     // Serialize to bytes
     unsigned char buf[1024];
-    size_t len = element_length_in_bytes_compressed(elem_ptr);
+    size_t len = element_length_in_bytes_compressed(const_cast<element_s*>(elem_ptr));
     if (len > sizeof(buf)) {
         std::cerr << "Element too large for buffer" << std::endl;
         return "";
     }
     
-    element_to_bytes_compressed(buf, (element_ptr)elem_ptr);
+    element_to_bytes_compressed(buf, const_cast<element_s*>(elem_ptr));
     
     // Convert to hex string
     std::ostringstream oss;
@@ -78,7 +79,7 @@ static void debug_print_element(const char* label, const element_t elem) {
     const element_s* elem_ptr = get_const_element_ptr(elem);
     
     char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", (element_ptr)elem_ptr);
+    element_snprintf(buf, sizeof(buf), "%B", const_cast<element_s*>(elem_ptr));
     std::cout << "[KoR-DEBUG] " << label << " = " << buf << std::endl;
 }
 
