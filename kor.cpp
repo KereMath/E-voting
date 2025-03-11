@@ -7,8 +7,8 @@
 #include <vector>
 
 // Element serialization functions
-std::string elementToStringG1(const element_t elem);
-std::string elementToStringG2(const element_t elem);
+extern std::string elementToStringG1(const element_t elem);
+extern std::string elementToStringG2(const element_t elem);
 
 // Helper function to convert hex string to bytes
 static std::vector<unsigned char> hexToBytes(const std::string& hex) {
