@@ -543,7 +543,6 @@ for (int i = 0; i < voterCount; i++) {
     // std::cout << "    π_v = " << proveResults[i].proof_v << "\n";    // std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     // std::cout << "-------------------------\n";
 }
-std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (prove_us / 1000.0) << " ms\n";
 
 //kor işlemi
 // std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
@@ -606,8 +605,7 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
 
 auto korEnd = Clock::now();
 auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - korStart).count();
-std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = " 
-          << (kor_us / 1000.0) << " ms\n";
+
 
 // === Knowledge of Representation (KoR) Verification Phase ===
 // std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
@@ -673,15 +671,13 @@ std::cout << "\n[KOR VERIFY] Total Knowledge of Representation Verification Phas
     std::cout << "DID Generation     : " << didGen_ms   << " ms\n";
     std::cout << "Pipeline (Prep+Blind): " << pipeline_ms << " ms\n";
 
-    std::cout << "\nToplam hazirlama (sum) = "
-              << (cumulativePrep_us / 1000.0) << " ms\n";
-    std::cout << "Toplam kör imza (sum)  = "
-              << (cumulativeBlind_us / 1000.0) << " ms\n";
+    std::cout << "\nToplam hazirlama (sum) = " << (cumulativePrep_us / 1000.0) << " ms\n";
+    std::cout << "Toplam kör imza (sum)  = " << (cumulativeBlind_us / 1000.0) << " ms\n";
     std::cout << "\n[UNBLIND] Total Unblind Phase Time = " << (unblind_us / 1000.0) << " ms\n";
     std::cout << "\n[AGGREGATE] Total Aggregate Phase Time = " << (aggregate_us / 1000.0) << " ms\n";
-
-
-    // threads.txt dosyasını kapat
+    std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (prove_us / 1000.0) << " ms\n";
+    std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = " << (kor_us / 1000.0) << " ms\n";
+    std::cout << "\n[KOR VERIFY] Total Knowledge of Representation Verification Phase Time = " << (korVer_us / 1000.0) << " ms\n";
     threadLog.close();
     auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(programEnd - programStart).count();
     std::cout << "Total execution time: " << (totalDuration / 1000.0) << " ms\n";
