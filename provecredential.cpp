@@ -144,7 +144,7 @@ ProveCredentialOutput proveCredential(
     element_set(output.s1, korProof.s1);
     element_set(output.s2, korProof.s2);
     element_set(output.s3, korProof.s3);
-    output.proof_v = korProof.proof_string;
+    output.proof_v = korProof.proof_v;  // Changed from proof_string to proof_v
     
     // --- Debug information ---
     std::ostringstream dbg;

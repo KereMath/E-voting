@@ -46,8 +46,8 @@ KoRProof createKoRProof(
     element_init_G2(beta2_r2p, params.pairing);
 
     element_pow_zn(g2_r1p, params.g2, r1p);
-    element_pow_zn(beta2_r2p, beta2, r2p);
-    element_mul(k_prime, g2_r1p, alpha2);
+    element_pow_zn(beta2_r2p, const_cast<element_t>(beta2), r2p);
+    element_mul(k_prime, g2_r1p, const_cast<element_t>(alpha2));
     element_mul(k_prime, k_prime, beta2_r2p);
     
     // Step 3: Compute com' = g1^(r3') * h^(r2')
@@ -57,7 +57,7 @@ KoRProof createKoRProof(
     element_init_G1(g1_r3p, params.pairing);
     element_init_G1(h_r2p, params.pairing);
     element_pow_zn(g1_r3p, params.g1, r3p);
-    element_pow_zn(h_r2p, h, r2p);
+    element_pow_zn(h_r2p, const_cast<element_t>(h), r2p);
     element_mul(com_prime, g1_r3p, h_r2p);
     
     // Step 4: Compute c = Hash(g1, g2, h, com, com', k, k')
@@ -95,21 +95,21 @@ KoRProof createKoRProof(
     // Step 5: Compute s1 = r1' − c · r.
     element_t temp;
     element_init_Zr(temp, params.pairing);
-    element_mul(temp, c_elem, r);
+    element_mul(temp, c_elem, const_cast<element_t>(r));
     element_sub(proof.s1, r1p, temp);
     element_clear(temp);
     
     // Step 6: Compute s2 = r2' − c · (didInt).
     element_t temp2;
     element_init_Zr(temp2, params.pairing);
-    element_mul(temp2, c_elem, did_elem);
+    element_mul(temp2, c_elem, const_cast<element_t>(did_elem));
     element_sub(proof.s2, r2p, temp2);
     element_clear(temp2);
     
     // Step 7: Compute s3 = r3' − c · o.
     element_t temp3;
     element_init_Zr(temp3, params.pairing);
-    element_mul(temp3, c_elem, o_elem);
+    element_mul(temp3, c_elem, const_cast<element_t>(o_elem));
     element_sub(proof.s3, r3p, temp3);
     element_clear(temp3);
     
@@ -122,7 +122,7 @@ KoRProof createKoRProof(
            << elementToStringG1(proof.s1) << " "
            << elementToStringG1(proof.s2) << " "
            << elementToStringG1(proof.s3);
-    proof.proof_string = korOSS.str();
+    proof.proof_v = korOSS.str();
     
     // Debug output
     std::cout << "[KoR] Creating KoR proof with elements:" << std::endl;

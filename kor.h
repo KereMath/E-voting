@@ -2,18 +2,10 @@
 #ifndef KOR_H
 #define KOR_H
 
-#include "setup.h"  // For TIACParams
+#include "setup.h"          // For TIACParams
+#include "prepareblindsign.h" // To use the existing KoRProof struct
 #include <string>
 #include <pbc/pbc.h>
-
-// Structure to hold the output of the KoR algorithm
-struct KoRProof {
-    element_t c;
-    element_t s1;
-    element_t s2;
-    element_t s3;
-    std::string proof_string;  // The string representation "(c, s1, s2, s3)"
-};
 
 /**
  * Knowledge of Representation Algorithm (Algorithm 16)
