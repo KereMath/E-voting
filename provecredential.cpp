@@ -1,5 +1,4 @@
 #include "provecredential.h"
-#include "kor.h"  // Include our new KoR header
 #include <openssl/sha.h>
 #include <sstream>
 #include <iomanip>
@@ -10,7 +9,7 @@
 // Dışarıdan tanımlı: elementToStringG1 (const parametre alır)
 extern std::string elementToStringG1(const element_t elem);
 
-// New function for G2 elements
+// Function for G2 elements
 static std::string elementToStringG2(const element_t elem) {
     // Use toNonConst to handle the const parameter
     element_t elem_nonconst;
@@ -93,81 +92,20 @@ ProveCredentialOutput proveCredential(
     element_mul(output.k, mvk.alpha2, beta_exp);
     element_mul(output.k, output.k, g2_r);
     
-    // Create element representations for o and didInt
-    element_t o_elem, did_elem;
-    element_init_Zr(o_elem, params.pairing);
-    element_init_Zr(did_elem, params.pairing);
-    mpz_t temp;
-    mpz_init(temp);
-    mpz_set(temp, o);
-    element_set_mpz(o_elem, temp);
-    mpz_clear(temp);
-    element_set_mpz(did_elem, didInt);
-    
-    // Create a com element for the hash calculation - this is g1^o * h^DIDi
-    element_t com;
-    element_init_G1(com, params.pairing);
-    element_t g1_o, h_did;
-    element_init_G1(g1_o, params.pairing);
-    element_init_G1(h_did, params.pairing);
-    
-    // g1^o
-    element_pow_zn(g1_o, params.g1, o_elem);
-    
-    // h^DIDi - Using aggSig.h
-    element_pow_zn(h_did, aggSig.h, did_elem);
-    
-    // com = g1^o * h^DIDi
-    element_mul(com, g1_o, h_did);
-    
-    // --- Step 7: Call the Knowledge of Representation (KoR) algorithm ---
-    std::cout << "[ProveCredential] Calling KoR algorithm..." << std::endl;
-    KoRProof korProof = createKoRProof(
-        params,
-        aggSig.h,
-        output.k,
-        com,
-        mvk.alpha2,
-        mvk.beta2,
-        r,
-        did_elem,
-        o_elem
-    );
-    
-    // Copy the KoR proof to output
-    element_init_Zr(output.c, params.pairing);
-    element_init_Zr(output.s1, params.pairing);
-    element_init_Zr(output.s2, params.pairing);
-    element_init_Zr(output.s3, params.pairing);
-    
-    element_set(output.c, korProof.c);
-    element_set(output.s1, korProof.s1);
-    element_set(output.s2, korProof.s2);
-    element_set(output.s3, korProof.s3);
-    
-    // The field is likely tuple_str in the KorProof structure, but we need to verify
-    // Try to directly construct the proof string instead of relying on KoRProof's member
-    std::ostringstream korOSS;
-    korOSS << elementToStringG1(korProof.c) << " "
-           << elementToStringG1(korProof.s1) << " "
-           << elementToStringG1(korProof.s2) << " "
-           << elementToStringG1(korProof.s3);
-    output.proof_v = korOSS.str();
-    
     // --- Debug information ---
     std::ostringstream dbg;
     dbg << "h'' = " << elementToStringG1(output.sigmaRnd.h) << "\n";
     dbg << "s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
     dbg << "k   = " << elementToStringG2(output.k) << "\n";  // Updated to G2 serialization
-    dbg << "KoR tuple = " << output.proof_v << "\n";
     output.sigmaRnd.debug_info = dbg.str();
     
+    // Initialize c, s1, s2, s3 as empty elements to avoid uninitialized memory
+    element_init_Zr(output.c, params.pairing);
+    element_init_Zr(output.s1, params.pairing);
+    element_init_Zr(output.s2, params.pairing);
+    element_init_Zr(output.s3, params.pairing);
+    
     // Cleanup
-    element_clear(o_elem);
-    element_clear(did_elem);
-    element_clear(com);
-    element_clear(g1_o);
-    element_clear(h_did);
     element_clear(r);
     element_clear(r_prime);
     element_clear(h_dbl);

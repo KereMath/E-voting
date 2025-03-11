@@ -14,8 +14,6 @@ struct KoRProof {
     element_t s1;
     element_t s2;
     element_t s3;
-    std::string tuple_str;  // or some other name
-
 };
 
 /*
