@@ -6,9 +6,50 @@
 #include <iostream>
 #include <vector>
 
-// Forward declaration of element serialization functions
+// Element serialization functions
 std::string elementToStringG1(const element_t elem);
 std::string elementToStringG2(const element_t elem);
+
+// Helper function to convert hex string to bytes
+static std::vector<unsigned char> hexToBytes(const std::string& hex) {
+    std::vector<unsigned char> bytes;
+    bytes.reserve(hex.length() / 2);
+    
+    for (size_t i = 0; i + 1 < hex.length(); i += 2) {
+        std::string byteStr = hex.substr(i, 2);
+        unsigned char byte = (unsigned char)strtol(byteStr.c_str(), NULL, 16);
+        bytes.push_back(byte);
+    }
+    
+    return bytes;
+}
+
+// Helper function to convert string to element_t
+void stringToElement(element_t result, const std::string &str, pairing_t pairing, int element_type) {
+    // Initialize the result element
+    switch (element_type) {
+        case 1: // G1
+            element_init_G1(result, pairing);
+            break;
+        case 2: // G2
+            element_init_G2(result, pairing);
+            break;
+        default: // Zr or other
+            element_init_Zr(result, pairing);
+            break;
+    }
+    
+    // Convert the string to bytes
+    std::vector<unsigned char> bytes = hexToBytes(str);
+    if (bytes.empty()) {
+        throw std::runtime_error("Failed to convert hex string to bytes");
+    }
+    
+    // Convert bytes to element
+    if (element_from_bytes(result, bytes.data()) == 0) {
+        throw std::runtime_error("Failed to create element from bytes");
+    }
+}
 
 // Helper function to create a non-const copy of an element
 static void copy_const_element(element_t dest, const element_t src, pairing_t pairing, int element_type) {
@@ -40,7 +81,7 @@ static void copy_const_mpz(mpz_t dest, const mpz_t src) {
     mpz_set(dest, src);
 }
 
-KoRProof createKoRProof(
+KnowledgeOfRepProof generateKoRProof(
     TIACParams &params,
     const element_t h,
     const element_t k,
@@ -53,7 +94,7 @@ KoRProof createKoRProof(
 ) {
     std::cout << "Starting Knowledge of Representation (KoR) algorithm..." << std::endl;
     
-    KoRProof proof;
+    KnowledgeOfRepProof proof;
     
     // Initialize result elements
     element_init_Zr(proof.c, params.pairing);
@@ -145,7 +186,7 @@ KoRProof createKoRProof(
     mpz_t c_mpz;
     mpz_init(c_mpz);
     if(mpz_set_str(c_mpz, c_str.c_str(), 16) != 0)
-        throw std::runtime_error("createKoRProof: Error converting hash to mpz");
+        throw std::runtime_error("generateKoRProof: Error converting hash to mpz");
     mpz_mod(c_mpz, c_mpz, params.prime_order);
     element_t c_elem;
     element_init_Zr(c_elem, params.pairing);
@@ -191,9 +232,8 @@ KoRProof createKoRProof(
            << elementToStringG1(proof.s2) << " "
            << elementToStringG1(proof.s3);
     
-    // Set the proof string - use proof_v member instead of tuple_str
-    // (we're assuming the existing KoRProof structure uses proof_v)
-    proof.proof_v = korOSS.str();
+    // Set the proof string
+    proof.proof_string = korOSS.str();
     
     std::cout << "KoR Step 8: Constructed tuple (c, s1, s2, s3)" << std::endl;
     

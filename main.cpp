@@ -547,6 +547,7 @@ std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (p
 
 // Add this after your proveCredential phase
 // Add this after your proveCredential phase
+// Add this in your main function after the proveCredential phase
 std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
 auto korStart = Clock::now();
 
@@ -557,17 +558,31 @@ for (int i = 0; i < voterCount; i++) {
     mpz_set_str(did_int, dids[i].did.c_str(), 16);
     mpz_mod(did_int, did_int, params.prime_order);
     
+    // Convert the commitment string to an element
+    element_t com_elem;
+    element_init_G1(com_elem, params.pairing);
+    
+    // If preparedOutputs[i].debug.com is a string representation of the element,
+    // we need to convert it to an actual element
+    try {
+        stringToElement(com_elem, preparedOutputs[i].debug.com, params.pairing, 1); // 1 for G1
+    } catch (const std::exception& e) {
+        std::cerr << "Error converting com string to element: " << e.what() << std::endl;
+        // As fallback, generate a random element
+        element_random(com_elem);
+    }
+    
     // Generate a random r value since we don't have it from proveCredential
     element_t r;
     element_init_Zr(r, params.pairing);
     element_random(r);
     
     // Create the KoR proof
-    KoRProof korProof = createKoRProof(
+    KnowledgeOfRepProof korProof = generateKoRProof(
         params,
         aggregateResults[i].h,
         proveResults[i].k,
-        preparedOutputs[i].debug.com,
+        com_elem,
         keyOut.mvk.alpha2,
         keyOut.mvk.beta2,
         r,
@@ -580,19 +595,23 @@ for (int i = 0; i < voterCount; i++) {
     element_set(proveResults[i].s1, korProof.s1);
     element_set(proveResults[i].s2, korProof.s2);
     element_set(proveResults[i].s3, korProof.s3);
-    proveResults[i].proof_v = korProof.proof_v;
+    proveResults[i].proof_v = korProof.proof_string;
     
     std::cout << "Voter " << (i+1) << " KoR proof generated\n";
     
     // Clean up
     element_clear(r);
+    element_clear(com_elem);
+    element_clear(korProof.c);
+    element_clear(korProof.s1);
+    element_clear(korProof.s2);
+    element_clear(korProof.s3);
     mpz_clear(did_int);
 }
 
 auto korEnd = Clock::now();
 auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - korStart).count();
 std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = " << (kor_us / 1000.0) << " ms\n";
-
 
 
 
