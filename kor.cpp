@@ -43,31 +43,31 @@ std::string elementToStringG2(const element_t elem) {
 }
 
 // Helper function to print an element with a label for debugging
-void debugPrintElement(const char* label, const element_t elem) {
-    char buf[1024];
-    element_t elem_copy;
-    elem_copy[0] = *((element_s*)(&elem[0]));
-    element_snprintf(buf, sizeof(buf), "%B", elem_copy);
-    std::cout << "{from kor} " << label << " = " << buf << std::endl;
+// void debugPrintElement(const char* label, const element_t elem) {
+//     char buf[1024];
+//     element_t elem_copy;
+//     elem_copy[0] = *((element_s*)(&elem[0]));
+//     element_snprintf(buf, sizeof(buf), "%B", elem_copy);
+//     // std::cout << "{from kor} " << label << " = " << buf << std::endl;
     
-    // Also print the hex representation for easier comparison
-    std::string hex = elementToStringG1(elem);
-    std::cout << "{from kor} " << label << " (hex) = " << hex.substr(0, 60) << "..." << std::endl;
-}
+//     // Also print the hex representation for easier comparison
+//     std::string hex = elementToStringG1(elem);
+//     // std::cout << "{from kor} " << label << " (hex) = " << hex.substr(0, 60) << "..." << std::endl;
+// }
 
-// Helper function to print an mpz_t value with a label for debugging
-void debugPrintMPZ(const char* label, const mpz_t value) {
-    char* str = mpz_get_str(nullptr, 10, value);
-    std::cout << "{from kor} " << label << " = " << str << std::endl;
-    free(str);
+// // Helper function to print an mpz_t value with a label for debugging
+// void debugPrintMPZ(const char* label, const mpz_t value) {
+//     char* str = mpz_get_str(nullptr, 10, value);
+//     // std::cout << "{from kor} " << label << " = " << str << std::endl;
+//     free(str);
     
-    // Also print in hex format
-    char* hex_str = mpz_get_str(nullptr, 16, value);
-    std::cout << "{from kor} " << label << " (hex) = 0x" << hex_str << std::endl;
-    free(hex_str);
-}
+//     // Also print in hex format
+//     char* hex_str = mpz_get_str(nullptr, 16, value);
+//     // std::cout << "{from kor} " << label << " (hex) = 0x" << hex_str << std::endl;
+//     free(hex_str);
+// }
 
-// Helper function to convert hex string to bytes
+// // Helper function to convert hex string to bytes
 static std::vector<unsigned char> hexToBytes(const std::string& hex) {
     std::vector<unsigned char> bytes;
     bytes.reserve(hex.length() / 2);
@@ -152,16 +152,16 @@ KnowledgeOfRepProof generateKoRProof(
     std::cout << "Starting Knowledge of Representation (KoR) algorithm..." << std::endl;
     
     // Debug prints for input parameters
-    std::cout << "\n{from kor} === Debug Input Parameters ===" << std::endl;
-    debugPrintElement("h (from aggregateResults[i].h)", h);
-    debugPrintElement("k (from proveResults[i].k)", k);
-    debugPrintElement("com (from preparedOutputs[i].debug.com)", com);
-    debugPrintElement("alpha2 (from keyOut.mvk.alpha2)", alpha2);
-    debugPrintElement("beta2 (from keyOut.mvk.beta2)", beta2);
-    debugPrintElement("r (random value)", r);
-    debugPrintMPZ("did_int (DID as integer)", did_int);
-    debugPrintMPZ("o (from preparedOutputs[i].o)", o);
-    std::cout << "{from kor} === End of Debug Input Parameters ===\n" << std::endl;
+    // std::cout << "\n{from kor} === Debug Input Parameters ===" << std::endl;
+    // debugPrintElement("h (from aggregateResults[i].h)", h);
+    // debugPrintElement("k (from proveResults[i].k)", k);
+    // debugPrintElement("com (from preparedOutputs[i].debug.com)", com);
+    // debugPrintElement("alpha2 (from keyOut.mvk.alpha2)", alpha2);
+    // debugPrintElement("beta2 (from keyOut.mvk.beta2)", beta2);
+    // debugPrintElement("r (random value)", r);
+    // debugPrintMPZ("did_int (DID as integer)", did_int);
+    // debugPrintMPZ("o (from preparedOutputs[i].o)", o);
+    // std::cout << "{from kor} === End of Debug Input Parameters ===\n" << std::endl;
     
     KnowledgeOfRepProof proof;
     
@@ -202,10 +202,10 @@ KnowledgeOfRepProof generateKoRProof(
     element_random(r2);
     element_random(r3);
     
-    std::cout << "KoR Step 1: Generated random exponents r1, r2, r3" << std::endl;
-    debugPrintElement("{from kor} r1", r1);
-    debugPrintElement("{from kor} r2", r2);
-    debugPrintElement("{from kor} r3", r3);
+    // std::cout << "KoR Step 1: Generated random exponents r1, r2, r3" << std::endl;
+    // debugPrintElement("{from kor} r1", r1);
+    // debugPrintElement("{from kor} r2", r2);
+    // debugPrintElement("{from kor} r3", r3);
     
     // Step 2: Compute k' = g2^(r1) * α₂ * (β₂)^(r2)
     element_t k_prime;
@@ -219,8 +219,8 @@ KnowledgeOfRepProof generateKoRProof(
     element_mul(k_prime, g2_r1, alpha2_copy);
     element_mul(k_prime, k_prime, beta2_r2);
     
-    std::cout << "KoR Step 2: Computed k'" << std::endl;
-    debugPrintElement("{from kor} k'", k_prime);
+    // std::cout << "KoR Step 2: Computed k'" << std::endl;
+    // debugPrintElement("{from kor} k'", k_prime);
     
     // Step 3: Compute com' = g1^(r3) * h^(r2)
     element_t com_prime;
@@ -232,8 +232,8 @@ KnowledgeOfRepProof generateKoRProof(
     element_pow_zn(h_r2, h_copy, r2);
     element_mul(com_prime, g1_r3, h_r2);
     
-    std::cout << "KoR Step 3: Computed com'" << std::endl;
-    debugPrintElement("{from kor} com'", com_prime);
+    // std::cout << "KoR Step 3: Computed com'" << std::endl;
+    // debugPrintElement("{from kor} com'", com_prime);
     
     // Step 4: Compute c = Hash(g1, g2, h, com, com', k, k')
     std::ostringstream hashOSS;
@@ -246,7 +246,7 @@ KnowledgeOfRepProof generateKoRProof(
             << elementToStringG2(k_prime);
     std::string hashInput = hashOSS.str();
     
-    std::cout << "{from kor} Hash input (truncated): " << hashInput.substr(0, 100) << "..." << std::endl;
+    // std::cout << "{from kor} Hash input (truncated): " << hashInput.substr(0, 100) << "..." << std::endl;
     
     // Calculate SHA-512 hash
     unsigned char hashDigest[SHA512_DIGEST_LENGTH];
@@ -258,7 +258,7 @@ KnowledgeOfRepProof generateKoRProof(
     }
     std::string c_str = hashFinalOSS.str();
     
-    std::cout << "{from kor} Hash output (hex): " << c_str.substr(0, 64) << "..." << std::endl;
+    // std::cout << "{from kor} Hash output (hex): " << c_str.substr(0, 64) << "..." << std::endl;
     
     // Convert hash to element c in Zp
     mpz_t c_mpz;
@@ -271,8 +271,8 @@ KnowledgeOfRepProof generateKoRProof(
     element_set_mpz(c_elem, c_mpz);
     mpz_clear(c_mpz);
     
-    std::cout << "KoR Step 4: Computed challenge c" << std::endl;
-    debugPrintElement("{from kor} c", c_elem);
+    // std::cout << "KoR Step 4: Computed challenge c" << std::endl;
+    // debugPrintElement("{from kor} c", c_elem);
     
     // Step 5: Compute s1 = r1 - c·r
     element_t temp;
@@ -281,8 +281,8 @@ KnowledgeOfRepProof generateKoRProof(
     element_sub(proof.s1, r1, temp);
     element_clear(temp);
     
-    std::cout << "KoR Step 5: Computed s1" << std::endl;
-    debugPrintElement("{from kor} s1", proof.s1);
+    // std::cout << "KoR Step 5: Computed s1" << std::endl;
+    // debugPrintElement("{from kor} s1", proof.s1);
     
     // Step 6: Compute s2 = r2 - c·DIDi
     element_t temp2;
@@ -291,8 +291,8 @@ KnowledgeOfRepProof generateKoRProof(
     element_sub(proof.s2, r2, temp2);
     element_clear(temp2);
     
-    std::cout << "KoR Step 6: Computed s2" << std::endl;
-    debugPrintElement("{from kor} s2", proof.s2);
+    // std::cout << "KoR Step 6: Computed s2" << std::endl;
+    // debugPrintElement("{from kor} s2", proof.s2);
     
     // Step 7: Compute s3 = r3 - c·o
     element_t temp3;
@@ -301,8 +301,8 @@ KnowledgeOfRepProof generateKoRProof(
     element_sub(proof.s3, r3, temp3);
     element_clear(temp3);
     
-    std::cout << "KoR Step 7: Computed s3" << std::endl;
-    debugPrintElement("{from kor} s3", proof.s3);
+    // std::cout << "KoR Step 7: Computed s3" << std::endl;
+    // debugPrintElement("{from kor} s3", proof.s3);
     
     // Set c element in result
     element_set(proof.c, c_elem);
@@ -317,17 +317,17 @@ KnowledgeOfRepProof generateKoRProof(
     // Set the proof string
     proof.proof_string = korOSS.str();
     
-    std::cout << "KoR Step 8: Constructed tuple (c, s1, s2, s3)" << std::endl;
-    std::cout << "{from kor} Proof string: " << proof.proof_string.substr(0, 100) << "..." << std::endl;
+    // std::cout << "KoR Step 8: Constructed tuple (c, s1, s2, s3)" << std::endl;
+    // std::cout << "{from kor} Proof string: " << proof.proof_string.substr(0, 100) << "..." << std::endl;
     
-    // Debug output
-    std::cout << "KoR algorithm completed successfully." << std::endl;
-    std::cout << "{from kor} === Final KoR Proof Values ===" << std::endl;
-    debugPrintElement("{from kor} Final c", proof.c);
-    debugPrintElement("{from kor} Final s1", proof.s1);
-    debugPrintElement("{from kor} Final s2", proof.s2);
-    debugPrintElement("{from kor} Final s3", proof.s3);
-    std::cout << "{from kor} === End of Final KoR Proof Values ===\n" << std::endl;
+    // // Debug output
+    // std::cout << "KoR algorithm completed successfully." << std::endl;
+    // std::cout << "{from kor} === Final KoR Proof Values ===" << std::endl;
+    // debugPrintElement("{from kor} Final c", proof.c);
+    // debugPrintElement("{from kor} Final s1", proof.s1);
+    // debugPrintElement("{from kor} Final s2", proof.s2);
+    // debugPrintElement("{from kor} Final s3", proof.s3);
+    // std::cout << "{from kor} === End of Final KoR Proof Values ===\n" << std::endl;
     
     // Clean up temporary elements
     element_clear(h_copy);
