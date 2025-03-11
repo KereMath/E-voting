@@ -584,10 +584,10 @@ for (int i = 0; i < voterCount; i++) {
         params,
         aggregateResults[i].h,
         proveResults[i].k,
+        proveResults[i].r,
         com_elem,
         keyOut.mvk.alpha2,
         keyOut.mvk.beta2,
-        r,
         did_int,
         preparedOutputs[i].o
     );

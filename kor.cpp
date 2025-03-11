@@ -142,10 +142,10 @@ KnowledgeOfRepProof generateKoRProof(
     TIACParams &params,
     const element_t h,
     const element_t k,
+    const element_t r,
     const element_t com,
     const element_t alpha2,
     const element_t beta2,
-    const element_t r,
     const mpz_t did_int,
     const mpz_t o
 ) {

@@ -33,10 +33,10 @@ KnowledgeOfRepProof generateKoRProof(
     TIACParams &params,
     const element_t h,      // Typically from aggregateResults[i].h
     const element_t k,      // k = α₂ · (β₂)^(did) · g₂^r
+    const element_t r,      // Random exponent used in k
     const element_t com,    // From converted preparedOutputs[i].debug.com
     const element_t alpha2, // From master verification key
     const element_t beta2,  // From master verification key
-    const element_t r,      // Random exponent used in k
     const mpz_t did_int,    // DID as integer
     const mpz_t o           // From preparedOutputs[i].o
 );
