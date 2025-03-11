@@ -34,6 +34,12 @@ static void copy_const_element(element_t dest, const element_t src, pairing_t pa
     element_set(dest, temp);
 }
 
+// Helper function to create a non-const copy of mpz_t
+static void copy_const_mpz(mpz_t dest, const mpz_t src) {
+    mpz_init(dest);
+    mpz_set(dest, src);
+}
+
 KoRProof createKoRProof(
     TIACParams &params,
     const element_t h,
@@ -65,12 +71,17 @@ KoRProof createKoRProof(
     copy_const_element(beta2_copy, beta2, params.pairing, 2);  // G2
     copy_const_element(r_copy, r, params.pairing, 0);        // Zr
     
+    // Create non-const copies of mpz_t values
+    mpz_t did_int_copy, o_copy;
+    copy_const_mpz(did_int_copy, did_int);
+    copy_const_mpz(o_copy, o);
+    
     // Convert mpz_t values to Zr elements
     element_t did_elem, o_elem;
     element_init_Zr(did_elem, params.pairing);
     element_init_Zr(o_elem, params.pairing);
-    element_set_mpz(did_elem, did_int);
-    element_set_mpz(o_elem, o);
+    element_set_mpz(did_elem, did_int_copy);
+    element_set_mpz(o_elem, o_copy);
     
     // Step 1: Choose random r1, r2, r3 in Zp
     element_t r1, r2, r3;
@@ -179,7 +190,10 @@ KoRProof createKoRProof(
            << elementToStringG1(proof.s1) << " "
            << elementToStringG1(proof.s2) << " "
            << elementToStringG1(proof.s3);
-    proof.tuple_str = korOSS.str();
+    
+    // Set the proof string - use proof_v member instead of tuple_str
+    // (we're assuming the existing KoRProof structure uses proof_v)
+    proof.proof_v = korOSS.str();
     
     std::cout << "KoR Step 8: Constructed tuple (c, s1, s2, s3)" << std::endl;
     
@@ -205,6 +219,8 @@ KoRProof createKoRProof(
     element_clear(g1_r3);
     element_clear(h_r2);
     element_clear(c_elem);
+    mpz_clear(did_int_copy);
+    mpz_clear(o_copy);
     
     return proof;
 }

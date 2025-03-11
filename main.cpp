@@ -546,13 +546,21 @@ std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (p
 //kor işlemi
 
 // Add this after your proveCredential phase
+// Add this after your proveCredential phase
 std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
+auto korStart = Clock::now();
+
 for (int i = 0; i < voterCount; i++) {
     // Convert DID from hex string to mpz_t
     mpz_t did_int;
     mpz_init(did_int);
     mpz_set_str(did_int, dids[i].did.c_str(), 16);
     mpz_mod(did_int, did_int, params.prime_order);
+    
+    // Generate a random r value since we don't have it from proveCredential
+    element_t r;
+    element_init_Zr(r, params.pairing);
+    element_random(r);
     
     // Create the KoR proof
     KoRProof korProof = createKoRProof(
@@ -562,20 +570,28 @@ for (int i = 0; i < voterCount; i++) {
         preparedOutputs[i].debug.com,
         keyOut.mvk.alpha2,
         keyOut.mvk.beta2,
-        /* r - missing value, see note below */,
+        r,
         did_int,
         preparedOutputs[i].o
     );
     
     // Copy the proof to the proveResults
-    proveResults[i].proof_v = korProof.tuple_str;
+    element_set(proveResults[i].c, korProof.c);
+    element_set(proveResults[i].s1, korProof.s1);
+    element_set(proveResults[i].s2, korProof.s2);
+    element_set(proveResults[i].s3, korProof.s3);
+    proveResults[i].proof_v = korProof.proof_v;
     
     std::cout << "Voter " << (i+1) << " KoR proof generated\n";
     
     // Clean up
+    element_clear(r);
     mpz_clear(did_int);
 }
 
+auto korEnd = Clock::now();
+auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - korStart).count();
+std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = " << (kor_us / 1000.0) << " ms\n";
 
 
 

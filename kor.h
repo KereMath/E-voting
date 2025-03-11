@@ -2,20 +2,9 @@
 #define KOR_H
 
 #include "setup.h"
+#include "prepareblindsign.h"  // This already has KoRProof definition
 #include <string>
 #include <pbc/pbc.h>
-
-/**
- * Structure to hold the Knowledge of Representation (KoR) proof
- * According to Algorithm 16
- */
-struct KoRProof {
-    element_t c;   // Challenge value
-    element_t s1;  // First response value
-    element_t s2;  // Second response value
-    element_t s3;  // Third response value
-    std::string tuple_str; // String representation of the proof
-};
 
 /**
  * Knowledge of Representation Algorithm (Algorithm 16)
