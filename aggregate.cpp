@@ -15,97 +15,270 @@ std::string elementToStringG1(element_t elem);
 static inline element_s* toNonConst(const element_s* in) {
     return const_cast<element_s*>(in);
 }
+void computeLagrangeCoefficient(
+    element_t outCoeff, 
+    const std::vector<int> &allIDs, 
+    size_t idx, 
+    const mpz_t groupOrder, 
+    pairing_t pairing)
+{
+    // Örnek: "allIDs = {0,1,3}" gelsin:
+    // Biz bunları +1 kaydırıyoruz => {1,2,4}.
+    // Sonra "shiftedCurrentAdminID" = 1,2 veya 4'e göre
+    // Lagrange katsayılarını buluyoruz. 
+    // Sonucu da outCoeff'e koyuyoruz.
 
-// Lagrange katsayısını hesaplar:
-// outCoeff = ∏ ( id_j / (id_j - id_i) )  (j ≠ i) mod p
-void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allIDs, size_t idx, const mpz_t groupOrder, pairing_t pairing) {
-    // std::cout << "Admin IDs: "; for(int id : allIDs) std::cout << id << " "; 
-    // std::cout << "Current admin ID: " << allIDs[idx] << std::endl;
-    
-    if (allIDs.size() == 2) {
-        int current_admin_id = allIDs[idx];
-        
-        // İki admin ID'sini belirleme (sıra önemli değil)
-        bool has0 = false, has1 = false, has2 = false;
-        for (int id : allIDs) {
-            if (id == 0) has0 = true;
-            if (id == 1) has1 = true;
-            if (id == 2) has2 = true;
+    if (allIDs.empty()) {
+        element_set1(outCoeff);
+        return;
+    }
+
+    // (1) ID'leri kaydır (0 tabanlıyı 1 tabanlıya)
+    std::vector<int> shiftedIDs(allIDs.size());
+    for (size_t i = 0; i < allIDs.size(); i++) {
+        shiftedIDs[i] = allIDs[i] + 1;
+    }
+    // Bu admin'in kaydırılmış ID'si
+    int shiftedCurrentAdminID = shiftedIDs[idx];
+
+    // 2 Elemanlı Durum (shiftedIDs.size() == 2)
+    if (shiftedIDs.size() == 2) {
+        // 1 tabanlı ID'ler var: 
+        // Mümkün setler: {1,2}, {1,3}, {2,3}, {1,4}, vs...
+        // Aşağıdaki mantığı orijinal 0-based yerini 1-based'e uyarlayalım.
+
+        // Hangi shifted ID'ler var?
+        bool has1=false, has2=false, has3=false, has4=false, has5=false;
+        for (int sid : shiftedIDs) {
+            if (sid == 1) has1 = true;
+            if (sid == 2) has2 = true;
+            if (sid == 3) has3 = true;
+            if (sid == 4) has4 = true;
+            if (sid == 5) has5 = true;
         }
-        
-        // {0, 1} admin çifti (herhangi bir sırada)
-        if (has0 && has1) {
-            if (current_admin_id == 0) {
-                // Admin ID 0 için λ = 2
+
+        // Örnek: {1,2} => (0,1) idi aslında, vs...
+
+        // {1,2}
+        if (has1 && has2 && shiftedIDs.size() == 2) {
+            if (shiftedCurrentAdminID == 1) {
+                // lambda = 2 (p üstünde 2)
                 element_set_si(outCoeff, 2);
-            } else { // current_admin_id == 1
-                // Admin ID 1 için λ = -1
-                element_set_si(outCoeff, -1);
-            }
-        } 
-        // {0, 2} admin çifti (herhangi bir sırada)
-        else if (has0 && has2) {
-            if (current_admin_id == 0) {
-                mpz_t p_plus_3, half_result;
-                mpz_inits(p_plus_3, half_result, NULL);
-                
-                // p+3 hesapla
-                mpz_add_ui(p_plus_3, groupOrder, 3);
-                
-                // (p+3)/2 hesapla
-                mpz_tdiv_q_ui(half_result, p_plus_3, 2);
-                
-                // Element'e ata
-                element_set_mpz(outCoeff, half_result);
-                
-                mpz_clears(p_plus_3, half_result, NULL);
-            } else { // current_admin_id == 2
-                // Admin ID 2 için λ = 3/2, (p+3)/2 olarak hesapla
-
-
-
-                mpz_t p_minus_1, half_result;
-                mpz_inits(p_minus_1, half_result, NULL);
-                
-                // p-1 hesapla
-                mpz_sub_ui(p_minus_1, groupOrder, 1);
-                
-                // (p-1)/2 hesapla
-                mpz_tdiv_q_ui(half_result, p_minus_1, 2);
-                
-                // Element'e ata
-                element_set_mpz(outCoeff, half_result);
-                
-                mpz_clears(p_minus_1, half_result, NULL);
+            } else { // 2
+                // lambda = -1 => p-1
+                mpz_t pm1;
+                mpz_init(pm1);
+                mpz_sub_ui(pm1, groupOrder, 1);
+                element_set_mpz(outCoeff, pm1);
+                mpz_clear(pm1);
             }
         }
-        // {1, 2} admin çifti (herhangi bir sırada)
-        else if (has1 && has2) {
-            if (current_admin_id == 1) {
-                // Admin ID 1 için λ = 3
+        // {1,3}
+        else if (has1 && has3) {
+            if (shiftedCurrentAdminID == 1) {
+                // (0,2) durumu -> (p+3)/2 vs. 
+                // Orijinal kodun "id=0 => (p+3)/2" gibi yerini taklit edeceksen 
+                // buraya koyarsın. Ama senin orijinal 2'li kodda (0,2) = (1,3) 
+                // tam nasıl ilerliyorsa oraya bak.
+                // (Örnek) => lambda(1) = (p+3)/2
+                mpz_t p_plus_3, half;
+                mpz_inits(p_plus_3, half, NULL);
+                mpz_add_ui(p_plus_3, groupOrder, 3);
+                mpz_tdiv_q_ui(half, p_plus_3, 2);
+                element_set_mpz(outCoeff, half);
+                mpz_clears(p_plus_3, half, NULL);
+            } else { // 3
+                // lambda(3) = (p-1)/2
+                mpz_t p_minus_1, half;
+                mpz_inits(p_minus_1, half, NULL);
+                mpz_sub_ui(p_minus_1, groupOrder, 1);
+                mpz_tdiv_q_ui(half, p_minus_1, 2);
+                element_set_mpz(outCoeff, half);
+                mpz_clears(p_minus_1, half, NULL);
+            }
+        }
+        // {2,3}
+        else if (has2 && has3) {
+            if (shiftedCurrentAdminID == 2) {
+                // lambda = 3
                 element_set_si(outCoeff, 3);
-            } else { // current_admin_id == 2
-                // Admin ID 2 için λ = -2
-                element_set_si(outCoeff, -2);
+            } else { // 3
+                // lambda = -2 => p-2
+                mpz_t pm2;
+                mpz_init(pm2);
+                mpz_sub_ui(pm2, groupOrder, 2);
+                element_set_mpz(outCoeff, pm2);
+                mpz_clear(pm2);
             }
         }
         else {
-            // Diğer durumlar için varsayılan değerler
-            std::vector<int> sorted_ids = allIDs;
-            std::sort(sorted_ids.begin(), sorted_ids.end());
-            
-            if (current_admin_id == sorted_ids[0]) {
-                element_set_si(outCoeff, 2); // Varsayılan düşük ID
+            // vs... "Varsayılan" 
+            // ya da her ne yapmak istersen
+            element_set1(outCoeff);
+        }
+    }
+
+    // 3 Elemanlı Durum
+    else if (shiftedIDs.size() == 3) {
+        // 1 tabanlı ID'lerin hangi kombinasyonu?
+        // Mesela (1,2,4) demek orijinalde (0,1,3)...
+
+        bool has1=false, has2=false, has3=false, has4=false, has5=false;
+        for (int sid : shiftedIDs) {
+            if (sid == 1) has1 = true;
+            if (sid == 2) has2 = true;
+            if (sid == 3) has3 = true;
+            if (sid == 4) has4 = true;
+            if (sid == 5) has5 = true;
+        }
+
+        // Şimdi python çıktılarımız gibi:
+        // (1,2,3) => katsayı(1)=3, katsayı(2)=-3, katsayı(3)=1, vs...
+
+        // (1) {1,2,3}
+        if (has1 && has2 && has3) {
+            if (shiftedCurrentAdminID == 1) {
+                element_set_si(outCoeff, 3);
+            } else if (shiftedCurrentAdminID == 2) {
+                // -3 => p-3
+                mpz_t pm3; mpz_init(pm3);
+                mpz_sub_ui(pm3, groupOrder, 3);
+                element_set_mpz(outCoeff, pm3);
+                mpz_clear(pm3);
             } else {
-                element_set_si(outCoeff, -1); // Varsayılan yüksek ID
+                // 3
+                element_set_si(outCoeff, 1);
             }
+        }
+        // (2) {1,2,4}
+        else if (has1 && has2 && has4) {
+            if (shiftedCurrentAdminID == 1) {
+                // 8/3
+                setFraction(outCoeff, groupOrder, 8, 3);
+            } else if (shiftedCurrentAdminID == 2) {
+                // -2 => p-2
+                mpz_t pm2; mpz_init(pm2);
+                mpz_sub_ui(pm2, groupOrder, 2);
+                element_set_mpz(outCoeff, pm2);
+                mpz_clear(pm2);
+            } else { // 4
+                // 1/3
+                setFraction(outCoeff, groupOrder, 1, 3);
+            }
+        }
+        // (3) {1,2,5}
+        else if (has1 && has2 && has5) {
+            if (shiftedCurrentAdminID == 1) {
+                // 5/2
+                setFraction(outCoeff, groupOrder, 5, 2);
+            } else if (shiftedCurrentAdminID == 2) {
+                // -5/3
+                setFraction(outCoeff, groupOrder, -5, 3);
+            } else {
+                // 1/6
+                setFraction(outCoeff, groupOrder, 1, 6);
+            }
+        }
+        // (4) {1,3,4}
+        else if (has1 && has3 && has4) {
+            if (shiftedCurrentAdminID == 1) {
+                element_set_si(outCoeff, 2); // 2
+            } else if (shiftedCurrentAdminID == 3) {
+                // -2 => p-2
+                mpz_t pm2; mpz_init(pm2);
+                mpz_sub_ui(pm2, groupOrder, 2);
+                element_set_mpz(outCoeff, pm2);
+                mpz_clear(pm2);
+            } else { // 4
+                element_set_si(outCoeff, 1);
+            }
+        }
+        // (5) {1,3,5}
+        else if (has1 && has3 && has5) {
+            if (shiftedCurrentAdminID == 1) {
+                setFraction(outCoeff, groupOrder, 15, 8); // 15/8
+            } else if (shiftedCurrentAdminID == 3) {
+                setFraction(outCoeff, groupOrder, -5, 4); // -5/4
+            } else {
+                setFraction(outCoeff, groupOrder, 3, 8);  // 3/8
+            }
+        }
+        // (6) {1,4,5}
+        else if (has1 && has4 && has5) {
+            if (shiftedCurrentAdminID == 1) {
+                setFraction(outCoeff, groupOrder, 5, 3); // 5/3
+            } else if (shiftedCurrentAdminID == 4) {
+                setFraction(outCoeff, groupOrder, -5, 3); // -5/3
+            } else {
+                element_set_si(outCoeff, 1); // 1
+            }
+        }
+        // (7) {2,3,4}
+        else if (has2 && has3 && has4) {
+            if (shiftedCurrentAdminID == 2) {
+                element_set_si(outCoeff, 6);
+            } else if (shiftedCurrentAdminID == 3) {
+                // -8 => p-8
+                mpz_t pm8; mpz_init(pm8);
+                mpz_sub_ui(pm8, groupOrder, 8);
+                element_set_mpz(outCoeff, pm8);
+                mpz_clear(pm8);
+            } else {
+                element_set_si(outCoeff, 3);
+            }
+        }
+        // (8) {2,3,5}
+        else if (has2 && has3 && has5) {
+            if (shiftedCurrentAdminID == 2) {
+                element_set_si(outCoeff, 5);
+            } else if (shiftedCurrentAdminID == 3) {
+                // -5 => p-5
+                mpz_t pm5; mpz_init(pm5);
+                mpz_sub_ui(pm5, groupOrder, 5);
+                element_set_mpz(outCoeff, pm5);
+                mpz_clear(pm5);
+            } else {
+                element_set_si(outCoeff, 1);
+            }
+        }
+        // (9) {2,4,5}
+        else if (has2 && has4 && has5) {
+            if (shiftedCurrentAdminID == 2) {
+                setFraction(outCoeff, groupOrder, 10, 3); // 10/3
+            } else if (shiftedCurrentAdminID == 4) {
+                // -5 => p-5
+                mpz_t pm5; mpz_init(pm5);
+                mpz_sub_ui(pm5, groupOrder, 5);
+                element_set_mpz(outCoeff, pm5);
+                mpz_clear(pm5);
+            } else {
+                setFraction(outCoeff, groupOrder, 8, 3);  // 8/3
+            }
+        }
+        // (10) {3,4,5}
+        else if (has3 && has4 && has5) {
+            if (shiftedCurrentAdminID == 3) {
+                element_set_si(outCoeff, 10);
+            } else if (shiftedCurrentAdminID == 4) {
+                // -15 => p-15
+                mpz_t pm15; mpz_init(pm15);
+                mpz_sub_ui(pm15, groupOrder, 15);
+                element_set_mpz(outCoeff, pm15);
+                mpz_clear(pm15);
+            } else {
+                element_set_si(outCoeff, 6);
+            }
+        }
+        else {
+            // Tanımsız bir üçlü gelirse
+            element_set1(outCoeff);
         }
     }
     else {
+        // 2 veya 3 haricinde ID sayısı gelmişse:
         element_set1(outCoeff);
     }
 }
-
 AggregateSignature aggregateSign(
     TIACParams &params,
     const std::vector<std::pair<int, UnblindSignature>> &partialSigsWithAdmins,
