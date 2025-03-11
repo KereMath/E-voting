@@ -10,6 +10,30 @@
 extern std::string elementToStringG1(const element_t elem);
 extern std::string elementToStringG2(const element_t elem);
 
+// Helper function to create a non-const copy of an element
+static void copy_const_element(element_t dest, const element_t src, pairing_t pairing, int element_type) {
+    // Initialize dest with the appropriate type
+    switch (element_type) {
+        case 1: // G1
+            element_init_G1(dest, pairing);
+            break;
+        case 2: // G2
+            element_init_G2(dest, pairing);
+            break;
+        default: // Zr or other
+            element_init_Zr(dest, pairing);
+            break;
+    }
+    
+    // Create a temporary non-const element that's a copy of the source
+    element_t temp;
+    // Copy the source element structure
+    temp[0] = *((element_s*)(&src[0]));
+    
+    // Now we can use temp with PBC functions that don't accept const
+    element_set(dest, temp);
+}
+
 KoRProof createKoRProof(
     TIACParams &params,
     const element_t h,
@@ -29,6 +53,19 @@ KoRProof createKoRProof(
     element_init_Zr(proof.s2, params.pairing);
     element_init_Zr(proof.s3, params.pairing);
     
+    // Create non-const copies of all const inputs
+    element_t h_copy, k_copy, com_copy, alpha2_copy, beta2_copy;
+    element_t r_copy, did_copy, o_copy;
+    
+    copy_const_element(h_copy, h, params.pairing, 1); // G1
+    copy_const_element(k_copy, k, params.pairing, 2); // G2
+    copy_const_element(com_copy, com, params.pairing, 1); // G1
+    copy_const_element(alpha2_copy, alpha2, params.pairing, 2); // G2
+    copy_const_element(beta2_copy, beta2, params.pairing, 2); // G2
+    copy_const_element(r_copy, r, params.pairing, 0); // Zr
+    copy_const_element(did_copy, did_elem, params.pairing, 0); // Zr
+    copy_const_element(o_copy, o_elem, params.pairing, 0); // Zr
+    
     // Step 1: Choose random r1', r2', r3' in Zp.
     element_t r1p, r2p, r3p;
     element_init_Zr(r1p, params.pairing);
@@ -46,8 +83,8 @@ KoRProof createKoRProof(
     element_init_G2(beta2_r2p, params.pairing);
 
     element_pow_zn(g2_r1p, params.g2, r1p);
-    element_pow_zn(beta2_r2p, const_cast<element_t>(beta2), r2p);
-    element_mul(k_prime, g2_r1p, const_cast<element_t>(alpha2));
+    element_pow_zn(beta2_r2p, beta2_copy, r2p);
+    element_mul(k_prime, g2_r1p, alpha2_copy);
     element_mul(k_prime, k_prime, beta2_r2p);
     
     // Step 3: Compute com' = g1^(r3') * h^(r2')
@@ -57,17 +94,17 @@ KoRProof createKoRProof(
     element_init_G1(g1_r3p, params.pairing);
     element_init_G1(h_r2p, params.pairing);
     element_pow_zn(g1_r3p, params.g1, r3p);
-    element_pow_zn(h_r2p, const_cast<element_t>(h), r2p);
+    element_pow_zn(h_r2p, h_copy, r2p);
     element_mul(com_prime, g1_r3p, h_r2p);
     
     // Step 4: Compute c = Hash(g1, g2, h, com, com', k, k')
     std::ostringstream hashOSS;
     hashOSS << elementToStringG1(params.g1)
             << elementToStringG2(params.g2)
-            << elementToStringG1(h)
-            << elementToStringG1(com)
+            << elementToStringG1(h_copy)
+            << elementToStringG1(com_copy)
             << elementToStringG1(com_prime)
-            << elementToStringG2(k)
+            << elementToStringG2(k_copy)
             << elementToStringG2(k_prime);
     std::string hashInput = hashOSS.str();
     
@@ -95,21 +132,21 @@ KoRProof createKoRProof(
     // Step 5: Compute s1 = r1' − c · r.
     element_t temp;
     element_init_Zr(temp, params.pairing);
-    element_mul(temp, c_elem, const_cast<element_t>(r));
+    element_mul(temp, c_elem, r_copy);
     element_sub(proof.s1, r1p, temp);
     element_clear(temp);
     
     // Step 6: Compute s2 = r2' − c · (didInt).
     element_t temp2;
     element_init_Zr(temp2, params.pairing);
-    element_mul(temp2, c_elem, const_cast<element_t>(did_elem));
+    element_mul(temp2, c_elem, did_copy);
     element_sub(proof.s2, r2p, temp2);
     element_clear(temp2);
     
     // Step 7: Compute s3 = r3' − c · o.
     element_t temp3;
     element_init_Zr(temp3, params.pairing);
-    element_mul(temp3, c_elem, const_cast<element_t>(o_elem));
+    element_mul(temp3, c_elem, o_copy);
     element_sub(proof.s3, r3p, temp3);
     element_clear(temp3);
     
@@ -122,7 +159,9 @@ KoRProof createKoRProof(
            << elementToStringG1(proof.s1) << " "
            << elementToStringG1(proof.s2) << " "
            << elementToStringG1(proof.s3);
-    proof.proof_v = korOSS.str();
+    
+    // Use tuple_str instead of proof_v based on the probable structure of KoRProof
+    proof.tuple_str = korOSS.str();
     
     // Debug output
     std::cout << "[KoR] Creating KoR proof with elements:" << std::endl;
@@ -142,6 +181,14 @@ KoRProof createKoRProof(
     element_clear(h_r2p);
     element_clear(com_prime);
     element_clear(c_elem);
+    element_clear(h_copy);
+    element_clear(k_copy);
+    element_clear(com_copy);
+    element_clear(alpha2_copy);
+    element_clear(beta2_copy);
+    element_clear(r_copy);
+    element_clear(did_copy);
+    element_clear(o_copy);
     
     return proof;
 }

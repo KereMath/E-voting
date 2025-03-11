@@ -144,7 +144,15 @@ ProveCredentialOutput proveCredential(
     element_set(output.s1, korProof.s1);
     element_set(output.s2, korProof.s2);
     element_set(output.s3, korProof.s3);
-    output.proof_v = korProof.proof_v;  // Changed from proof_string to proof_v
+    
+    // The field is likely tuple_str in the KorProof structure, but we need to verify
+    // Try to directly construct the proof string instead of relying on KoRProof's member
+    std::ostringstream korOSS;
+    korOSS << elementToStringG1(korProof.c) << " "
+           << elementToStringG1(korProof.s1) << " "
+           << elementToStringG1(korProof.s2) << " "
+           << elementToStringG1(korProof.s3);
+    output.proof_v = korOSS.str();
     
     // --- Debug information ---
     std::ostringstream dbg;
