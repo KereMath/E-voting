@@ -6,49 +6,63 @@
 #include <cstring>
 #include <iomanip>
 
-// Create a non-const copy of an element
-static void element_copy_from_const(element_t dest, const element_t src, pairing_t pairing) {
-    // First serialize the src element to bytes
-    unsigned char buf[1024]; // Buffer large enough for elements
-    size_t len = element_length_in_bytes((element_t)src);
+// Helper to get a pointer to the first element of an element_t array
+static inline element_s* get_element_ptr(element_t e) {
+    return &e[0];
+}
+
+// Helper to get a pointer to the first element of a const element_t array
+static inline const element_s* get_const_element_ptr(const element_t e) {
+    return &e[0];
+}
+
+// Create a non-const copy of an element by type
+static void create_element_copy(element_t dest, const element_t src, pairing_t pairing, int type) {
+    // Initialize dest with the appropriate type
+    switch (type) {
+        case 1: // G1
+            element_init_G1(dest, pairing);
+            break;
+        case 2: // G2
+            element_init_G2(dest, pairing);
+            break;
+        default: // Zr or other
+            element_init_Zr(dest, pairing);
+            break;
+    }
     
+    // Get pointers to work with
+    element_s* dest_ptr = get_element_ptr(dest);
+    const element_s* src_ptr = get_const_element_ptr(src);
+    
+    // Copy by serializing to bytes and back
+    unsigned char buf[1024];
+    size_t len = element_length_in_bytes_compressed(src_ptr);
     if (len > sizeof(buf)) {
-        std::cerr << "Error: Element is too large for buffer" << std::endl;
+        std::cerr << "Element too large for buffer" << std::endl;
         return;
     }
     
-    element_to_bytes(buf, (element_t)src);
-    
-    // Now determine the type of element and initialize dest accordingly
-    // We need to manually check what group the element belongs to
-    // This is a simplified approach - we assume the caller knows what type they're dealing with
-    if (element_length_in_bytes((element_t)params.g1) == len) {
-        // Probably a G1 element
-        element_init_G1(dest, pairing);
-    } else if (element_length_in_bytes((element_t)params.g2) == len) {
-        // Probably a G2 element
-        element_init_G2(dest, pairing);
-    } else {
-        // Default to Zr
-        element_init_Zr(dest, pairing);
-    }
-    
-    // Now deserialize from bytes to the new element
-    element_from_bytes(dest, buf);
+    element_to_bytes_compressed(buf, (element_ptr)src_ptr);
+    element_from_bytes_compressed(dest_ptr, buf);
 }
 
-// Helper function to convert element to hex string
+// Helper to convert element to hex string
 static std::string element_to_hex_string(const element_t elem) {
-    unsigned char buf[1024];
-    size_t len = element_length_in_bytes((element_t)elem);
+    // Get pointer to work with
+    const element_s* elem_ptr = get_const_element_ptr(elem);
     
+    // Serialize to bytes
+    unsigned char buf[1024];
+    size_t len = element_length_in_bytes_compressed(elem_ptr);
     if (len > sizeof(buf)) {
-        std::cerr << "Error: Element is too large for buffer" << std::endl;
+        std::cerr << "Element too large for buffer" << std::endl;
         return "";
     }
     
-    element_to_bytes(buf, (element_t)elem);
+    element_to_bytes_compressed(buf, (element_ptr)elem_ptr);
     
+    // Convert to hex string
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
     for (size_t i = 0; i < len; i++) {
@@ -60,9 +74,24 @@ static std::string element_to_hex_string(const element_t elem) {
 
 // Helper to print element for debugging
 static void debug_print_element(const char* label, const element_t elem) {
+    // Get pointer to work with
+    const element_s* elem_ptr = get_const_element_ptr(elem);
+    
     char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", (element_t)elem);
+    element_snprintf(buf, sizeof(buf), "%B", (element_ptr)elem_ptr);
     std::cout << "[KoR-DEBUG] " << label << " = " << buf << std::endl;
+}
+
+// Helper function to convert hex string to bytes
+static std::vector<unsigned char> hex_to_bytes(const std::string& hex) {
+    std::vector<unsigned char> bytes;
+    bytes.reserve(hex.length() / 2);
+    for (size_t i = 0; i + 1 < hex.length(); i += 2) {
+        std::string byteString = hex.substr(i, 2);
+        unsigned char byte = (unsigned char)strtol(byteString.c_str(), NULL, 16);
+        bytes.push_back(byte);
+    }
+    return bytes;
 }
 
 // Parse KoR proof string
@@ -129,19 +158,6 @@ bool parseKoRProof(
     return true;
 }
 
-// Helper function to convert hex string to bytes
-static std::vector<unsigned char> hex_to_bytes(const std::string& hex) {
-    std::vector<unsigned char> bytes;
-    for (size_t i = 0; i < hex.length(); i += 2) {
-        if (i + 1 < hex.length()) {
-            std::string byteString = hex.substr(i, 2);
-            unsigned char byte = (unsigned char)strtol(byteString.c_str(), NULL, 16);
-            bytes.push_back(byte);
-        }
-    }
-    return bytes;
-}
-
 bool checkKoRVerify(
     TIACParams &params,
     const ProveCredentialOutput &proveOutput,
@@ -172,7 +188,7 @@ bool checkKoRVerify(
         return false;
     }
     
-    element_from_bytes(com, com_bytes.data());
+    element_from_bytes_compressed(get_element_ptr(com), com_bytes.data());
     debug_print_element("com (parsed)", com);
     
     // Parse KoR proof
@@ -196,31 +212,24 @@ bool checkKoRVerify(
     element_sub(one_minus_c, one_minus_c, c_parsed);
     debug_print_element("one_minus_c (1-c)", one_minus_c);
     
-    // Make non-const copies of the const elements we need to work with
+    // Make copies of const elements
     element_t alpha2_copy, beta2_copy, aggSig_h_copy, k_copy;
-    element_init_G2(alpha2_copy, params.pairing);
-    element_init_G2(beta2_copy, params.pairing);
-    element_init_G1(aggSig_h_copy, params.pairing);
-    element_init_G2(k_copy, params.pairing);
     
-    // Manual copy by serialization/deserialization
-    unsigned char buf[1024];
+    // Copy alpha2 (G2 element)
+    create_element_copy(alpha2_copy, mvk.alpha2, params.pairing, 2);
+    debug_print_element("alpha2_copy", alpha2_copy);
     
-    // Copy alpha2
-    element_to_bytes(buf, (element_t)mvk.alpha2);
-    element_from_bytes(alpha2_copy, buf);
+    // Copy beta2 (G2 element)
+    create_element_copy(beta2_copy, mvk.beta2, params.pairing, 2); 
+    debug_print_element("beta2_copy", beta2_copy);
     
-    // Copy beta2
-    element_to_bytes(buf, (element_t)mvk.beta2);
-    element_from_bytes(beta2_copy, buf);
+    // Copy aggSig_h (G1 element)
+    create_element_copy(aggSig_h_copy, aggSig_h, params.pairing, 1);
+    debug_print_element("aggSig_h_copy", aggSig_h_copy);
     
-    // Copy aggSig_h
-    element_to_bytes(buf, (element_t)aggSig_h);
-    element_from_bytes(aggSig_h_copy, buf);
-    
-    // Copy k
-    element_to_bytes(buf, (element_t)proveOutput.k);
-    element_from_bytes(k_copy, buf);
+    // Copy k (G2 element)
+    create_element_copy(k_copy, proveOutput.k, params.pairing, 2);
+    debug_print_element("k_copy", k_copy);
     
     // k_prime_prime = g2^(s1) * alpha2^(1-c) * beta2^s2
     element_t k_prime_prime;
