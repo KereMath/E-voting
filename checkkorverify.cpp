@@ -101,7 +101,7 @@ bool checkKoRVerify(
     std::cout << "[KoR-DEBUG] mvk.alpha2 = " << buf << std::endl;
     element_snprintf(buf, sizeof(buf), "%B", mvk.beta2);
     std::cout << "[KoR-DEBUG] mvk.beta2 = " << buf << std::endl;
-    element_snprintf(buf, sizeof(buf), "%B", proveOutput.k);
+    element_snprintf(buf, sizeof(buf), "%B", elementToStringG1(proveOutput.k));
     std::cout << "[KoR-DEBUG] proveOutput.k = " << buf << std::endl;
     std::cout << "[KoR-DEBUG] comStr = " << comStr << std::endl;
     
