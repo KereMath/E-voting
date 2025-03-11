@@ -501,7 +501,7 @@ for (int i = 0; i < voterCount; i++) {
     char buf[1024];
 mpz_get_str(buf, 10, preparedOutputs[i].o);
 std::cout << "o= " << buf << "\n";
-//    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+   std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
 //         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
 //         std::cout <<" did = " <<  dids[i].did<<"\n";
         std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
