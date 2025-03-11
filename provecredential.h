@@ -16,7 +16,8 @@ struct ProveCredentialSigmaRnd {
 struct ProveCredentialOutput {
     ProveCredentialSigmaRnd sigmaRnd; // σ″ = (h'', s'')
     element_t k;                      // k = α₂ · (β₂)^(did) · g₂^(r)
-    
+    element_t r;                      // Store the random r value
+
     // Direct storage of proof elements (no parsing needed)
     element_t c;
     element_t s1;

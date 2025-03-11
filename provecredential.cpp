@@ -104,7 +104,8 @@ ProveCredentialOutput proveCredential(
     element_init_Zr(output.s1, params.pairing);
     element_init_Zr(output.s2, params.pairing);
     element_init_Zr(output.s3, params.pairing);
-    
+    element_init_Zr(output.r, params.pairing);
+    element_set(output.r, r);
     // Cleanup
     element_clear(r);
     element_clear(r_prime);
