@@ -149,7 +149,7 @@ KnowledgeOfRepProof generateKoRProof(
     const mpz_t did_int,
     const mpz_t o
 ) {
-    std::cout << "Starting Knowledge of Representation (KoR) algorithm..." << std::endl;
+    // std::cout << "Starting Knowledge of Representation (KoR) algorithm..." << std::endl;
     
     // Debug prints for input parameters
     // std::cout << "\n{from kor} === Debug Input Parameters ===" << std::endl;
