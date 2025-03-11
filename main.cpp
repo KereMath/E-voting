@@ -620,12 +620,12 @@ for (int i = 0; i < voterCount; i++) {
     // KoR doğrulama
     bool kor_ok = checkKoRVerify(
         params,
-        proveResults[i],           // ProveCredentialOutput (k, c, s1, s2, s3)
-        keyOut.mvk,                // alpha2, beta2
-        preparedOutputs[i].debug.com,  // com (string)
-        aggregateResults[i].h          // h
+        proveResults[i],              // ProveCredentialOutput (k, c, s1, s2, s3)
+        keyOut.mvk,                   // MasterVerKey türünde
+        preparedOutputs[i].debug.com, // com (string)
+        aggregateResults[i].h         // h
     );
-
+    
     bool verified = pairing_ok && kor_ok;
     std::cout << "Voter " << (i+1) << " verification: " 
               << (verified ? "VERIFIED DONE ✓" : "FAILED ✗") 
