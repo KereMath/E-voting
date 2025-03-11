@@ -441,13 +441,13 @@ auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggreg
 
 // Aggregate sonuçlarını raporlama:
 // std::cout << "\n=== Aggregate Signature Results ===\n";
-for (int i = 0; i < voterCount; i++) {
-    // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-    // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-    // std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-    // std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-    // std::cout << "-------------------------\n";
-}
+// for (int i = 0; i < voterCount; i++) {
+//     // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
+//     // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+//     // std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+//     // std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
+//     // std::cout << "-------------------------\n";
+// }
 
 
 
@@ -458,56 +458,56 @@ for (int i = 0; i < voterCount; i++) {
 
 
 
-std::cout << "prepared common vars for prove" <<"\n\n";
+// std::cout << "prepared common vars for prove" <<"\n\n";
 
-{
-    char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
-    std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
-    free(p_str);
-}
-{
-    char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", params.g1);
-    std::cout << "g1 =\n" << buf << "\n\n";
-}
-{
-    char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", params.h1);
-    std::cout << "h1 =\n" << buf << "\n\n";
-}
-{
-    char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", params.g2);
-    std::cout << "g2 =\n" << buf << "\n\n";
-}
-{
-    char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
-    std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
-}
-{
-    char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
-    std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
-}
-{
-    char buf[1024];
-    element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
-    std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
-}
-std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
-for (int i = 0; i < voterCount; i++) {
-    std::cout << "user " << (i+1) << " prepared vars for prove" <<"\n\n";
-    char buf[1024];
-mpz_get_str(buf, 10, preparedOutputs[i].o);
-std::cout << "o= " << buf << "\n";
-   std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-//         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-//         std::cout <<" did = " <<  dids[i].did<<"\n";
-        std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
-        std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
+// {
+//     char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
+//     std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
+//     free(p_str);
+// }
+// {
+//     char buf[1024];
+//     element_snprintf(buf, sizeof(buf), "%B", params.g1);
+//     std::cout << "g1 =\n" << buf << "\n\n";
+// }
+// {
+//     char buf[1024];
+//     element_snprintf(buf, sizeof(buf), "%B", params.h1);
+//     std::cout << "h1 =\n" << buf << "\n\n";
+// }
+// {
+//     char buf[1024];
+//     element_snprintf(buf, sizeof(buf), "%B", params.g2);
+//     std::cout << "g2 =\n" << buf << "\n\n";
+// }
+// {
+//     char buf[1024];
+//     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
+//     std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
+// }
+// {
+//     char buf[1024];
+//     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
+//     std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
+// }
+// {
+//     char buf[1024];
+//     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
+//     std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
+// }
+// std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
+// for (int i = 0; i < voterCount; i++) {
+//     // std::cout << "user " << (i+1) << " prepared vars for prove" <<"\n\n";
+//     char buf[1024];
+// mpz_get_str(buf, 10, preparedOutputs[i].o);
+// // std::cout << "o= " << buf << "\n";
+// //    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+// //         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+// //         std::cout <<" did = " <<  dids[i].did<<"\n";
+//         // std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
+//         // std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
 
-}
+// }
 
 
 
@@ -532,13 +532,13 @@ auto proveEnd = Clock::now();
 auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
 
 // ProveCredential sonuçlarını raporlama:
-std::cout << "\n=== ProveCredential Results ===\n";
+// std::cout << "\n=== ProveCredential Results ===\n";
 for (int i = 0; i < voterCount; i++) {
-    std::cout << "Voter " << (i+1) << " prove credential output:\n";
+    // std::cout << "Voter " << (i+1) << " prove credential output:\n";
     // std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
     // std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
-    std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
-    std::cout << "    r   = " << elementToStringG1(proveResults[i].r) << "\n";
+    // std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
+    // std::cout << "    r   = " << elementToStringG1(proveResults[i].r) << "\n";
 
     // std::cout << "    π_v = " << proveResults[i].proof_v << "\n";    // std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     std::cout << "-------------------------\n";
@@ -546,7 +546,7 @@ for (int i = 0; i < voterCount; i++) {
 std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (prove_us / 1000.0) << " ms\n";
 
 //kor işlemi
-std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
+// std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
 auto korStart = Clock::now();
 
 tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
@@ -610,7 +610,7 @@ std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = "
           << (kor_us / 1000.0) << " ms\n";
 
 // === Knowledge of Representation (KoR) Verification Phase ===
-std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
+// std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
 auto korVerStart = Clock::now();
 
 tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
