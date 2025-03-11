@@ -113,49 +113,50 @@ bool parseKoRProof(
         return false;
     }
     
-    // Initialize elements
+    // Initialize elements as Zr, since they're used as exponents later
     element_init_Zr(c, pairing);
     element_init_Zr(s1, pairing);
     element_init_Zr(s2, pairing);
     element_init_Zr(s3, pairing);
     
-    // Parse hex strings to mpz_t values
-    mpz_t temp;
-    mpz_init(temp);
+    // Helper function to parse a hexadecimal string back to an element
+    auto parseElementFromHex = [](element_t dest, const std::string &hex_str) {
+        // Convert hex string back to bytes
+        std::vector<unsigned char> bytes = hex_to_bytes(hex_str);
+        if (bytes.empty()) {
+            std::cerr << "Failed to convert hex to bytes: " << hex_str << std::endl;
+            return false;
+        }
+        
+        // Convert bytes back to element
+        if (element_from_bytes(dest, bytes.data()) == 0) {
+            std::cerr << "Failed to deserialize element from bytes" << std::endl;
+            return false;
+        }
+        return true;
+    };
     
-    // c value
-    if (mpz_set_str(temp, c_str.c_str(), 16) != 0) {
-        mpz_clear(temp);
+    // Parse each element
+    if (!parseElementFromHex(c, c_str)) {
+        std::cerr << "Failed to parse c element" << std::endl;
         return false;
     }
-    mpz_mod(temp, temp, prime_order);
-    element_set_mpz(c, temp);
     
-    // s1 value
-    if (mpz_set_str(temp, s1_str.c_str(), 16) != 0) {
-        mpz_clear(temp);
+    if (!parseElementFromHex(s1, s1_str)) {
+        std::cerr << "Failed to parse s1 element" << std::endl;
         return false;
     }
-    mpz_mod(temp, temp, prime_order);
-    element_set_mpz(s1, temp);
     
-    // s2 value
-    if (mpz_set_str(temp, s2_str.c_str(), 16) != 0) {
-        mpz_clear(temp);
+    if (!parseElementFromHex(s2, s2_str)) {
+        std::cerr << "Failed to parse s2 element" << std::endl;
         return false;
     }
-    mpz_mod(temp, temp, prime_order);
-    element_set_mpz(s2, temp);
     
-    // s3 value
-    if (mpz_set_str(temp, s3_str.c_str(), 16) != 0) {
-        mpz_clear(temp);
+    if (!parseElementFromHex(s3, s3_str)) {
+        std::cerr << "Failed to parse s3 element" << std::endl;
         return false;
     }
-    mpz_mod(temp, temp, prime_order);
-    element_set_mpz(s3, temp);
     
-    mpz_clear(temp);
     return true;
 }
 
