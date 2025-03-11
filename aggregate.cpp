@@ -29,46 +29,81 @@ static inline element_s* toNonConst(const element_s* in) {
 */
 static void setFraction(element_t outCoeff, const mpz_t groupOrder, long numerator, long denominator)
 {
+    // 1) denominator ile p arası gcd kontrol
+    mpz_t denom_mpz, gcd_val;
+    mpz_inits(denom_mpz, gcd_val, NULL);
+    mpz_set_si(denom_mpz, denominator);  // denominator'ı mpz'ye yükle
+    mpz_gcd(gcd_val, groupOrder, denom_mpz);
+    
+    if (mpz_cmp_ui(gcd_val, 1) != 0) {
+        // gcd != 1 => payda mod p'de invertible değil
+        std::cerr << "[setFraction] ERROR: gcd(p, " << denominator 
+                  << ") != 1. Fraction " << numerator << "/" << denominator 
+                  << " mod p tanımsız!" << std::endl;
+        // İstersen outCoeff = 0 veya outCoeff = 1 gibi bir şey ata:
+        element_set0(outCoeff);
+        
+        mpz_clears(denom_mpz, gcd_val, NULL);
+        return; // Burada bitiriyoruz
+    }
+
+    // 2) ( p mod denominator ) hesapla
     mpz_t r, tmp, quotient;
     mpz_inits(r, tmp, quotient, NULL);
 
-    // r = (p mod den)
     mpz_mod_ui(r, groupOrder, (unsigned long)denominator);
     unsigned long r_ui = mpz_get_ui(r);
 
-    // (r_ui*k + numerator) mod denominator = 0 olacak k'yi [0..den-1] içinde bul.
+    // 3) (r_ui*k + numerator) mod denominator = 0 olacak k'yi bul
     long solution_k = -1;
     for (long k = 0; k < denominator; k++) {
         long val = (long)((r_ui * k + numerator) % denominator);
-        // negatif mod düzeltmesi:
+        // negatif mod düzeltmesi
         if (val < 0)
             val = (val % denominator + denominator) % denominator;
-
+        
         if (val == 0) {
             solution_k = k;
             break;
         }
     }
 
-    // tmp = p*k (p grup mertebesi)
+    if (solution_k < 0) {
+        // Normal şartlarda gcd=1 ise mutlaka bir k bulmak gerekir.
+        // Yine de döngüde bulunamazsa hata verelim.
+        std::cerr << "[setFraction] ERROR: No solution_k found for " 
+                  << numerator << "/" << denominator 
+                  << " mod p. (Shouldn't happen if gcd=1)" << std::endl;
+        element_set0(outCoeff);
+        
+        mpz_clears(r, tmp, quotient, NULL);
+        mpz_clears(denom_mpz, gcd_val, NULL);
+        return;
+    }
+
+    // 4) tmp = p * k
     mpz_mul_si(tmp, groupOrder, solution_k);
 
-    // tmp = p*k + numerator (veya -|numerator|)
+    // 5) tmp = p*k + numerator (veya p*k - |numerator|)
     if (numerator >= 0) {
         mpz_add_ui(tmp, tmp, (unsigned long)numerator);
     } else {
         mpz_sub_ui(tmp, tmp, (unsigned long)(-numerator));
     }
 
-    // quotient = tmp / denominator
+    // 6) quotient = tmp / denominator
     mpz_tdiv_q_ui(quotient, tmp, (unsigned long)denominator);
 
-    // Sonucu element'e ata
+    // 7) Sonucu element'e ata
     element_set_mpz(outCoeff, quotient);
 
-    mpz_clears(r, tmp, quotient, NULL);
-}
+    // Debug istersen:
+    // mpz_out_str(NULL, 10, quotient);
+    // std::cerr << " = " << numerator << "/" << denominator << " mod p\n";
 
+    mpz_clears(r, tmp, quotient, NULL);
+    mpz_clears(denom_mpz, gcd_val, NULL);
+}
 /********************************************/
 /* ASIL FONKSİYON */
 void computeLagrangeCoefficient(
