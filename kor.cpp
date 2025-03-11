@@ -7,9 +7,39 @@
 #include <vector>
 
 // Element serialization functions
-extern std::string elementToStringG1(const element_t elem);
-extern std::string elementToStringG2(const element_t elem);
+std::string elementToStringG1(const element_t elem) {
+    // Create a non-const copy to work with
+    element_t elem_copy;
+    elem_copy[0] = *((element_s*)(&elem[0]));
+    
+    int len = element_length_in_bytes(elem_copy);
+    std::vector<unsigned char> buf(len);
+    element_to_bytes(buf.data(), elem_copy);
 
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned char c : buf) {
+        oss << std::setw(2) << (int)c;
+    }
+    return oss.str();
+}
+
+std::string elementToStringG2(const element_t elem) {
+    // Create a non-const copy to work with
+    element_t elem_copy;
+    elem_copy[0] = *((element_s*)(&elem[0]));
+    
+    int len = element_length_in_bytes(elem_copy);
+    std::vector<unsigned char> buf(len);
+    element_to_bytes(buf.data(), elem_copy);
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned char c : buf) {
+        oss << std::setw(2) << (int)c;
+    }
+    return oss.str();
+}
 // Helper function to convert hex string to bytes
 static std::vector<unsigned char> hexToBytes(const std::string& hex) {
     std::vector<unsigned char> bytes;
