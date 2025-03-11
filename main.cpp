@@ -546,94 +546,99 @@ for (int i = 0; i < voterCount; i++) {
 std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (prove_us / 1000.0) << " ms\n";
 
 //kor işlemi
-
-// Add this after your proveCredential phase
-// Add this after your proveCredential phase
-// Add this in your main function after the proveCredential phase
 std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
 auto korStart = Clock::now();
 
-for (int i = 0; i < voterCount; i++) {
-    // Convert DID from hex string to mpz_t
-    mpz_t did_int;
-    mpz_init(did_int);
-    mpz_set_str(did_int, dids[i].did.c_str(), 16);
-    mpz_mod(did_int, did_int, params.prime_order);
-    
-    // Convert the commitment string to an element
-    element_t com_elem;
-    element_init_G1(com_elem, params.pairing);
-    
-    // If preparedOutputs[i].debug.com is a string representation of the element,
-    // we need to convert it to an actual element
-    try {
-        stringToElement(com_elem, preparedOutputs[i].debug.com, params.pairing, 1); // 1 for G1
-    } catch (const std::exception& e) {
-        std::cerr << "Error converting com string to element: " << e.what() << std::endl;
-        // As fallback, generate a random element
-        element_random(com_elem);
-    }
-    
+tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
+    [&](const tbb::blocked_range<int>& r) {
+        for (int i = r.begin(); i != r.end(); ++i) {
+            // Convert DID from hex string to mpz_t
+            mpz_t did_int;
+            mpz_init(did_int);
+            mpz_set_str(did_int, dids[i].did.c_str(), 16);
+            mpz_mod(did_int, did_int, params.prime_order);
 
-    
-    // Create the KoR proof
-    KnowledgeOfRepProof korProof = generateKoRProof(
-        params,
-        aggregateResults[i].h,
-        proveResults[i].k,
-        proveResults[i].r,
-        com_elem,
-        keyOut.mvk.alpha2,
-        keyOut.mvk.beta2,
-        did_int,
-        preparedOutputs[i].o
-    );
-    
-    // Copy the proof to the proveResults
-    element_set(proveResults[i].c, korProof.c);
-    element_set(proveResults[i].s1, korProof.s1);
-    element_set(proveResults[i].s2, korProof.s2);
-    element_set(proveResults[i].s3, korProof.s3);
-    proveResults[i].proof_v = korProof.proof_string;
-    
-    std::cout << "Voter " << (i+1) << " KoR proof generated\n";
-    
-    // Clean up
-    element_clear(com_elem);
-    element_clear(korProof.c);
-    element_clear(korProof.s1);
-    element_clear(korProof.s2);
-    element_clear(korProof.s3);
-    mpz_clear(did_int);
-}
+            // Convert the commitment string to an element
+            element_t com_elem;
+            element_init_G1(com_elem, params.pairing);
+
+            // Try/catch ile com string'ini element e dönüştür
+            try {
+                stringToElement(com_elem, preparedOutputs[i].debug.com, params.pairing, 1); // 1 for G1
+            } catch (const std::exception& e) {
+                std::cerr << "Error converting com string to element: " << e.what() << std::endl;
+                // Hata durumunda rasgele element üret
+                element_random(com_elem);
+            }
+
+            // KoR kanıtını oluştur
+            KnowledgeOfRepProof korProof = generateKoRProof(
+                params,
+                aggregateResults[i].h,
+                proveResults[i].k,
+                proveResults[i].r,
+                com_elem,
+                keyOut.mvk.alpha2,
+                keyOut.mvk.beta2,
+                did_int,
+                preparedOutputs[i].o
+            );
+
+            // Kanıtı proveResults'e kopyala
+            element_set(proveResults[i].c, korProof.c);
+            element_set(proveResults[i].s1, korProof.s1);
+            element_set(proveResults[i].s2, korProof.s2);
+            element_set(proveResults[i].s3, korProof.s3);
+            proveResults[i].proof_v = korProof.proof_string;
+
+            std::cout << "Voter " << (i+1) << " KoR proof generated\n";
+
+            // Temizlik
+            element_clear(com_elem);
+            element_clear(korProof.c);
+            element_clear(korProof.s1);
+            element_clear(korProof.s2);
+            element_clear(korProof.s3);
+            mpz_clear(did_int);
+        }
+    }
+);
 
 auto korEnd = Clock::now();
 auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - korStart).count();
-std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = " << (kor_us / 1000.0) << " ms\n";
+std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = " 
+          << (kor_us / 1000.0) << " ms\n";
 
-
-
+// === Knowledge of Representation (KoR) Verification Phase ===
 std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
-for (int i = 0; i < voterCount; i++) {
-    bool pairing_ok = pairingCheck(params, proveResults[i]);
-    
-    // KoR doğrulama
-    bool kor_ok = checkKoRVerify(
-        params,
-        proveResults[i],              // ProveCredentialOutput (k, c, s1, s2, s3)
-        keyOut.mvk,                   // MasterVerKey türünde
-        preparedOutputs[i].debug.com, // com (string)
-        aggregateResults[i].h         // h
-    );
-    
-    bool verified = pairing_ok && kor_ok;
-    std::cout << "Voter " << (i+1) << " verification: " 
-              << (verified ? "VERIFIED DONE ✓" : "FAILED ✗") 
-              << " (Pairing: " << (pairing_ok ? "OK" : "FAIL") 
-              << ", KoR: " << (kor_ok ? "OK" : "FAIL") << ")\n";
-}
+auto korVerStart = Clock::now();
 
+tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
+    [&](const tbb::blocked_range<int>& r) {
+        for (int i = r.begin(); i != r.end(); ++i) {
+            bool pairing_ok = pairingCheck(params, proveResults[i]);
+            
+            bool kor_ok = checkKoRVerify(
+                params,
+                proveResults[i],               // ProveCredentialOutput (k, c, s1, s2, s3)
+                keyOut.mvk,                    // MasterVerKey
+                preparedOutputs[i].debug.com,  // com (string)
+                aggregateResults[i].h          // h
+            );
+            
+            bool verified = pairing_ok && kor_ok;
+            std::cout << "Voter " << (i+1) << " verification: " 
+                      << (verified ? "VERIFIED DONE ✓" : "FAILED ✗") 
+                      << " (Pairing: " << (pairing_ok ? "OK" : "FAIL") 
+                      << ", KoR: " << (kor_ok ? "OK" : "FAIL") << ")\n";
+        }
+    }
+);
 
+auto korVerEnd = Clock::now();
+auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd - korVerStart).count();
+std::cout << "\n[KOR VERIFY] Total Knowledge of Representation Verification Phase Time = " 
+          << (korVer_us / 1000.0) << " ms\n";
 
     // 12) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
