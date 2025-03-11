@@ -94,6 +94,10 @@ void computeLagrangeCoefficient(
     for (size_t i = 0; i < allIDs.size(); i++) {
         shiftedIDs[i] = allIDs[i] + 1;
     }
+    std::cout << "Shifted IDs  : ";
+    for (int id : shiftedIDs) {
+        std::cout << id << " ";
+    }
     // Bu admin'in kaydırılmış ID'si
     int shiftedCurrentAdminID = shiftedIDs[idx];
 
