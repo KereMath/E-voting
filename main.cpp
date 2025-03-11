@@ -574,10 +574,7 @@ for (int i = 0; i < voterCount; i++) {
         element_random(com_elem);
     }
     
-    // Generate a random r value since we don't have it from proveCredential
-    element_t r;
-    element_init_Zr(r, params.pairing);
-    element_random(r);
+
     
     // Create the KoR proof
     KnowledgeOfRepProof korProof = generateKoRProof(
