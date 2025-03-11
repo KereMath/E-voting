@@ -599,7 +599,6 @@ for (int i = 0; i < voterCount; i++) {
     std::cout << "Voter " << (i+1) << " KoR proof generated\n";
     
     // Clean up
-    element_clear(r);
     element_clear(com_elem);
     element_clear(korProof.c);
     element_clear(korProof.s1);
