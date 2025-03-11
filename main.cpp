@@ -23,6 +23,7 @@
 #include "verifycredential.h"  // verifyCredential tanımı
 #include "pairinginverify.h"
 #include "checkkorverify.h"
+#include "kor.h"
 
 using Clock = std::chrono::steady_clock;
 
@@ -500,9 +501,9 @@ for (int i = 0; i < voterCount; i++) {
     char buf[1024];
 mpz_get_str(buf, 10, preparedOutputs[i].o);
 std::cout << "o= " << buf << "\n";
-   std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-        std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-        std::cout <<" did = " <<  dids[i].did<<"\n";
+//    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
+//         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
+//         std::cout <<" did = " <<  dids[i].did<<"\n";
         std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
         std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
 
@@ -534,29 +535,95 @@ auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd -
 std::cout << "\n=== ProveCredential Results ===\n";
 for (int i = 0; i < voterCount; i++) {
     std::cout << "Voter " << (i+1) << " prove credential output:\n";
-    std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
-    std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
+    // std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
+    // std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
     std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
     // std::cout << "    π_v = " << proveResults[i].proof_v << "\n";    // std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
     std::cout << "-------------------------\n";
 }
-std::cout << "\n[PROVE] Total ProveCredential Phase Time = " << (prove_us / 1000.0) << " ms\n";
+std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (prove_us / 1000.0) << " ms\n";
+
+//kor işlemi
+
+void printElement(const char* label, const element_t elem) {
+    char buf[512];
+    element_snprintf(buf, sizeof(buf), "%B", elem);
+    std::cout << label << ": " << buf << std::endl;
+}
+
+// Add this where you want to implement KoR in your main function
+void implementKoR(size_t i, 
+                 const std::vector<PreparedBlindSignOutput>& preparedOutputs,
+                 const std::vector<AggregateSignature>& aggregateResults,
+                 TIACParams& params,
+                 ProveCredentialOutput& proveOutput,
+                 MasterVerKey& mvk) {
+    
+    std::cout << "==== Implementing Knowledge of Representation (KoR) ====" << std::endl;
+    
+    // Get required inputs for KoR
+    const mpz_t& o = preparedOutputs[i].o;
+    const element_t& com = preparedOutputs[i].debug.com;
+    const element_t& h = aggregateResults[i].h;
+    const element_t& k = proveOutput.k;  // From ProveCredentialOutput
+    
+    // Get DID as an integer
+    mpz_t did_int;
+    mpz_init(did_int);
+    std::string didHex = ""; // Replace with your DID hex string or get it from wherever it's stored
+    mpz_set_str(did_int, didHex.c_str(), 16);
+    mpz_mod(did_int, did_int, params.prime_order);
+    
+    // r value should be saved from provecredential function where k was computed
+    // If you don't have it saved, you might need to re-compute k
+    element_t r;
+    element_init_Zr(r, params.pairing);
+    // Set r to the value that was used to compute k
+    // element_set(r, saved_r);
+    
+    // Call KoR function
+    KoRProof proof = createKoRProof(
+        params,
+        h,
+        k,
+        com,
+        mvk.alpha2,
+        mvk.beta2,
+        r,
+        did_int,
+        o
+    );
+    
+    // Print KoR proof elements
+    std::cout << "\n==== KoR Proof Values ====" << std::endl;
+    printElement("c", proof.c);
+    printElement("s1", proof.s1);
+    printElement("s2", proof.s2);
+    printElement("s3", proof.s3);
+    std::cout << "Proof tuple string: " << proof.tuple_str << std::endl;
+    
+    // Copy proof elements to proveOutput if needed
+    element_set(proveOutput.c, proof.c);
+    element_set(proveOutput.s1, proof.s1);
+    element_set(proveOutput.s2, proof.s2);
+    element_set(proveOutput.s3, proof.s3);
+    proveOutput.proof_v = proof.tuple_str;
+    
+    // Clean up
+    element_clear(r);
+    element_clear(proof.c);
+    element_clear(proof.s1);
+    element_clear(proof.s2);
+    element_clear(proof.s3);
+    mpz_clear(did_int);
+    
+    std::cout << "==== KoR implementation completed ====" << std::endl;
+}
 
 
 
 
 
-//verifycredential
-
-
-
-
-
-// Add this to the includes section at the top of main.cpp
-
-// Add this after the pairingCheck section
-// --- KoR Verification Phase ---
-// --- KoR Verification Phase ---
 std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
 for (int i = 0; i < voterCount; i++) {
     bool pairing_ok = pairingCheck(params, proveResults[i]);
