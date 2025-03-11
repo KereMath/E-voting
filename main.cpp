@@ -545,79 +545,35 @@ std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (p
 
 //kor işlemi
 
-void printElement(const char* label, const element_t elem) {
-    char buf[512];
-    element_snprintf(buf, sizeof(buf), "%B", elem);
-    std::cout << label << ": " << buf << std::endl;
-}
-
-// Add this where you want to implement KoR in your main function
-void implementKoR(size_t i, 
-                 const std::vector<PreparedBlindSignOutput>& preparedOutputs,
-                 const std::vector<AggregateSignature>& aggregateResults,
-                 TIACParams& params,
-                 ProveCredentialOutput& proveOutput,
-                 MasterVerKey& mvk) {
-    
-    std::cout << "==== Implementing Knowledge of Representation (KoR) ====" << std::endl;
-    
-    // Get required inputs for KoR
-    const mpz_t& o = preparedOutputs[i].o;
-    const element_t& com = preparedOutputs[i].debug.com;
-    const element_t& h = aggregateResults[i].h;
-    const element_t& k = proveOutput.k;  // From ProveCredentialOutput
-    
-    // Get DID as an integer
+// Add this after your proveCredential phase
+std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
+for (int i = 0; i < voterCount; i++) {
+    // Convert DID from hex string to mpz_t
     mpz_t did_int;
     mpz_init(did_int);
-    std::string didHex = ""; // Replace with your DID hex string or get it from wherever it's stored
-    mpz_set_str(did_int, didHex.c_str(), 16);
+    mpz_set_str(did_int, dids[i].did.c_str(), 16);
     mpz_mod(did_int, did_int, params.prime_order);
     
-    // r value should be saved from provecredential function where k was computed
-    // If you don't have it saved, you might need to re-compute k
-    element_t r;
-    element_init_Zr(r, params.pairing);
-    // Set r to the value that was used to compute k
-    // element_set(r, saved_r);
-    
-    // Call KoR function
-    KoRProof proof = createKoRProof(
+    // Create the KoR proof
+    KoRProof korProof = createKoRProof(
         params,
-        h,
-        k,
-        com,
-        mvk.alpha2,
-        mvk.beta2,
-        r,
+        aggregateResults[i].h,
+        proveResults[i].k,
+        preparedOutputs[i].debug.com,
+        keyOut.mvk.alpha2,
+        keyOut.mvk.beta2,
+        /* r - missing value, see note below */,
         did_int,
-        o
+        preparedOutputs[i].o
     );
     
-    // Print KoR proof elements
-    std::cout << "\n==== KoR Proof Values ====" << std::endl;
-    printElement("c", proof.c);
-    printElement("s1", proof.s1);
-    printElement("s2", proof.s2);
-    printElement("s3", proof.s3);
-    std::cout << "Proof tuple string: " << proof.tuple_str << std::endl;
+    // Copy the proof to the proveResults
+    proveResults[i].proof_v = korProof.tuple_str;
     
-    // Copy proof elements to proveOutput if needed
-    element_set(proveOutput.c, proof.c);
-    element_set(proveOutput.s1, proof.s1);
-    element_set(proveOutput.s2, proof.s2);
-    element_set(proveOutput.s3, proof.s3);
-    proveOutput.proof_v = proof.tuple_str;
+    std::cout << "Voter " << (i+1) << " KoR proof generated\n";
     
     // Clean up
-    element_clear(r);
-    element_clear(proof.c);
-    element_clear(proof.s1);
-    element_clear(proof.s2);
-    element_clear(proof.s3);
     mpz_clear(did_int);
-    
-    std::cout << "==== KoR implementation completed ====" << std::endl;
 }
 
 
