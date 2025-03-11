@@ -617,17 +617,21 @@ std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
 for (int i = 0; i < voterCount; i++) {
     bool pairing_ok = pairingCheck(params, proveResults[i]);
     
-    // Pass aggregateResults[i].h as the parameter for the aggregate signature h
-    // bool kor_ok = checkKoRVerify(params, proveResults[i], keyOut.mvk, preparedOutputs[i].debug.com, aggregateResults[i].h);
-    bool kor_ok=true ;
+    // KoR doğrulama
+    bool kor_ok = checkKoRVerify(
+        params,
+        proveResults[i],           // ProveCredentialOutput (k, c, s1, s2, s3)
+        keyOut.mvk,                // alpha2, beta2
+        preparedOutputs[i].debug.com,  // com (string)
+        aggregateResults[i].h          // h
+    );
+
     bool verified = pairing_ok && kor_ok;
     std::cout << "Voter " << (i+1) << " verification: " 
               << (verified ? "VERIFIED DONE ✓" : "FAILED ✗") 
               << " (Pairing: " << (pairing_ok ? "OK" : "FAIL") 
               << ", KoR: " << (kor_ok ? "OK" : "FAIL") << ")\n";
 }
-
-
 
 
 
