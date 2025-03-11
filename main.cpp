@@ -62,11 +62,9 @@ void my_element_dup(element_t dest, element_t src) {
 // -----------------------------------------------------------------------------
 int main() {
     auto programStart = Clock::now();
-
-    // 1) params.txt'den EA sayısı, threshold (t) ve seçmen sayısı (voterCount) okunuyor
-    int ne = 0;         // admin (EA) sayısı
-    int t  = 0;         // threshold
-    int voterCount = 0; // seçmen sayısı
+    int ne = 0;       
+    int t  = 0;       
+    int voterCount = 0; 
     {
         std::ifstream infile("params.txt");
         if (!infile) {
@@ -95,27 +93,6 @@ int main() {
     auto endSetup = Clock::now();
     auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
 
-    // {
-    //     char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
-    //     std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
-    //     free(p_str);
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.g1);
-    //     std::cout << "g1 =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.h1);
-    //     std::cout << "h1 =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", params.g2);
-    //     std::cout << "g2 =\n" << buf << "\n\n";
-    // }
-
     // 3) Pairing testi
     element_t pairingTest;
     element_init_GT(pairingTest, params.pairing);
@@ -123,67 +100,13 @@ int main() {
     pairing_apply(pairingTest, params.g1, params.g2, params.pairing);
     auto endPairing = Clock::now();
     auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", pairingTest);
-    //     std::cout << "[ZAMAN] e(g1, g2) hesabi: " << pairing_us << " µs\n";
-    //     std::cout << "e(g1, g2) =\n" << buf << "\n\n";
-    // }
     element_clear(pairingTest);
-
     // 4) KeyGen (Alg.2)
     // std::cout << "=== TTP ile Anahtar Uretimi (KeyGen) ===\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
-
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
-    //     std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
-    //     std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
-    // }
-    // {
-    //     char buf[1024];
-    //     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
-    //     std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
-    // }
-
-    // EA Authority'lerin detaylı yazdırılması
-    // for (int i = 0; i < ne; i++) {
-    //     std::cout << "=== EA Authority " << (i + 1) << " ===\n";
-    //     {
-    //         char buf[1024];
-    //         element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].sgk1);
-    //         std::cout << "sgk1 (x_m) = " << buf << "\n";
-    //     }
-    //     {
-    //         char buf[1024];
-    //         element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].sgk2);
-    //         std::cout << "sgk2 (y_m) = " << buf << "\n";
-    //     }
-    //     {
-    //         char buf[1024];
-    //         element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].vkm1);
-    //         std::cout << "vkm1 = g2^(x_m) = " << buf << "\n";
-    //     }
-    //     {
-    //         char buf[1024];
-    //         element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].vkm2);
-    //         std::cout << "vkm2 = g2^(y_m) = " << buf << "\n";
-    //     }
-    //     {
-    //         char buf[1024];
-    //         element_snprintf(buf, sizeof(buf), "%B", keyOut.eaKeys[i].vkm3);
-    //         std::cout << "vkm3 = g1^(y_m) = " << buf << "\n";
-    //     }
-    //     std::cout << "\n";
-    // }
 
     // 5) ID Generation
     auto startIDGen = Clock::now();
@@ -199,12 +122,6 @@ int main() {
     }
     auto endIDGen = Clock::now();
     auto idGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endIDGen - startIDGen).count();
-    // std::cout << "=== ID Generation ===\n";
-    // for (int i = 0; i < voterCount; i++) {
-    //     std::cout << "Secmen " << (i+1) << " ID = " << voterIDs[i] << "\n";
-    // }
-    // std::cout << "\n";
-
     // 6) DID Generation
     auto startDIDGen = Clock::now();
     std::vector<DID> dids(voterCount);
@@ -213,63 +130,26 @@ int main() {
     }
     auto endDIDGen = Clock::now();
     auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
-    // std::cout << "=== DID Generation ===\n";
-    for (int i = 0; i < voterCount; i++) {
-        char* x_str = mpz_get_str(nullptr, 10, dids[i].x);
-        // std::cout << "Secmen " << (i+1) << " icin x   = " << x_str << "\n"
-        //           << "Secmen " << (i+1) << " icin DID = " << dids[i].did << "\n\n";
-        free(x_str);
-    }
 
-    // PipelineResult: her seçmen için
     std::vector<PipelineResult> pipelineResults(voterCount);
-
-    // Pipeline başlangıcı
     auto pipelineStart = Clock::now();
-
-    // TBB thread sayısını 50 ile sınırlayalım (opsiyonel)
     tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
 
     // 7) Tüm seçmenler için prepareBlindSign (paralelde)
     std::vector<PrepareBlindSignOutput> preparedOutputs(voterCount);
 
     tbb::parallel_for(0, voterCount, [&](int i){
-        // Prepare start
         pipelineResults[i].timing.prep_start = Clock::now();
         PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
         pipelineResults[i].timing.prep_end = Clock::now();
-
-        // Debug log: bu seçmen prepare işi bitti
         logThreadUsage("Pipeline",
             "Voter " + std::to_string(i+1) +
             " prepareBlindSign finished on thread " +
             std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
         );
-
         preparedOutputs[i] = bsOut;
     });
-// prepareBlindSign çağrılarından sonra:
-    for (size_t i = 0; i < preparedOutputs.size(); i++) {
-        // std::cout << "=== Voter " << i+1 << " Debug Bilgileri ===\n";
-    //     std::cout << "oi         : " << preparedOutputs[i].debug.oi << "\n";
-    //     std::cout << "didInt     : " << preparedOutputs[i].debug.didInt << "\n";
-    //     std::cout << "comi       : " << preparedOutputs[i].debug.comi << "\n";
-        // std::cout << "h          : " << preparedOutputs[i].debug.h << "\n";
-        // std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
-    //     std::cout << "--- KoR Debug ---\n";
-    //     std::cout << "r1         : " << preparedOutputs[i].debug.kor_r1 << "\n";
-    //     std::cout << "r2         : " << preparedOutputs[i].debug.kor_r2 << "\n";
-    //     std::cout << "r3         : " << preparedOutputs[i].debug.kor_r3 << "\n";
-    //     std::cout << "comi_prime : " << preparedOutputs[i].debug.kor_comi_prime << "\n";
-    //     std::cout << "com_prime  : " << preparedOutputs[i].debug.kor_com_prime << "\n";
-        // std::cout << "c          : " << preparedOutputs[i].debug.kor_c << "\n";
-    //     std::cout << "s1         : " << preparedOutputs[i].debug.kor_s1 << "\n";
-    //     std::cout << "s2         : " << preparedOutputs[i].debug.kor_s2 << "\n";
-    //     std::cout << "s3         : " << preparedOutputs[i].debug.kor_s3 << "\n";
-    //     std::cout << "============================\n\n";
-    }
 
-    // 8) Kör imza görevleri için tek bir "SignTask" havuzu
    // 8) Kör imza görevleri için tek bir "SignTask" havuzu
 struct SignTask {
     int voterId;
@@ -304,7 +184,6 @@ for (int i = 0; i < voterCount; i++) {
     }
 }
 
-// 9) Tasks havuzunu paralel çalıştırıyoruz
 // 9) Kör imza görevlerini paralel çalıştırıyoruz
 tbb::parallel_for(
     0, (int)tasks.size(),
@@ -313,33 +192,14 @@ tbb::parallel_for(
         int vId = st.voterId;
         int j   = st.indexInVoter;
         int aId = st.adminId;
-
-        // logThreadUsage("BlindSign",
-        //     "Voter " + std::to_string(vId+1) +
-        //     " - Admin " + std::to_string(aId+1) +
-        //     " sign task started on thread " +
-        //     std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-        // );
-
         mpz_t xm, ym;
         mpz_init(xm);
         mpz_init(ym);
-
         element_to_mpz(xm, keyOut.eaKeys[aId].sgk1);
         element_to_mpz(ym, keyOut.eaKeys[aId].sgk2);
-
         BlindSignature sig = blindSign(params, preparedOutputs[vId], xm, ym, aId, vId);
-
         mpz_clear(xm);
         mpz_clear(ym);
-
-        // logThreadUsage("BlindSign",
-        //     "Voter " + std::to_string(vId+1) +
-        //     " - Admin " + std::to_string(aId+1) +
-        //     " sign task finished on thread " +
-        //     std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()))
-        // );
-
         pipelineResults[vId].signatures[j] = sig;
     }
 );
@@ -350,50 +210,29 @@ tbb::parallel_for(
         pipelineResults[i].timing.blind_end = pipelineEnd;
     }
 
-    // std::cout << "\n=== İmzalama Sonuçları ===\n";
     for (int i = 0; i < voterCount; i++) {
-        // std::cout << "Voter " << (i+1) << " için:\n";
-        // Her seçmenin imzaları, hangi admin tarafından üretilmişse admin sırası ile yazdırılıyor.
         for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
             BlindSignature &sig = pipelineResults[i].signatures[j];
-            // std::cout << "  Admin " << (sig.debug.adminId + 1)
-            //         << " tarafından imzalandı. \n";
-            // std::cout << "     h  = " << elemToStrG1(sig.h) << "\n";
-            // std::cout << "     cm = " << elemToStrG1(sig.cm) << "\n";
         }
-        // std::cout << "-------------------------\n";
     }
 
 
     // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
-
-    // Sonuçları ekrana basalım
     long long cumulativePrep_us  = 0;
     long long cumulativeBlind_us = 0;
-
     for (int i = 0; i < voterCount; i++) {
         int gotCount = (int)pipelineResults[i].signatures.size();
-        // std::cout << "Secmen " << (i+1) << " icin " << gotCount
-        //           << " adet imza alindi.\n";
-
         auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
             pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start
         ).count();
-
         auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
             pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start
         ).count();
-
         cumulativePrep_us  += prep_time;
         cumulativeBlind_us += blind_time;
-
-        // std::cout << "Voter " << (i+1)
-        //           << ": Prepare time = " << (prep_time / 1000.0)
-        //           << " ms, BlindSign time = " << (blind_time / 1000.0) << " ms\n\n";
     }
 
-    //Unblindsign
 // 14) Unblind Phase: Her seçmen için threshold (örneğin t adet) imza unblind edilecek.
 auto unblindStart = Clock::now();
 
@@ -416,19 +255,14 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 auto unblindEnd = Clock::now();
 auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
 
-// std::cout << "\n=== Unblind Signature Results with Admin IDs ===\n";
+// Admin idleriyle birlikte tutmak için conversion işlemi";
 for (int i = 0; i < voterCount; i++) {
-    // std::cout << "Voter " << (i + 1) << " unblind signatures:\n";
     for (int j = 0; j < (int)unblindResultsWithAdmin[i].size(); j++) {
         int adminId = unblindResultsWithAdmin[i][j].first; // Admin ID'sini al
         UnblindSignature &usig = unblindResultsWithAdmin[i][j].second; // İlgili imzayı al
-        // std::cout << "  Signature " << (j + 1) << " produced by Admin " << (adminId + 1) << ":\n";
-        // std::cout << "     s_m = " << elementToStringG1(usig.s_m) << "\n";
     }
-    // std::cout << "-------------------------\n";
 }
 
-    //Aggregate
  // Aggregate imza hesaplaması:
 std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
@@ -439,137 +273,35 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 auto aggregateEnd = Clock::now();
 auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
 
-// Aggregate sonuçlarını raporlama:
-// std::cout << "\n=== Aggregate Signature Results ===\n";
-// for (int i = 0; i < voterCount; i++) {
-//     // std::cout << "Voter " << (i+1) << " aggregate signature:\n";
-//     // std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-//     // std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-//     // std::cout << "    Debug Info:\n" << aggregateResults[i].debug_info << "\n";
-//     // std::cout << "-------------------------\n";
-// }
-
-
-
-//Provecredential
-
-// std::cout << "\n=== Unblind Signature Results ===\n";
-
-
-
-
-// std::cout << "prepared common vars for prove" <<"\n\n";
-
-// {
-//     char* p_str = mpz_get_str(nullptr, 10, params.prime_order);
-//     std::cout << "p (Grup mertebesi) =\n" << p_str << "\n\n";
-//     free(p_str);
-// }
-// {
-//     char buf[1024];
-//     element_snprintf(buf, sizeof(buf), "%B", params.g1);
-//     std::cout << "g1 =\n" << buf << "\n\n";
-// }
-// {
-//     char buf[1024];
-//     element_snprintf(buf, sizeof(buf), "%B", params.h1);
-//     std::cout << "h1 =\n" << buf << "\n\n";
-// }
-// {
-//     char buf[1024];
-//     element_snprintf(buf, sizeof(buf), "%B", params.g2);
-//     std::cout << "g2 =\n" << buf << "\n\n";
-// }
-// {
-//     char buf[1024];
-//     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.alpha2);
-//     std::cout << "mvk.alpha2 = g2^x =\n" << buf << "\n\n";
-// }
-// {
-//     char buf[1024];
-//     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta2);
-//     std::cout << "mvk.beta2 = g2^y =\n" << buf << "\n\n";
-// }
-// {
-//     char buf[1024];
-//     element_snprintf(buf, sizeof(buf), "%B", keyOut.mvk.beta1);
-//     std::cout << "mvk.beta1 = g1^y =\n" << buf << "\n\n";
-// }
-// std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
-// for (int i = 0; i < voterCount; i++) {
-//     // std::cout << "user " << (i+1) << " prepared vars for prove" <<"\n\n";
-//     char buf[1024];
-// mpz_get_str(buf, 10, preparedOutputs[i].o);
-// // std::cout << "o= " << buf << "\n";
-// //    std::cout << "    h = " << elementToStringG1(aggregateResults[i].h) << "\n";
-// //         std::cout << "    s = " << elementToStringG1(aggregateResults[i].s) << "\n";
-// //         std::cout <<" did = " <<  dids[i].did<<"\n";
-//         // std::cout << "com        : " << preparedOutputs[i].debug.com << "\n";
-//         // std::cout << "-------------------------------------------------------------------------------------------------"<<"\n\n";
-
-// }
-
-
-
-
-
-
-
-
-
-
-//provecred
-
 // --- ProveCredential Phase ---
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
-    // prepareOutputs[i].o: prepareBlindSign aşamasından alınan o değeri
     ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, preparedOutputs[i].o);
     proveResults[i] = pOut;
 });
 auto proveEnd = Clock::now();
 auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
 
-// ProveCredential sonuçlarını raporlama:
-// std::cout << "\n=== ProveCredential Results ===\n";
-for (int i = 0; i < voterCount; i++) {
-    // std::cout << "Voter " << (i+1) << " prove credential output:\n";
-    // std::cout << "    h'' = " << elementToStringG1(proveResults[i].sigmaRnd.h) << "\n";
-    // std::cout << "    s'' = " << elementToStringG1(proveResults[i].sigmaRnd.s) << "\n";
-    // std::cout << "    k   = " << elementToStringG1(proveResults[i].k) << "\n";
-    // std::cout << "    r   = " << elementToStringG1(proveResults[i].r) << "\n";
-
-    // std::cout << "    π_v = " << proveResults[i].proof_v << "\n";    // std::cout << "    Debug Info:\n" << proveResults[i].sigmaRnd.debug_info << "\n";
-    // std::cout << "-------------------------\n";
-}
-
 //kor işlemi
-// std::cout << "\n=== Knowledge of Representation (KoR) Phase ===\n";
 auto korStart = Clock::now();
 
 tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
     [&](const tbb::blocked_range<int>& r) {
         for (int i = r.begin(); i != r.end(); ++i) {
-            // Convert DID from hex string to mpz_t
             mpz_t did_int;
             mpz_init(did_int);
             mpz_set_str(did_int, dids[i].did.c_str(), 16);
             mpz_mod(did_int, did_int, params.prime_order);
 
-            // Convert the commitment string to an element
             element_t com_elem;
             element_init_G1(com_elem, params.pairing);
-
-            // Try/catch ile com string'ini element e dönüştür
             try {
                 stringToElement(com_elem, preparedOutputs[i].debug.com, params.pairing, 1); // 1 for G1
             } catch (const std::exception& e) {
                 std::cerr << "Error converting com string to element: " << e.what() << std::endl;
-                // Hata durumunda rasgele element üret
                 element_random(com_elem);
             }
-
             // KoR kanıtını oluştur
             KnowledgeOfRepProof korProof = generateKoRProof(
                 params,
@@ -582,17 +314,12 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
                 did_int,
                 preparedOutputs[i].o
             );
-
             // Kanıtı proveResults'e kopyala
             element_set(proveResults[i].c, korProof.c);
             element_set(proveResults[i].s1, korProof.s1);
             element_set(proveResults[i].s2, korProof.s2);
             element_set(proveResults[i].s3, korProof.s3);
             proveResults[i].proof_v = korProof.proof_string;
-
-            std::cout << "Voter " << (i+1) << " KoR proof generated\n";
-
-            // Temizlik
             element_clear(com_elem);
             element_clear(korProof.c);
             element_clear(korProof.s1);
@@ -607,15 +334,13 @@ auto korEnd = Clock::now();
 auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - korStart).count();
 
 
-// === Knowledge of Representation (KoR) Verification Phase ===
-// std::cout << "\n=== Knowledge of Representation (KoR) Verification Phase ===\n";
+// === Knowledge of Representation (KoR) Verification Phase And Pairing Check ===
 auto korVerStart = Clock::now();
 
 tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
     [&](const tbb::blocked_range<int>& r) {
         for (int i = r.begin(); i != r.end(); ++i) {
             bool pairing_ok = pairingCheck(params, proveResults[i]);
-            
             bool kor_ok = checkKoRVerify(
                 params,
                 proveResults[i],               // ProveCredentialOutput (k, c, s1, s2, s3)
@@ -635,8 +360,7 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
 
 auto korVerEnd = Clock::now();
 auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd - korVerStart).count();
-std::cout << "\n[KOR VERIFY] Total Knowledge of Representation Verification Phase Time = " 
-          << (korVer_us / 1000.0) << " ms\n";
+
 
     // 12) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
