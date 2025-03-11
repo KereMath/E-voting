@@ -263,17 +263,85 @@ void computeLagrangeCoefficient(
         }
         // (3) {1,2,5}
         else if (has1 && has2 && has5) {
+            // 3 admin: (1,2,5)
+            // Katsayı(1) = 5/2, Katsayı(2) = -5/3, Katsayı(5) = 1/6
+            //  -> Bu kesirleri "p mod 2/3/6" ye göre parçalı formüllerle tamsayıya indiriyoruz.
+        
             if (shiftedCurrentAdminID == 1) {
-                // 5/2
-                setFraction(outCoeff, groupOrder, 5, 2);
-            } else if (shiftedCurrentAdminID == 2) {
-                // -5/3
-                setFraction(outCoeff, groupOrder, -5, 3);
-            } else {
-                // 1/6
-                setFraction(outCoeff, groupOrder, 1, 6);
+                // 5/2 => (p+5)/2, assuming p mod 2 = 1 (büyük asal -> genelde 2'ye göre tek)
+                mpz_t tmp;
+                mpz_init(tmp);
+        
+                // tmp = p + 5
+                mpz_add_ui(tmp, groupOrder, 5);
+        
+                // tmp = (p + 5)/2 (exact)
+                mpz_divexact_ui(tmp, tmp, 2);
+        
+                element_set_mpz(outCoeff, tmp);
+                mpz_clear(tmp);
+            }
+        
+            else if (shiftedCurrentAdminID == 2) {
+                // -5/3 mod p
+                // Kullanıcı isteğine göre:
+                //  p ≡ 2 (mod 3) => (p - 5)/3
+                //  p ≡ 1 (mod 3) => (2p - 5)/3
+                // (diğer durumlar p asal ise genelde p mod 3 ∈ {1,2} olabilir)
+        
+                mpz_t mod3, tmp;
+                mpz_inits(mod3, tmp, NULL);
+        
+                // mod3 = p mod 3
+                mpz_mod_ui(mod3, groupOrder, 3);
+                unsigned long m3 = mpz_get_ui(mod3);
+        
+                if (m3 == 2) {
+                    // (p - 5)/3
+                    mpz_sub_ui(tmp, groupOrder, 5);
+                    mpz_divexact_ui(tmp, tmp, 3);
+                    element_set_mpz(outCoeff, tmp);
+                } else {
+                    // (2p - 5)/3
+                    mpz_mul_ui(tmp, groupOrder, 2);
+                    mpz_sub_ui(tmp, tmp, 5);
+                    mpz_divexact_ui(tmp, tmp, 3);
+                    element_set_mpz(outCoeff, tmp);
+                }
+        
+                mpz_clears(mod3, tmp, NULL);
+            }
+        
+            else {
+                // Katsayı(5) = 1/6
+                // Kullanıcı isteğine göre:
+                //  p ≡ 5 (mod 6) => (p + 1)/6
+                //  aksi halde => (5p + 1)/6
+        
+                mpz_t mod6, tmp;
+                mpz_inits(mod6, tmp, NULL);
+        
+                // mod6 = p mod 6
+                mpz_mod_ui(mod6, groupOrder, 6);
+                unsigned long m6 = mpz_get_ui(mod6);
+        
+                if (m6 == 5) {
+                    // (p + 1)/6
+                    mpz_add_ui(tmp, groupOrder, 1);
+                    mpz_divexact_ui(tmp, tmp, 6);
+                    element_set_mpz(outCoeff, tmp);
+                } else {
+                    // (5p + 1)/6
+                    mpz_mul_ui(tmp, groupOrder, 5);
+                    mpz_add_ui(tmp, tmp, 1);
+                    mpz_divexact_ui(tmp, tmp, 6);
+                    element_set_mpz(outCoeff, tmp);
+                }
+        
+                mpz_clears(mod6, tmp, NULL);
             }
         }
+        
         // (4) {1,3,4}
         else if (has1 && has3 && has4) {
             if (shiftedCurrentAdminID == 1) {
