@@ -8,24 +8,11 @@
 // Dışarıdan tanımlı: elementToStringG1 (const parametre alır)
 extern std::string elementToStringG1(const element_t elem);
 
-// Yeni eklenmiş Zr elementleri için string dönüşüm fonksiyonu
-static std::string elementToStringZr(const element_t elem) {
-    mpz_t m;
-    mpz_init(m);
-    element_get_mpz(m, elem);
-    char* str = mpz_get_str(NULL, 16, m);
-    std::string result(str);
-    free(str);
-    mpz_clear(m);
-    return result;
-}
-
-// G2 elementleri için düzeltilmiş fonksiyon
+// New function for G2 elements
 static std::string elementToStringG2(const element_t elem) {
     // Use toNonConst to handle the const parameter
     element_t elem_nonconst;
-    element_init_same_as(elem_nonconst, elem);
-    element_set(elem_nonconst, elem);
+    elem_nonconst[0] = *((element_s*)(&elem[0]));
     
     int len = element_length_in_bytes(elem_nonconst);
     std::vector<unsigned char> buf(len);
@@ -36,14 +23,12 @@ static std::string elementToStringG2(const element_t elem) {
     for (unsigned char c : buf) {
         oss << std::setw(2) << (int)c;
     }
-    
-    element_clear(elem_nonconst);
     return oss.str();
 }
 
 // Helper: Convert an mpz_t value to std::string.
 static std::string mpzToString(const mpz_t value) {
-    char* c_str = mpz_get_str(nullptr, 16, value); // Hexadecimal formatında çıktı alalım
+    char* c_str = mpz_get_str(nullptr, 10, value);
     std::string str(c_str);
     free(c_str);
     return str;
@@ -94,15 +79,15 @@ ProveCredentialOutput proveCredential(
     
     // --- Step 6: Compute k = α₂ * (β₂)^(didInt) * g₂^(r) ---
     element_t beta_exp, g2_r;
-    element_init_G2(beta_exp, params.pairing);
+    element_init_G2(beta_exp, params.pairing);  // Changed to G2
     element_t expElem;
     element_init_Zr(expElem, params.pairing);
     element_set_mpz(expElem, didInt);
     element_pow_zn(beta_exp, mvk.beta2, expElem);
     element_clear(expElem);
-    element_init_G2(g2_r, params.pairing);
+    element_init_G2(g2_r, params.pairing);  // Changed to G2
     element_pow_zn(g2_r, params.g2, r);
-    element_init_G2(output.k, params.pairing);
+    element_init_G2(output.k, params.pairing);  // Changed to G2
     element_mul(output.k, mvk.alpha2, beta_exp);
     element_mul(output.k, output.k, g2_r);
     
@@ -128,14 +113,14 @@ ProveCredentialOutput proveCredential(
     element_mul(k_prime, g2_r1p, mvk.alpha2);
     element_mul(k_prime, k_prime, beta2_r2p);
     
-    // 7.3: Compute com' = g1^(r3') * h^(r2')
+    // 7.3: Compute com' = g1^(r3') * h^(r2') - FIXED: now using aggSig.h instead of params.h1
     element_t com_prime;
     element_init_G1(com_prime, params.pairing);
     element_t g1_r3p, h_r2p;
     element_init_G1(g1_r3p, params.pairing);
     element_init_G1(h_r2p, params.pairing);
     element_pow_zn(g1_r3p, params.g1, r3p);
-    element_pow_zn(h_r2p, aggSig.h, r2p);  // Using aggSig.h
+    element_pow_zn(h_r2p, aggSig.h, r2p);  // Using aggSig.h instead of params.h1
     element_mul(com_prime, g1_r3p, h_r2p);
     
     // Create a com element for the hash calculation - this is g1^o * h^DIDi
@@ -155,42 +140,25 @@ ProveCredentialOutput proveCredential(
     mpz_clear(temp);
     element_pow_zn(g1_o, params.g1, o_elem);
     
-    // h^DIDi - Using aggSig.h
+    // h^DIDi - Using aggSig.h here too
     element_t did_elem;
     element_init_Zr(did_elem, params.pairing);
     element_set_mpz(did_elem, didInt);
-    element_pow_zn(h_did, aggSig.h, did_elem);
+    element_pow_zn(h_did, aggSig.h, did_elem);  // Changed to aggSig.h
     
     // com = g1^o * h^DIDi
     element_mul(com, g1_o, h_did);
     
     // 7.4: Compute c = Hash(g1, g2, h, com, com', k, k') - Using aggSig.h and proper serialization
-    // Önemli: Hash girişini hem proving hem verification adımlarında aynı sıra ve aynı serileştirme ile oluşturalım
     std::ostringstream hashOSS;
-    
-    // PBC elementlerini tutarlı bir formatta serileştirelim
-    std::string g1_str = elementToStringG1(params.g1);
-    std::string g2_str = elementToStringG2(params.g2);
-    std::string h_str = elementToStringG1(aggSig.h);
-    std::string com_str = elementToStringG1(com);
-    std::string com_prime_str = elementToStringG1(com_prime);
-    std::string k_str = elementToStringG2(output.k);
-    std::string k_prime_str = elementToStringG2(k_prime);
-    
-    // Debug çıktıları ekleyelim
-    std::cout << "[KoR-PROVE-DEBUG] params.g1 = " << g1_str << std::endl;
-    std::cout << "[KoR-PROVE-DEBUG] params.g2 = " << g2_str << std::endl;
-    std::cout << "[KoR-PROVE-DEBUG] aggSig.h = " << h_str << std::endl;
-    std::cout << "[KoR-PROVE-DEBUG] com = " << com_str << std::endl;
-    std::cout << "[KoR-PROVE-DEBUG] com_prime = " << com_prime_str << std::endl;
-    std::cout << "[KoR-PROVE-DEBUG] k = " << k_str << std::endl;
-    std::cout << "[KoR-PROVE-DEBUG] k_prime = " << k_prime_str << std::endl;
-    
-    // Her bir değeri hash'e ekleyelim
-    hashOSS << g1_str << g2_str << h_str << com_str << com_prime_str << k_str << k_prime_str;
+    hashOSS << elementToStringG1(params.g1)
+            << elementToStringG2(params.g2)  // Use G2 serialization
+            << elementToStringG1(aggSig.h)   // Use aggSig.h instead of params.h1
+            << elementToStringG1(com)
+            << elementToStringG1(com_prime)
+            << elementToStringG2(output.k)   // Use G2 serialization
+            << elementToStringG2(k_prime);   // Use G2 serialization
     std::string hashInput = hashOSS.str();
-    
-    std::cout << "[KoR-PROVE-DEBUG] Hash input (hex): " << hashInput << std::endl;
     
     unsigned char hashDigest[SHA512_DIGEST_LENGTH];
     SHA512(reinterpret_cast<const unsigned char*>(hashInput.data()), hashInput.size(), hashDigest);
@@ -201,17 +169,12 @@ ProveCredentialOutput proveCredential(
     }
     std::string c_str = hashFinalOSS.str();
     
-    std::cout << "[KoR-PROVE-DEBUG] Hash output (hex): " << c_str << std::endl;
-    
     // 7.5: Convert hash to element c in Zp.
     mpz_t c_mpz;
     mpz_init(c_mpz);
     if(mpz_set_str(c_mpz, c_str.c_str(), 16) != 0)
         throw std::runtime_error("proveCredential: Error converting hash to mpz");
     mpz_mod(c_mpz, c_mpz, params.prime_order);
-    
-    std::cout << "[KoR-PROVE-DEBUG] c_mpz after mod (hex): " << mpzToString(c_mpz) << std::endl;
-    
     element_t c_elem;
     element_init_Zr(c_elem, params.pairing);
     element_set_mpz(c_elem, c_mpz);
@@ -255,12 +218,12 @@ ProveCredentialOutput proveCredential(
     element_set(output.s2, s2);
     element_set(output.s3, s3);
     
-    // Zr elementleri için doğru string formatını kullan
+    // 7.9: Also construct the KoR tuple string for backwards compatibility: π_v = (c, s1, s2, s3)
     std::ostringstream korOSS;
-    korOSS << elementToStringZr(c_elem) << " "
-           << elementToStringZr(s1) << " "
-           << elementToStringZr(s2) << " "
-           << elementToStringZr(s3);
+    korOSS << elementToStringG1(c_elem) << " "
+           << elementToStringG1(s1) << " "
+           << elementToStringG1(s2) << " "
+           << elementToStringG1(s3);
     std::string kor_tuple = korOSS.str();
     
     output.proof_v = kor_tuple;
@@ -269,7 +232,7 @@ ProveCredentialOutput proveCredential(
     std::ostringstream dbg;
     dbg << "h'' = " << elementToStringG1(output.sigmaRnd.h) << "\n";
     dbg << "s'' = " << elementToStringG1(output.sigmaRnd.s) << "\n";
-    dbg << "k   = " << elementToStringG2(output.k) << "\n";
+    dbg << "k   = " << elementToStringG2(output.k) << "\n";  // Updated to G2 serialization
     dbg << "KoR tuple = " << output.proof_v << "\n";
     output.sigmaRnd.debug_info = dbg.str();
     
