@@ -27,19 +27,6 @@
 using Clock = std::chrono::steady_clock;
 
 // -----------------------------------------------------------------------------
-// Global logger: thread kullanımını kaydetmek için (threads.txt)
-// -----------------------------------------------------------------------------
-std::mutex logMutex;
-std::ofstream threadLog("threads.txt");
-
-void logThreadUsage(const std::string &phase, const std::string &msg) {
-    std::lock_guard<std::mutex> lock(logMutex);
-    auto now = Clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-    threadLog << "[" << ms << " ms] " << phase << ": " << msg << "\n";
-}
-
-// -----------------------------------------------------------------------------
 struct PipelineTiming {
     Clock::time_point prep_start;
     Clock::time_point prep_end;
@@ -392,6 +379,7 @@ if (!allVerified.load()) {
     }
     clearParams(params);
     auto programEnd = Clock::now();
+    auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(programEnd - programStart).count();
 
     // 13) Zaman ölçümlerini ekrana yazalım
     double setup_ms    = setup_us    / 1000.0;
@@ -416,8 +404,6 @@ if (!allVerified.load()) {
     std::cout << "\n[PAIRING] Total Pairing Check Time = " << (totalPairing_us / 1000.0) << " ms\n";
     std::cout << "\n[KOR VERIFY] Total Knowledge of Representation Verification Time = " << (totalKorVer_us / 1000.0) << " ms\n";
     std::cout << "\n[VERIFICATION] Total Verification (Pairing + KoR) Time = " << (totalVer_us / 1000.0) << " ms\n";
-    threadLog.close();
-    auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(programEnd - programStart).count();
     std::cout << "Total execution time: " << (totalDuration / 1000.0) << " ms\n";
     std::cout << "\n=== Program Sonu ===\n";
     return 0;
