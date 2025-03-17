@@ -318,68 +318,30 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
     }
 }
 
-AggregateSignature aggregateSign(
-    TIACParams &params,
-    const std::vector<std::pair<int, UnblindSignature>> &partialSigsWithAdmins,
-    MasterVerKey &mvk,
-    const std::string &didStr,
-    const mpz_t groupOrder
-) {
+AggregateSignature aggregateSign(TIACParams &params,const std::vector<std::pair<int, UnblindSignature>> &partialSigsWithAdmins,MasterVerKey &mvk,const std::string &didStr,const mpz_t groupOrder) {
     AggregateSignature aggSig;
     std::ostringstream debugStream;
-    
-    // (1) h: Tüm partial imzaların h değeri aynı kabul edildiğinden, ilk partial imzadan h alınır.
     element_init_G1(aggSig.h, params.pairing);
-    // partialSigsWithAdmins[0].second.h is an element_t, which is defined as element_s[1]. 
-    // We take the address of the first element.
     element_set(aggSig.h, toNonConst(&(partialSigsWithAdmins[0].second.h[0])));
-    debugStream << "Aggregate h set from first partial signature.\n";
-    
-    // (2) s: Aggregate s başlangıçta identity (1) olarak ayarlanır.
     element_init_G1(aggSig.s, params.pairing);
     element_set1(aggSig.s);
-    debugStream << "Initial aggregate s set to identity.\n";
-    
-    // Tüm admin ID'lerini toplayalım.
     std::vector<int> allIDs;
     for (size_t i = 0; i < partialSigsWithAdmins.size(); i++) {
         allIDs.push_back(partialSigsWithAdmins[i].first);
     }
-    debugStream << "Combining partial signatures with Lagrange coefficients:\n";
-    
-    // (3) Her partial imza için Lagrange katsayısı hesaplanır ve s_m^(λ) ile çarpılır.
     for (size_t i = 0; i < partialSigsWithAdmins.size(); i++) {
         int adminID = partialSigsWithAdmins[i].first;
         element_t lambda;
         element_init_Zr(lambda, params.pairing);
         computeLagrangeCoefficient(lambda, allIDs, i, groupOrder, params.pairing);
-        
         char lambdaBuf[1024];
-        element_snprintf(lambdaBuf, sizeof(lambdaBuf), "%B", lambda);
-        debugStream << "Lagrange coefficient for partial signature " << (i+1)
-                    << " from Admin " << (adminID + 1)
-                    << " is: " << lambdaBuf << "\n";
-                    
-        // s_m^(λ) hesapla. partialSigsWithAdmins[i].second.s_m is an element_t; use its first element.
         element_t s_m_exp;
         element_init_G1(s_m_exp, params.pairing);
         element_pow_zn(s_m_exp, toNonConst(&(partialSigsWithAdmins[i].second.s_m[0])), lambda);
-        
-        char s_m_expBuf[1024];
-        element_snprintf(s_m_expBuf, sizeof(s_m_expBuf), "%B", s_m_exp);
-        debugStream << "Partial signature " << (i+1)
-                    << " from Admin " << (adminID + 1)
-                    << ": s_m^(λ) = " << s_m_expBuf << "\n";
-                    
-        // Aggregate s ile çarp.
         element_mul(aggSig.s, aggSig.s, s_m_exp);
         element_clear(lambda);
         element_clear(s_m_exp);
     }
     char s_final[1024];
-    element_snprintf(s_final, sizeof(s_final), "%B", aggSig.s);
-    debugStream << "Final aggregate s computed = " << s_final << "\n";
-    
-    aggSig.debug_info = debugStream.str();
     return aggSig;
 }
