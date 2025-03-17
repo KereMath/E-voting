@@ -74,7 +74,22 @@ int main() {
     auto endPairing = Clock::now();
     auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
     element_clear(pairingTest);
-    
+    // Setup işlemi tamamlandıktan sonra g1, g2 ve prime order değerlerini yazdır
+std::cout << "=== Pairing Parameters ===\n";
+std::cout << "Prime Order (p): ";
+mpz_out_str(stdout, 10, params.prime_order);
+std::cout << "\n";
+
+// g1 elemanını yazdır
+std::cout << "g1: ";
+element_out_str(stdout, 10, params.g1);
+std::cout << "\n";
+
+// g2 elemanını yazdır
+std::cout << "g2: ";
+element_out_str(stdout, 10, params.g2);
+std::cout << "\n";
+std::cout << "========================\n\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
