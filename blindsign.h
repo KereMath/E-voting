@@ -20,8 +20,8 @@ bool CheckKoR(
 struct BlindSignature {
     element_t h;   
     element_t cm;  
-    int adminId;   // Moved from debug struct
-    int voterId;   // Moved from debug struct
+    int adminId;  
+    int voterId;   
 };
 
 BlindSignature blindSign(

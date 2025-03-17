@@ -17,8 +17,8 @@ struct PrepareBlindSignOutput {
     element_t h;
     element_t com;
     KoRProof pi_s;
-    mpz_t o;     // Blind factor needed for later operations
-    std::string com_str; // String representation of com for later verification
+    mpz_t o;    
+    std::string com_str; 
 };
 
 PrepareBlindSignOutput prepareBlindSign(

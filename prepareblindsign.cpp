@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <iostream>
 
-// Optimize helper functions - only keep necessary ones
 static void randomZr(element_t zr, TIACParams &params) {
     element_random(zr);  
 }
@@ -52,8 +51,6 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<std:
     element_set_mpz(outZr, tmp);
     mpz_clear(tmp);
 }
-
-// Optimized KoR computation without debug info
 static KoRProof computeKoR(
     TIACParams &params,
     element_t com,   
@@ -158,8 +155,6 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     PrepareBlindSignOutput out;
     mpz_t oi, o;
     mpz_inits(oi, o, NULL);
-
-    // Generate random values
     element_t tmp;
     element_init_Zr(tmp, params.pairing);
     element_random(tmp);
@@ -167,67 +162,43 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
     element_random(tmp);
     element_to_mpz(o, tmp);
     element_clear(tmp);
-    
-    // Parse DID to integer
     mpz_t didInt;
     mpz_init(didInt);
     didStringToMpz(didStr, didInt, params.prime_order);
-    
-    // Calculate comi = g1^oi * h1^did
     element_init_G1(out.comi, params.pairing);
     element_t g1_oi, h1_did;
     element_init_G1(g1_oi, params.pairing);
     element_init_G1(h1_did, params.pairing);
-    
-    // g1^oi
     element_t exp;
     element_init_Zr(exp, params.pairing);
     element_set_mpz(exp, oi);
     element_pow_zn(g1_oi, params.g1, exp);
     element_clear(exp);
-    
-    // h1^did
     element_init_Zr(exp, params.pairing);
     element_set_mpz(exp, didInt);
     element_pow_zn(h1_did, params.h1, exp);
     element_clear(exp);
-    
-    // comi = g1^oi * h1^did
     element_mul(out.comi, g1_oi, h1_did);
     element_clear(g1_oi);
     element_clear(h1_did);
-    
-    // Calculate h = Hash(comi)
     element_init_G1(out.h, params.pairing);
     hashToG1(out.h, params, out.comi);
-    
-    // Calculate com = g1^o * h^did
     element_init_G1(out.com, params.pairing);
     element_t g1_o, h_did;
     element_init_G1(g1_o, params.pairing);
     element_init_G1(h_did, params.pairing);
-    
-    // g1^o
     element_init_Zr(exp, params.pairing);
     element_set_mpz(exp, o);
     element_pow_zn(g1_o, params.g1, exp);
     element_clear(exp);
-    
-    // h^did
     element_init_Zr(exp, params.pairing);
     element_set_mpz(exp, didInt);
     element_pow_zn(h_did, out.h, exp);
     element_clear(exp);
-    
-    // com = g1^o * h^did
     element_mul(out.com, g1_o, h_did);
     element_clear(g1_o);
     element_clear(h_did);
-    
-    // Save com string for later verification
     out.com_str = elementToStringG1(out.com);
-    
-    // Calculate proof of knowledge
     out.pi_s = computeKoR(
         params,
         out.com,
@@ -239,13 +210,8 @@ PrepareBlindSignOutput prepareBlindSign(TIACParams &params, const std::string &d
         didInt,
         o
     );
-    
-    // Save o for later operations
     mpz_init(out.o);
     mpz_set(out.o, o);
-    
-    // Clean up
     mpz_clears(oi, o, didInt, NULL);
-    
     return out;
 }
