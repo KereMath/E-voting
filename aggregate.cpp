@@ -320,7 +320,6 @@ void computeLagrangeCoefficient(element_t outCoeff, const std::vector<int> &allI
 
 AggregateSignature aggregateSign(TIACParams &params,const std::vector<std::pair<int, UnblindSignature>> &partialSigsWithAdmins,MasterVerKey &mvk,const std::string &didStr,const mpz_t groupOrder) {
     AggregateSignature aggSig;
-    std::ostringstream debugStream;
     element_init_G1(aggSig.h, params.pairing);
     element_set(aggSig.h, toNonConst(&(partialSigsWithAdmins[0].second.h[0])));
     element_init_G1(aggSig.s, params.pairing);
