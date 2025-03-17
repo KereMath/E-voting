@@ -41,6 +41,11 @@ void my_element_dup(element_t dest, element_t src) {
 }
 
 int main() {
+    // Sistemdeki tüm CPU çekirdeklerini tespit et
+int max_threads = std::thread::hardware_concurrency();
+
+// Tüm çekirdekleri kullanmaya zorla (mevcut kodunuzda bu kısım yok)
+tbb::global_control gc(tbb::global_control::max_allowed_parallelism, max_threads);
     auto programStart = Clock::now();
     int ne = 0;       
     int t  = 0;       
