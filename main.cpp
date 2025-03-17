@@ -337,26 +337,18 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
             bool pairing_ok = pairingCheck(params, proveResults[i]);
             bool kor_ok = checkKoRVerify(
                 params,
-                proveResults[i],               // ProveCredentialOutput (k, c, s1, s2, s3)
-                keyOut.mvk,                    // MasterVerKey
-                preparedOutputs[i].debug.com,  // com (string)
-                aggregateResults[i].h          // h
+                proveResults[i],               
+                keyOut.mvk,                    
+                preparedOutputs[i].debug.com,  
+                aggregateResults[i].h          
             );
-            
             bool verified = pairing_ok && kor_ok;
-            std::cout << "Voter " << (i+1) << " verification: " 
-                      << (verified ? "VERIFIED DONE ✓" : "FAILED ✗") 
-                      << " (Pairing: " << (pairing_ok ? "OK" : "FAIL") 
-                      << ", KoR: " << (kor_ok ? "OK" : "FAIL") << ")\n";
         }
     }
 );
 
 auto korVerEnd = Clock::now();
 auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd - korVerStart).count();
-
-
-    // 12) Bellek temizliği
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
     element_clear(keyOut.mvk.beta1);
