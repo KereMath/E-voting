@@ -74,21 +74,37 @@ int main() {
     auto endPairing = Clock::now();
     auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
     element_clear(pairingTest);
-    // Setup işlemi tamamlandıktan sonra g1, g2 ve prime order değerlerini yazdır
+    // Setup işlemi tamamlandıktan sonra pairing ve eğri bilgilerini yazdır
 std::cout << "=== Pairing Parameters ===\n";
 std::cout << "Prime Order (p): ";
 mpz_out_str(stdout, 10, params.prime_order);
 std::cout << "\n";
 
-// g1 elemanını yazdır
-std::cout << "g1: ";
-element_out_str(stdout, 10, params.g1);
+// Pairing parametrelerini yazdır
+std::cout << "Pairing Type: ";
+if (params.pairing->data != NULL) {
+    char buffer[1024];
+    pairing_snprint(buffer, sizeof(buffer), params.pairing);
+    std::cout << buffer << "\n";
+} else {
+    std::cout << "Not available\n";
+}
+
+// g1 elemanını hex formatında yazdır
+std::cout << "g1 (hex): ";
+element_out_str(stdout, 16, params.g1);
 std::cout << "\n";
 
-// g2 elemanını yazdır
-std::cout << "g2: ";
-element_out_str(stdout, 10, params.g2);
+// g2 elemanını hex formatında yazdır
+std::cout << "g2 (hex): ";
+element_out_str(stdout, 16, params.g2);
 std::cout << "\n";
+
+// Daha okunabilir format için
+std::cout << "\nG1 ve G2 Açıklaması:\n";
+std::cout << "G1: Birinci eliptik eğri grubunun üreteci (ilk eğri üzerindeki nokta)\n";
+std::cout << "G2: İkinci eliptik eğri grubunun üreteci (ikinci eğri veya ilk eğrinin twist'i üzerindeki nokta)\n";
+std::cout << "Yukarıdaki sayılar bu noktaların koordinatlarını veya iç temsilini gösterir.\n";
 std::cout << "========================\n\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
