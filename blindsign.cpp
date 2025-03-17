@@ -36,39 +36,59 @@ static void hashToZr(element_t outZr, TIACParams &params, const std::vector<elem
     mpz_clear(tmp);
 }
 
-bool CheckKoR(TIACParams &params,element_t com,element_t comi,element_t h,KoRProof &pi_s) {
+bool CheckKoR(TIACParams &params, element_t com, element_t comi, element_t h, KoRProof &pi_s) {
     element_t comi_double;
     element_init_G1(comi_double, params.pairing);
+    
+    // Calculate g1^s1
     element_t g1_s1; 
     element_init_G1(g1_s1, params.pairing);
     element_pow_zn(g1_s1, params.g1, pi_s.s1);
+    
+    // Calculate h1^s2
     element_t h1_s2; 
     element_init_G1(h1_s2, params.pairing);
     element_pow_zn(h1_s2, params.h1, pi_s.s2);
+    
+    // Calculate comi^c
     element_t comi_c; 
     element_init_G1(comi_c, params.pairing);
     element_pow_zn(comi_c, comi, pi_s.c);
+    
+    // Calculate g1^s1 * h1^s2 * comi^c
     element_mul(comi_double, g1_s1, h1_s2);
     element_clear(g1_s1);
     element_clear(h1_s2);
     element_mul(comi_double, comi_double, comi_c);
     element_clear(comi_c);
+    
+    // Calculate com_double = g1^s3 * h^s2 * com^c
     element_t com_double;
     element_init_G1(com_double, params.pairing);
+    
+    // Calculate g1^s3
     element_t g1_s3;
     element_init_G1(g1_s3, params.pairing);
     element_pow_zn(g1_s3, params.g1, pi_s.s3);
+    
+    // Calculate h^s2
     element_t h_s2;
     element_init_G1(h_s2, params.pairing);
     element_pow_zn(h_s2, h, pi_s.s2);
+    
+    // Calculate com^c
     element_t com_c;
     element_init_G1(com_c, params.pairing);
     element_pow_zn(com_c, com, pi_s.c);
+    
+    // Calculate g1^s3 * h^s2 * com^c
     element_mul(com_double, g1_s3, h_s2);
     element_mul(com_double, com_double, com_c);
     element_clear(g1_s3);
     element_clear(h_s2);
     element_clear(com_c);
+    
+    // Calculate c' = Hash(g1, h, h1, com, com_double, comi, comi_double)
     element_t cprime;
     element_init_Zr(cprime, params.pairing);
     std::vector<element_s*> toHash;
@@ -81,18 +101,26 @@ bool CheckKoR(TIACParams &params,element_t com,element_t comi,element_t h,KoRPro
     toHash.push_back(comi);
     toHash.push_back(comi_double);
     hashToZr(cprime, params, toHash);
+    
+    // Check if c == c'
     bool ok = (element_cmp(cprime, pi_s.c) == 0);
+    
+    // Clean up
     element_clear(comi_double);
     element_clear(com_double);
     element_clear(cprime);
+    
     return ok;
 }
 
-BlindSignature blindSign(TIACParams &params,PrepareBlindSignOutput &bsOut,mpz_t xm,mpz_t ym,int adminId,int voterId) {
+BlindSignature blindSign(TIACParams &params, PrepareBlindSignOutput &bsOut, mpz_t xm, mpz_t ym, int adminId, int voterId) {
+    // Verify KoR proof
     bool ok = CheckKoR(params, bsOut.com, bsOut.comi, bsOut.h, bsOut.pi_s);
     if(!ok) {
         throw std::runtime_error("blindSign: KoR check failed");
     }
+    
+    // Verify that h = Hash(comi)
     element_t hprime;
     element_init_G1(hprime, params.pairing);
     {
@@ -104,10 +132,14 @@ BlindSignature blindSign(TIACParams &params,PrepareBlindSignOutput &bsOut,mpz_t 
         throw std::runtime_error("blindSign: Hash(comi) != h => hata");
     }
     element_clear(hprime);
+    
+    // Create blind signature
     BlindSignature sig;
-    element_init_G1(sig.h,  params.pairing);
+    element_init_G1(sig.h, params.pairing);
     element_init_G1(sig.cm, params.pairing);
     element_set(sig.h, bsOut.h);
+    
+    // Calculate h^x
     element_t hx;
     element_init_G1(hx, params.pairing);
     {
@@ -117,6 +149,8 @@ BlindSignature blindSign(TIACParams &params,PrepareBlindSignOutput &bsOut,mpz_t 
         element_pow_zn(hx, bsOut.h, expX);
         element_clear(expX);
     }
+    
+    // Calculate com^y
     element_t comy;
     element_init_G1(comy, params.pairing);
     {
@@ -126,11 +160,15 @@ BlindSignature blindSign(TIACParams &params,PrepareBlindSignOutput &bsOut,mpz_t 
         element_pow_zn(comy, bsOut.com, expY);
         element_clear(expY);
     }
+    
+    // Calculate cm = h^x * com^y
     element_mul(sig.cm, hx, comy);
     element_clear(hx);
     element_clear(comy);
-    sig.debug.adminId = adminId;
-    sig.debug.voterId = voterId;
-    sig.debug.computed_cm = elemToStrG1(sig.cm);
+    
+    // Store debugging information
+    sig.adminId = adminId;
+    sig.voterId = voterId;
+    
     return sig;
 }

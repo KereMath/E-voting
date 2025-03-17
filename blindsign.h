@@ -20,15 +20,8 @@ bool CheckKoR(
 struct BlindSignature {
     element_t h;   
     element_t cm;  
-    struct {
-        int adminId;             
-        int voterId;               
-        std::string checkKoR_result;
-        std::string computed_hash_comi; 
-        std::string hx;           
-        std::string comy;          
-        std::string computed_cm;   
-    } debug;
+    int adminId;   // Moved from debug struct
+    int voterId;   // Moved from debug struct
 };
 
 BlindSignature blindSign(
