@@ -15,7 +15,7 @@ struct UnblindSignature {
     struct {
         std::string hash_comi;    
         std::string computed_s_m; 
-        std::string pairing_lhs; i
+        std::string pairing_lhs; 
         std::string pairing_rhs;
     } debug;
 };
