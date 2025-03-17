@@ -329,26 +329,54 @@ auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - kor
 
 
 // === Knowledge of Representation (KoR) Verification Phase And Pairing Check ===
-auto korVerStart = Clock::now();
+auto totalVerStart = Clock::now();
+std::atomic<bool> allVerified(true);
+
+// Variables to store total timing information
+std::atomic<uint64_t> totalPairing_us(0);
+std::atomic<uint64_t> totalKorVer_us(0);
 
 tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
     [&](const tbb::blocked_range<int>& r) {
         for (int i = r.begin(); i != r.end(); ++i) {
+            // Measure pairing check time
+            auto pairingStart = Clock::now();
             bool pairing_ok = pairingCheck(params, proveResults[i]);
+            auto pairingEnd = Clock::now();
+            auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(pairingEnd - pairingStart).count();
+            totalPairing_us += pairing_us;
+
+            // Measure KoR verification time
+            auto korVerStart = Clock::now();
             bool kor_ok = checkKoRVerify(
                 params,
-                proveResults[i],               
-                keyOut.mvk,                    
-                preparedOutputs[i].debug.com,  
-                aggregateResults[i].h          
+                proveResults[i],
+                keyOut.mvk,
+                preparedOutputs[i].debug.com,
+                aggregateResults[i].h
             );
+            auto korVerEnd = Clock::now();
+            auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd - korVerStart).count();
+            totalKorVer_us += korVer_us;
+
+            // Check if verification succeeded
             bool verified = pairing_ok && kor_ok;
+            if (!verified) {
+                allVerified.store(false);
+            }
         }
     }
 );
 
-auto korVerEnd = Clock::now();
-auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd - korVerStart).count();
+auto totalVerEnd = Clock::now();
+auto totalVer_us = std::chrono::duration_cast<std::chrono::microseconds>(totalVerEnd - totalVerStart).count();
+
+// Check if all verifications passed
+if (!allVerified.load()) {
+    throw std::runtime_error("Verification failed: pairing check or KoR verification returned false");
+}
+
+
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
     element_clear(keyOut.mvk.beta1);
@@ -372,7 +400,6 @@ auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd
     double idGen_ms    = idGen_us    / 1000.0;
     double didGen_ms   = didGen_us   / 1000.0;
     double pipeline_ms = pipeline_us / 1000.0;
-
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi       : " << setup_ms    << " ms\n";
     std::cout << "Pairing suresi     : " << pairing_ms  << " ms\n";
@@ -380,14 +407,15 @@ auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd
     std::cout << "ID Generation      : " << idGen_ms    << " ms\n";
     std::cout << "DID Generation     : " << didGen_ms   << " ms\n";
     std::cout << "Pipeline (Prep+Blind): " << pipeline_ms << " ms\n";
-
     std::cout << "\nToplam hazirlama (sum) = " << (cumulativePrep_us / 1000.0) << " ms\n";
     std::cout << "Toplam kör imza (sum)  = " << (cumulativeBlind_us / 1000.0) << " ms\n";
     std::cout << "\n[UNBLIND] Total Unblind Phase Time = " << (unblind_us / 1000.0) << " ms\n";
     std::cout << "\n[AGGREGATE] Total Aggregate Phase Time = " << (aggregate_us / 1000.0) << " ms\n";
     std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (prove_us / 1000.0) << " ms\n";
     std::cout << "\n[KOR] Total Knowledge of Representation Phase Time = " << (kor_us / 1000.0) << " ms\n";
-    std::cout << "\n[KOR VERIFY] Total Knowledge of Representation Verification Phase Time = " << (korVer_us / 1000.0) << " ms\n";
+    std::cout << "\n[PAIRING] Total Pairing Check Time = " << (totalPairing_us / 1000.0) << " ms\n";
+    std::cout << "\n[KOR VERIFY] Total Knowledge of Representation Verification Time = " << (totalKorVer_us / 1000.0) << " ms\n";
+    std::cout << "\n[VERIFICATION] Total Verification (Pairing + KoR) Time = " << (totalVer_us / 1000.0) << " ms\n";
     threadLog.close();
     auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(programEnd - programStart).count();
     std::cout << "Total execution time: " << (totalDuration / 1000.0) << " ms\n";
