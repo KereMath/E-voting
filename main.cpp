@@ -74,40 +74,50 @@ int main() {
     auto endPairing = Clock::now();
     auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
     element_clear(pairingTest);
-    // Setup işlemi tamamlandıktan sonra pairing ve eğri bilgilerini yazdır
-std::cout << "=== Pairing Parameters ===\n";
-std::cout << "Prime Order (p): ";
-mpz_out_str(stdout, 10, params.prime_order);
+    // Type-A pairing parametrelerini ve grup bilgilerini yazdır
+std::cout << "=== Grup Yapılarının Matematiksel Temsilleri ===\n";
+
+// Pairing parametrelerini yazdır
+std::cout << "Type-A Pairing Parametreleri:\n";
+std::cout << "q (base field): ";
+mpz_out_str(stdout, 10, params.pairing->q);
 std::cout << "\n";
 
-// g1 elemanını hex formatında yazdır
-std::cout << "g1 (hex format): ";
-element_out_str(stdout, 16, params.g1);
+std::cout << "r (prime order): ";
+mpz_out_str(stdout, 10, params.pairing->r);
 std::cout << "\n";
 
-// g2 elemanını hex formatında yazdır
-std::cout << "g2 (hex format): ";
-element_out_str(stdout, 16, params.g2);
+std::cout << "h (cofactor): ";
+mpz_out_str(stdout, 10, params.pairing->h);
 std::cout << "\n";
 
-// g1'i byte olarak yazdır (farklı bir gösterim)
-int g1_len = element_length_in_bytes(params.g1);
-unsigned char* g1_bytes = new unsigned char[g1_len];
-element_to_bytes(g1_bytes, params.g1);
-std::cout << "g1 (byte representation): ";
-for (int i = 0; i < g1_len; i++) {
-    printf("%02x", g1_bytes[i]);
-}
+// G1 grubunun parametreleri
+std::cout << "\nG1 Grubu:\n";
+std::cout << "- Yapı: E(F_q) eliptik eğrisinin r-mertebeli alt grubu\n";
+std::cout << "- Eğri Denklemi: y^2 = x^3 + x (Type-A için tipik)\n";
+std::cout << "- Üreteç: ";
+element_out_str(stdout, 10, params.g1);
 std::cout << "\n";
-delete[] g1_bytes;
 
-// Açıklama ekle
-std::cout << "\nG1 ve G2 Açıklaması:\n";
-std::cout << "- G1 ve G2, eşleştirme temelli kriptosistemde kullanılan iki farklı grubu temsil eder.\n";
-std::cout << "- Koordinatlar bir eliptik eğri üzerindeki noktaları temsil eder.\n";
-std::cout << "- Bu değerler programın her çalıştırılmasında farklı olabilir (random üretiliyorsa).\n";
-std::cout << "- Type-A pairing genellikle y^2 = x^3 + x gibi bir eğri kullanır.\n";
-std::cout << "========================\n\n";
+// G2 grubu (Type-A'da genellikle G1 ile aynı grup veya embeddingi)
+std::cout << "\nG2 Grubu:\n";
+std::cout << "- Yapı: Type-A pairing'de F_q^2 üzerinde twist eğrisi\n";
+std::cout << "- Üreteç: ";
+element_out_str(stdout, 10, params.g2);
+std::cout << "\n";
+
+// GT grubu (Target group)
+std::cout << "\nGT Grubu:\n";
+std::cout << "- Yapı: F_q^2 içindeki r-mertebeli çarpımsal grup\n";
+std::cout << "- GT = e(g1, g2) ile oluşan üreteç örneği:\n";
+element_t gt_sample;
+element_init_GT(gt_sample, params.pairing);
+pairing_apply(gt_sample, params.g1, params.g2, params.pairing);
+element_out_str(stdout, 10, gt_sample);
+element_clear(gt_sample);
+std::cout << "\n";
+
+std::cout << "===============================================\n\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
