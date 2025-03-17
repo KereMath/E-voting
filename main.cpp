@@ -101,44 +101,58 @@ int main() {
     std::vector<PipelineResult> pipelineResults(voterCount);
     auto pipelineStart = Clock::now();
     tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
+    
+    // 1. Prepare işlemleri için toplam süre ölçümü - başlangıç
+    auto prepStart = Clock::now();
+    
+    // Tüm prepare işlemlerini paralel olarak yap
     std::vector<PrepareBlindSignOutput> preparedOutputs(voterCount);
     tbb::parallel_for(0, voterCount, [&](int i){
-        pipelineResults[i].timing.prep_start = Clock::now();
-        PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
-        pipelineResults[i].timing.prep_end = Clock::now();
-        preparedOutputs[i] = bsOut;
+        preparedOutputs[i] = prepareBlindSign(params, dids[i].did);
     });
-struct SignTask {
-    int voterId;
-    int indexInVoter;
-    int adminId;
-};
-std::vector<SignTask> tasks;
-tasks.reserve(voterCount * t);
-std::random_device rd;
-std::mt19937 rng(rd());
-std::vector<int> adminIndices(ne);
-std::iota(adminIndices.begin(), adminIndices.end(), 0);
-for (int i = 0; i < voterCount; i++) {
-    pipelineResults[i].signatures.resize(t);
-    pipelineResults[i].timing.blind_start = pipelineResults[i].timing.prep_end;
-    std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
-    for (int j = 0; j < t; j++) {
-        SignTask st;
-        st.voterId      = i;
-        st.indexInVoter = j;
-        st.adminId      = adminIndices[j]; // T farklı admin
-        tasks.push_back(st);
+    
+    // Prepare işlemi bitti - süre ölçümü
+    auto prepEnd = Clock::now();
+    auto prepTime = std::chrono::duration_cast<std::chrono::microseconds>(prepEnd - prepStart).count();
+    
+    // 2. Blind signing için hazırlık
+    struct SignTask {
+        int voterId;
+        int indexInVoter;
+        int adminId;
+    };
+    
+    std::vector<SignTask> tasks;
+    tasks.reserve(voterCount * t);
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    
+    for (int i = 0; i < voterCount; i++) {
+        pipelineResults[i].signatures.resize(t);
+        
+        std::vector<int> adminIndices(ne);
+        std::iota(adminIndices.begin(), adminIndices.end(), 0);
+        std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
+        
+        for (int j = 0; j < t; j++) {
+            SignTask st;
+            st.voterId = i;
+            st.indexInVoter = j;
+            st.adminId = adminIndices[j]; // T farklı admin
+            tasks.push_back(st);
+        }
     }
-}
-
-tbb::parallel_for(
-    0, (int)tasks.size(),
-    [&](int idx) {
+    
+    // BlindSign işlemleri için toplam süre ölçümü - başlangıç
+    auto blindStart = Clock::now();
+    
+    // Tüm blind sign işlemlerini paralel olarak yap
+    tbb::parallel_for(0, (int)tasks.size(), [&](int idx) {
         const SignTask &st = tasks[idx];
         int vId = st.voterId;
-        int j   = st.indexInVoter;
+        int j = st.indexInVoter;
         int aId = st.adminId;
+        
         mpz_t xm, ym;
         mpz_init(xm);
         mpz_init(ym);
@@ -148,32 +162,21 @@ tbb::parallel_for(
         mpz_clear(xm);
         mpz_clear(ym);
         pipelineResults[vId].signatures[j] = sig;
-    }
-);
+    });
+    
+    // BlindSign işlemi bitti - süre ölçümü
+    auto blindEnd = Clock::now();
+    auto blindTime = std::chrono::duration_cast<std::chrono::microseconds>(blindEnd - blindStart).count();
+    
+    // Toplam süre
     auto pipelineEnd = Clock::now();
-    for (int i = 0; i < voterCount; i++) {
-        pipelineResults[i].timing.blind_end = pipelineEnd;
-    }
-
+    auto totalTime = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
     for (int i = 0; i < voterCount; i++) {
         for (int j = 0; j < (int)pipelineResults[i].signatures.size(); j++) {
             BlindSignature &sig = pipelineResults[i].signatures[j];
+            // Original code doesn't do anything with sig here
         }
-    }
-    auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
-    long long cumulativePrep_us  = 0;
-    long long cumulativeBlind_us = 0;
-    for (int i = 0; i < voterCount; i++) {
-        int gotCount = (int)pipelineResults[i].signatures.size();
-        auto prep_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.prep_end - pipelineResults[i].timing.prep_start
-        ).count();
-        auto blind_time = std::chrono::duration_cast<std::chrono::microseconds>(
-            pipelineResults[i].timing.blind_end - pipelineResults[i].timing.blind_start
-        ).count();
-        cumulativePrep_us  += prep_time;
-        cumulativeBlind_us += blind_time;
-    }
+    }    
 
 auto unblindStart = Clock::now();
 std::vector<std::vector<std::pair<int, UnblindSignature>>> unblindResultsWithAdmin(voterCount);
@@ -323,9 +326,8 @@ if (!allVerified.load()) {
     std::cout << "KeyGen suresi      : " << keygen_ms   << " ms\n";
     std::cout << "ID Generation      : " << idGen_ms    << " ms\n";
     std::cout << "DID Generation     : " << didGen_ms   << " ms\n";
-    std::cout << "Pipeline (Prep+Blind): " << pipeline_ms << " ms\n";
-    std::cout << "\nToplam hazirlama (sum) = " << (cumulativePrep_us / 1000.0) << " ms\n";
-    std::cout << "Toplam kör imza (sum)  = " << (cumulativeBlind_us / 1000.0) << " ms\n";
+    std::cout << "Total prepare time: " << prepTime << " microseconds" << std::endl;
+    std::cout << "Total blind sign time: " << blindTime << " microseconds" << std::endl;
     std::cout << "\n[UNBLIND] Total Unblind Phase Time = " << (unblind_us / 1000.0) << " ms\n";
     std::cout << "\n[AGGREGATE] Total Aggregate Phase Time = " << (aggregate_us / 1000.0) << " ms\n";
     std::cout << "\n[PROVE] Total ProveCredential (without KOR) Phase Time = " << (prove_us / 1000.0) << " ms\n";
