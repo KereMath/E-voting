@@ -319,7 +319,6 @@ if (!allVerified.load()) {
     double keygen_ms   = keygen_us   / 1000.0;
     double idGen_ms    = idGen_us    / 1000.0;
     double didGen_ms   = didGen_us   / 1000.0;
-    double pipeline_ms = pipeline_us / 1000.0;
     std::cout << "=== Zaman Olcumleri (ms) ===\n";
     std::cout << "Setup suresi       : " << setup_ms    << " ms\n";
     std::cout << "Pairing suresi     : " << pairing_ms  << " ms\n";
