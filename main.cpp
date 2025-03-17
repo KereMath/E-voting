@@ -74,47 +74,6 @@ int main() {
     auto endPairing = Clock::now();
     auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
     element_clear(pairingTest);
-    // Type-A pairing parametrelerini ve grup bilgilerini yazdır
-std::cout << "=== Grup Yapılarının Matematiksel Temsilleri ===\n";
-
-// Prime order (r) parametresi - bunu zaten erişebiliyoruz
-std::cout << "r (prime order): ";
-mpz_out_str(stdout, 10, params.pairing->r);
-std::cout << " (~" << mpz_sizeinbase(params.pairing->r, 2) << " bits)\n";
-
-// G1 grubunun parametreleri
-std::cout << "\nG1 Grubu:\n";
-std::cout << "- Yapı: Type-A eşleştirmesinde eliptik eğri üzerindeki r-mertebeli alt grup\n";
-std::cout << "- Üreteç (g1): ";
-element_out_str(stdout, 10, params.g1);
-std::cout << "\n";
-
-// G2 grubu
-std::cout << "\nG2 Grubu:\n";
-std::cout << "- Yapı: Type-A eşleştirmesinde genellikle aynı eğri üzerinde veya twist eğrisindeki grup\n";
-std::cout << "- Üreteç (g2): ";
-element_out_str(stdout, 10, params.g2);
-std::cout << "\n";
-
-// GT grubu (Target group)
-std::cout << "\nGT Grubu:\n";
-std::cout << "- Yapı: Bilinear eşleştirme sonucu oluşan r-mertebeli çarpımsal grup\n";
-std::cout << "- Bir GT elemanı örneği (e(g1, g2)): ";
-element_t gt_sample;
-element_init_GT(gt_sample, params.pairing);
-pairing_apply(gt_sample, params.g1, params.g2, params.pairing);
-element_out_str(stdout, 10, gt_sample);
-std::cout << "\n";
-element_clear(gt_sample);
-
-// Bilinear eşleştirme özellikleri
-std::cout << "\nBilinear Eşleştirme Özellikleri:\n";
-std::cout << "- e(g1, g2) = GT elemanı\n";
-std::cout << "- e(a*g1, b*g2) = e(g1, g2)^(a*b) (bilinearity)\n";
-std::cout << "- Type-A eşleştirme genellikle süper-tekil (supersingular) eliptik eğriler kullanır\n";
-std::cout << "- Embedding degree: k=2 (GT elemanları F_q^2 içinde bulunur)\n";
-
-std::cout << "===============================================\n\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
