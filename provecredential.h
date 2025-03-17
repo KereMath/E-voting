@@ -1,31 +1,27 @@
 #ifndef PROVE_CREDENTIAL_H
 #define PROVE_CREDENTIAL_H
 
-#include "aggregate.h"   // For AggregateSignature and MasterVerKey
-#include "setup.h"       // For TIACParams
+#include "aggregate.h"  
+#include "setup.h"       
 #include <string>
 #include <pbc/pbc.h>
 #include <gmp.h>
 
 struct ProveCredentialSigmaRnd {
-    element_t h; // h'' from σ″
-    element_t s; // s'' from σ″
+    element_t h; 
+    element_t s; 
     std::string debug_info;
 };
 
 struct ProveCredentialOutput {
-    ProveCredentialSigmaRnd sigmaRnd; // σ″ = (h'', s'')
-    element_t k;                      // k = α₂ · (β₂)^(did) · g₂^(r)
-    element_t r;                      // Store the random r value
-
-    // Direct storage of proof elements (no parsing needed)
+    ProveCredentialSigmaRnd sigmaRnd;
+    element_t k;                      
+    element_t r;                     
     element_t c;
     element_t s1;
     element_t s2;
     element_t s3;
-    
-    // Keep the string version for backwards compatibility
-    std::string proof_v;              // KoR tuple: (c, s1, s2, s3)
+    std::string proof_v;             
 };
 
 ProveCredentialOutput proveCredential(
@@ -33,7 +29,7 @@ ProveCredentialOutput proveCredential(
     AggregateSignature &aggSig,
     MasterVerKey &mvk,
     const std::string &didStr,
-    const mpz_t o   // "o" value from the prepare phase
+    const mpz_t o   
 );
 
 #endif
