@@ -20,7 +20,6 @@
 #include "unblindsign.h" // Alg.13
 #include "aggregate.h" // aggregateSign fonksiyonunu kullanmak için
 #include "provecredential.h"  // proveCredential fonksiyonunu içerir
-#include "verifycredential.h"  // verifyCredential tanımı
 #include "pairinginverify.h"
 #include "checkkorverify.h"
 #include "kor.h"
