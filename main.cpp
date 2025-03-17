@@ -8,25 +8,21 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-
 #include <tbb/parallel_for.h>
 #include <tbb/global_control.h>
-
 #include "setup.h"
 #include "keygen.h"
 #include "didgen.h"
 #include "prepareblindsign.h"
-#include "blindsign.h"   // Alg.50
-#include "unblindsign.h" // Alg.13
-#include "aggregate.h" // aggregateSign fonksiyonunu kullanmak için
-#include "provecredential.h"  // proveCredential fonksiyonunu içerir
+#include "blindsign.h"  
+#include "unblindsign.h"
+#include "aggregate.h" 
+#include "provecredential.h" 
 #include "pairinginverify.h"
 #include "checkkorverify.h"
 #include "kor.h"
-
 using Clock = std::chrono::steady_clock;
 
-// -----------------------------------------------------------------------------
 struct PipelineTiming {
     Clock::time_point prep_start;
     Clock::time_point prep_end;
@@ -39,13 +35,11 @@ struct PipelineResult {
     PipelineTiming timing;
 };
 
-// Yardımcı fonksiyon: element kopyalamak için (const kullanılmıyor)
 void my_element_dup(element_t dest, element_t src) {
     element_init_same_as(dest, src);
     element_set(dest, src);
 }
 
-// -----------------------------------------------------------------------------
 int main() {
     auto programStart = Clock::now();
     int ne = 0;       
@@ -69,17 +63,10 @@ int main() {
         infile.close();
     }
 
-    std::cout << "EA sayisi (admin) = " << ne << "\n";
-    std::cout << "Esik degeri (threshold) = " << t << "\n";
-    std::cout << "Secmen sayisi (voterCount) = " << voterCount << "\n\n";
-
-    // 2) Setup (Alg.1)
     auto startSetup = Clock::now();
     TIACParams params = setupParams();
     auto endSetup = Clock::now();
     auto setup_us = std::chrono::duration_cast<std::chrono::microseconds>(endSetup - startSetup).count();
-
-    // 3) Pairing testi
     element_t pairingTest;
     element_init_GT(pairingTest, params.pairing);
     auto startPairing = Clock::now();
@@ -87,14 +74,10 @@ int main() {
     auto endPairing = Clock::now();
     auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(endPairing - startPairing).count();
     element_clear(pairingTest);
-    // 4) KeyGen (Alg.2)
-    // std::cout << "=== TTP ile Anahtar Uretimi (KeyGen) ===\n";
     auto startKeygen = Clock::now();
     KeyGenOutput keyOut = keygen(params, t, ne);
     auto endKeygen = Clock::now();
     auto keygen_us = std::chrono::duration_cast<std::chrono::microseconds>(endKeygen - startKeygen).count();
-
-    // 5) ID Generation
     auto startIDGen = Clock::now();
     std::vector<std::string> voterIDs(voterCount);
     {
@@ -108,7 +91,6 @@ int main() {
     }
     auto endIDGen = Clock::now();
     auto idGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endIDGen - startIDGen).count();
-    // 6) DID Generation
     auto startDIDGen = Clock::now();
     std::vector<DID> dids(voterCount);
     for (int i = 0; i < voterCount; i++) {
@@ -116,22 +98,16 @@ int main() {
     }
     auto endDIDGen = Clock::now();
     auto didGen_us = std::chrono::duration_cast<std::chrono::microseconds>(endDIDGen - startDIDGen).count();
-
     std::vector<PipelineResult> pipelineResults(voterCount);
     auto pipelineStart = Clock::now();
     tbb::global_control gc(tbb::global_control::max_allowed_parallelism, 50);
-
-    // 7) Tüm seçmenler için prepareBlindSign (paralelde)
     std::vector<PrepareBlindSignOutput> preparedOutputs(voterCount);
-
     tbb::parallel_for(0, voterCount, [&](int i){
         pipelineResults[i].timing.prep_start = Clock::now();
         PrepareBlindSignOutput bsOut = prepareBlindSign(params, dids[i].did);
         pipelineResults[i].timing.prep_end = Clock::now();
         preparedOutputs[i] = bsOut;
     });
-
-   // 8) Kör imza görevleri için tek bir "SignTask" havuzu
 struct SignTask {
     int voterId;
     int indexInVoter;
@@ -139,23 +115,14 @@ struct SignTask {
 };
 std::vector<SignTask> tasks;
 tasks.reserve(voterCount * t);
-
-// Rastgele admin subset'i seçimi için
 std::random_device rd;
 std::mt19937 rng(rd());
-
-// Admin indekslerinin [0..ne-1] aralığını tutan dizi
 std::vector<int> adminIndices(ne);
 std::iota(adminIndices.begin(), adminIndices.end(), 0);
-
-// Her seçmen için T adet FARKLI admin seçip tasks’e ekleyelim
 for (int i = 0; i < voterCount; i++) {
     pipelineResults[i].signatures.resize(t);
     pipelineResults[i].timing.blind_start = pipelineResults[i].timing.prep_end;
-
-    // Admin dizisini her seçmen için karıştıralım (shuffle)
     std::shuffle(adminIndices.begin(), adminIndices.end(), rng);
-    // Böylece adminIndices[0..t-1] => o seçmen için T farklı admin
     for (int j = 0; j < t; j++) {
         SignTask st;
         st.voterId      = i;
@@ -165,7 +132,6 @@ for (int i = 0; i < voterCount; i++) {
     }
 }
 
-// 9) Kör imza görevlerini paralel çalıştırıyoruz
 tbb::parallel_for(
     0, (int)tasks.size(),
     [&](int idx) {
@@ -184,8 +150,6 @@ tbb::parallel_for(
         pipelineResults[vId].signatures[j] = sig;
     }
 );
-
-    // 10) Kör imzalar tamamlandığında, pipeline bitiş zamanı ayarlanır
     auto pipelineEnd = Clock::now();
     for (int i = 0; i < voterCount; i++) {
         pipelineResults[i].timing.blind_end = pipelineEnd;
@@ -196,9 +160,6 @@ tbb::parallel_for(
             BlindSignature &sig = pipelineResults[i].signatures[j];
         }
     }
-
-
-    // 11) Pipeline süresi
     auto pipeline_us = std::chrono::duration_cast<std::chrono::microseconds>(pipelineEnd - pipelineStart).count();
     long long cumulativePrep_us  = 0;
     long long cumulativeBlind_us = 0;
@@ -214,16 +175,13 @@ tbb::parallel_for(
         cumulativeBlind_us += blind_time;
     }
 
-// 14) Unblind Phase: Her seçmen için threshold (örneğin t adet) imza unblind edilecek.
 auto unblindStart = Clock::now();
-
 std::vector<std::vector<std::pair<int, UnblindSignature>>> unblindResultsWithAdmin(voterCount);
 std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
 tbb::parallel_for(0, voterCount, [&](int i) {
     int numSigs = (int) pipelineResults[i].signatures.size();
     unblindResults[i].resize(numSigs);
     unblindResultsWithAdmin[i].resize(numSigs); // Alt vektörün boyutunu ayarla
-
     tbb::parallel_for(0, numSigs, [&](int j) {
         int adminId = pipelineResults[i].signatures[j].debug.adminId;
         UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
@@ -232,11 +190,9 @@ tbb::parallel_for(0, voterCount, [&](int i) {
     });
 });
 
-
 auto unblindEnd = Clock::now();
 auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
 
-// Admin idleriyle birlikte tutmak için conversion işlemi";
 for (int i = 0; i < voterCount; i++) {
     for (int j = 0; j < (int)unblindResultsWithAdmin[i].size(); j++) {
         int adminId = unblindResultsWithAdmin[i][j].first; // Admin ID'sini al
@@ -244,7 +200,6 @@ for (int i = 0; i < voterCount; i++) {
     }
 }
 
- // Aggregate imza hesaplaması:
 std::vector<AggregateSignature> aggregateResults(voterCount);
 auto aggregateStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
@@ -254,7 +209,6 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 auto aggregateEnd = Clock::now();
 auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
 
-// --- ProveCredential Phase ---
 std::vector<ProveCredentialOutput> proveResults(voterCount);
 auto proveStart = Clock::now();
 tbb::parallel_for(0, voterCount, [&](int i) {
@@ -263,10 +217,7 @@ tbb::parallel_for(0, voterCount, [&](int i) {
 });
 auto proveEnd = Clock::now();
 auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
-
-//kor işlemi
 auto korStart = Clock::now();
-
 tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
     [&](const tbb::blocked_range<int>& r) {
         for (int i = r.begin(); i != r.end(); ++i) {
@@ -274,7 +225,6 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
             mpz_init(did_int);
             mpz_set_str(did_int, dids[i].did.c_str(), 16);
             mpz_mod(did_int, did_int, params.prime_order);
-
             element_t com_elem;
             element_init_G1(com_elem, params.pairing);
             try {
@@ -283,7 +233,6 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
                 std::cerr << "Error converting com string to element: " << e.what() << std::endl;
                 element_random(com_elem);
             }
-            // KoR kanıtını oluştur
             KnowledgeOfRepProof korProof = generateKoRProof(
                 params,
                 aggregateResults[i].h,
@@ -295,7 +244,6 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
                 did_int,
                 preparedOutputs[i].o
             );
-            // Kanıtı proveResults'e kopyala
             element_set(proveResults[i].c, korProof.c);
             element_set(proveResults[i].s1, korProof.s1);
             element_set(proveResults[i].s2, korProof.s2);
@@ -310,30 +258,20 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
         }
     }
 );
-
 auto korEnd = Clock::now();
 auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - korStart).count();
-
-
-// === Knowledge of Representation (KoR) Verification Phase And Pairing Check ===
 auto totalVerStart = Clock::now();
 std::atomic<bool> allVerified(true);
-
-// Variables to store total timing information
 std::atomic<uint64_t> totalPairing_us(0);
 std::atomic<uint64_t> totalKorVer_us(0);
-
 tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
     [&](const tbb::blocked_range<int>& r) {
         for (int i = r.begin(); i != r.end(); ++i) {
-            // Measure pairing check time
             auto pairingStart = Clock::now();
             bool pairing_ok = pairingCheck(params, proveResults[i]);
             auto pairingEnd = Clock::now();
             auto pairing_us = std::chrono::duration_cast<std::chrono::microseconds>(pairingEnd - pairingStart).count();
             totalPairing_us += pairing_us;
-
-            // Measure KoR verification time
             auto korVerStart = Clock::now();
             bool kor_ok = checkKoRVerify(
                 params,
@@ -345,8 +283,6 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
             auto korVerEnd = Clock::now();
             auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd - korVerStart).count();
             totalKorVer_us += korVer_us;
-
-            // Check if verification succeeded
             bool verified = pairing_ok && kor_ok;
             if (!verified) {
                 allVerified.store(false);
@@ -354,16 +290,11 @@ tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
         }
     }
 );
-
 auto totalVerEnd = Clock::now();
 auto totalVer_us = std::chrono::duration_cast<std::chrono::microseconds>(totalVerEnd - totalVerStart).count();
-
-// Check if all verifications passed
 if (!allVerified.load()) {
     throw std::runtime_error("Verification failed: pairing check or KoR verification returned false");
 }
-
-
     element_clear(keyOut.mvk.alpha2);
     element_clear(keyOut.mvk.beta2);
     element_clear(keyOut.mvk.beta1);
@@ -380,8 +311,6 @@ if (!allVerified.load()) {
     clearParams(params);
     auto programEnd = Clock::now();
     auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(programEnd - programStart).count();
-
-    // 13) Zaman ölçümlerini ekrana yazalım
     double setup_ms    = setup_us    / 1000.0;
     double pairing_ms  = pairing_us  / 1000.0;
     double keygen_ms   = keygen_us   / 1000.0;
