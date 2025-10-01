@@ -3,7 +3,8 @@
 #include <vector>
 #include <random>
 #include <stdexcept>
-// TBB header'ını kaldırdık
+#include <tbb/parallel_for.h>
+#include <tbb/global_control.h>
 
 static void random_mpz_modp(mpz_t rop, const mpz_t p) {
     static std::random_device rd;
@@ -65,9 +66,7 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
     element_pow_zn(keyOut.mvk.alpha2, params.g2, expX);
     element_pow_zn(keyOut.mvk.beta2, params.g2, expY);
     element_pow_zn(keyOut.mvk.beta1, params.g1, expY);
-    
-    // Paralel döngüyü normal for döngüsüyle değiştirdik
-    for(int m = 1; m <= ne; m++) {
+    tbb::parallel_for(1, ne + 1, [&](int m) {
         element_init_Zr(keyOut.eaKeys[m - 1].sgk1, params.pairing);
         element_init_Zr(keyOut.eaKeys[m - 1].sgk2, params.pairing);
         element_init_G2(keyOut.eaKeys[m - 1].vkm1, params.pairing);
@@ -93,7 +92,7 @@ KeyGenOutput keygen(TIACParams &params, int t, int ne) {
         element_clear(expYm);
         mpz_clear(xm);
         mpz_clear(ym);
-    }
+    });
 
     for (int i = 0; i < t; i++) {
         mpz_clear(vPoly[i]);

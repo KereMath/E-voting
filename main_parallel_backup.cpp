@@ -8,7 +8,8 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-// TBB header'ını kaldırdık
+#include <tbb/parallel_for.h>
+#include <tbb/global_control.h>
 #include "setup.h"
 #include "keygen.h"
 #include "didgen.h"
@@ -40,7 +41,11 @@ void my_element_dup(element_t dest, element_t src) {
 }
 
 int main() {
-    // Paralellik kontrolünü kaldırdık
+    // Sistemdeki tüm CPU çekirdeklerini tespit et
+int max_threads = std::thread::hardware_concurrency();
+
+// Tüm çekirdekleri kullanmaya zorla (mevcut kodunuzda bu kısım yok)
+tbb::global_control gc(tbb::global_control::max_allowed_parallelism, max_threads);
     auto programStart = Clock::now();
     int ne = 0;       
     int t  = 0;       
@@ -106,12 +111,12 @@ int main() {
     std::vector<PipelineResult> pipelineResults(voterCount);
     auto pipelineStart = Clock::now();
     
-    // Prepare BlindSign işlemleri - sıralı (sequential) çalışır
+    // Prepare BlindSign işlemleri - süre ölçümü for döngüsü dışında
     auto prepStart = Clock::now();
     std::vector<PrepareBlindSignOutput> preparedOutputs(voterCount);
-    for(int i = 0; i < voterCount; i++){
+    tbb::parallel_for(0, voterCount, [&](int i){
         preparedOutputs[i] = prepareBlindSign(params, dids[i].did);
-    }
+    });
     auto prepEnd = Clock::now();
     auto prepTime = std::chrono::duration_cast<std::chrono::microseconds>(prepEnd - prepStart).count();
     
@@ -141,9 +146,9 @@ int main() {
         }
     }
     
-    // BlindSign işlemleri - sıralı (sequential) çalışır
+    // BlindSign işlemleri - süre ölçümü for döngüsü dışında
     auto blindStart = Clock::now();
-    for(int idx = 0; idx < (int)tasks.size(); idx++) {
+    tbb::parallel_for(0, (int)tasks.size(), [&](int idx) {
         const SignTask &st = tasks[idx];
         int vId = st.voterId;
         int j = st.indexInVoter;
@@ -158,7 +163,7 @@ int main() {
         mpz_clear(xm);
         mpz_clear(ym);
         pipelineResults[vId].signatures[j] = sig;
-    }
+    });
     auto blindEnd = Clock::now();
     auto blindTime = std::chrono::duration_cast<std::chrono::microseconds>(blindEnd - blindStart).count();
     
@@ -171,23 +176,23 @@ int main() {
         }
     } 
     
-    // Unblind işlemleri - sıralı (sequential) çalışır
+    // Unblind işlemleri - süre ölçümü for döngüsü dışında
     auto unblindStart = Clock::now();
     std::vector<std::vector<std::pair<int, UnblindSignature>>> unblindResultsWithAdmin(voterCount);
     std::vector<std::vector<UnblindSignature>> unblindResults(voterCount);
     
-    for(int i = 0; i < voterCount; i++) {
+    tbb::parallel_for(0, voterCount, [&](int i) {
         int numSigs = (int) pipelineResults[i].signatures.size();
         unblindResults[i].resize(numSigs);
         unblindResultsWithAdmin[i].resize(numSigs);
         
-        for(int j = 0; j < numSigs; j++) {
+        tbb::parallel_for(0, numSigs, [&](int j) {
             int adminId = pipelineResults[i].signatures[j].adminId; 
             UnblindSignature usig = unblindSign(params, preparedOutputs[i], pipelineResults[i].signatures[j], keyOut.eaKeys[adminId], dids[i].did);
             unblindResults[i][j] = usig;
             unblindResultsWithAdmin[i][j] = {adminId, usig};
-        }
-    }
+        });
+    });
     auto unblindEnd = Clock::now();
     auto unblind_us = std::chrono::duration_cast<std::chrono::microseconds>(unblindEnd - unblindStart).count();
     
@@ -198,135 +203,151 @@ int main() {
         }
     }
     
-    // Aggregate işlemleri - sıralı (sequential) çalışır
+    // Aggregate işlemleri - süre ölçümü for döngüsü dışında
     std::vector<AggregateSignature> aggregateResults(voterCount);
     auto aggregateStart = Clock::now();
     
-    for(int i = 0; i < voterCount; i++) {
+    tbb::parallel_for(0, voterCount, [&](int i) {
         AggregateSignature aggSig = aggregateSign(params, unblindResultsWithAdmin[i], keyOut.mvk, dids[i].did, params.prime_order);
         aggregateResults[i] = aggSig;
-    }
+    });
     
     auto aggregateEnd = Clock::now();
     auto aggregate_us = std::chrono::duration_cast<std::chrono::microseconds>(aggregateEnd - aggregateStart).count();
     
-    // Prove Credential işlemleri - sıralı (sequential) çalışır
+    // Prove Credential işlemleri - süre ölçümü for döngüsü dışında
     std::vector<ProveCredentialOutput> proveResults(voterCount);
     auto proveStart = Clock::now();
     
-    for(int i = 0; i < voterCount; i++) {
+    tbb::parallel_for(0, voterCount, [&](int i) {
         ProveCredentialOutput pOut = proveCredential(params, aggregateResults[i], keyOut.mvk, dids[i].did, preparedOutputs[i].o);
         proveResults[i] = pOut;
-    }
+    });
     
     auto proveEnd = Clock::now();
     auto prove_us = std::chrono::duration_cast<std::chrono::microseconds>(proveEnd - proveStart).count();
     
-    // KoR üretimi - sıralı (sequential) çalışır
+    // KoR üretimi - süre ölçümü for döngüsü dışında
     auto korStart = Clock::now();
     
-    for(int i = 0; i < voterCount; i++) {
-        mpz_t did_int;
-        mpz_init(did_int);
-        mpz_set_str(did_int, dids[i].did.c_str(), 16);
-        mpz_mod(did_int, did_int, params.prime_order);
-        
-        element_t com_elem;
-        element_init_G1(com_elem, params.pairing);
-        try {
-            stringToElement(com_elem, preparedOutputs[i].com_str, params.pairing, 1);
-        } catch (const std::exception& e) {
-            std::cerr << "Error converting com string to element: " << e.what() << std::endl;
-            element_random(com_elem);
+    tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
+        [&](const tbb::blocked_range<int>& r) {
+            for (int i = r.begin(); i != r.end(); ++i) {
+                mpz_t did_int;
+                mpz_init(did_int);
+                mpz_set_str(did_int, dids[i].did.c_str(), 16);
+                mpz_mod(did_int, did_int, params.prime_order);
+                
+                element_t com_elem;
+                element_init_G1(com_elem, params.pairing);
+                try {
+                    stringToElement(com_elem, preparedOutputs[i].com_str, params.pairing, 1);
+                } catch (const std::exception& e) {
+                    std::cerr << "Error converting com string to element: " << e.what() << std::endl;
+                    element_random(com_elem);
+                }
+                
+                KnowledgeOfRepProof korProof = generateKoRProof(
+                    params,
+                    aggregateResults[i].h,
+                    proveResults[i].k,
+                    proveResults[i].r,
+                    com_elem,
+                    keyOut.mvk.alpha2,
+                    keyOut.mvk.beta2,
+                    did_int,
+                    preparedOutputs[i].o
+                );
+                
+                element_set(proveResults[i].c, korProof.c);
+                element_set(proveResults[i].s1, korProof.s1);
+                element_set(proveResults[i].s2, korProof.s2);
+                element_set(proveResults[i].s3, korProof.s3);
+                proveResults[i].proof_v = korProof.proof_string;
+                
+                element_clear(com_elem);
+                element_clear(korProof.c);
+                element_clear(korProof.s1);
+                element_clear(korProof.s2);
+                element_clear(korProof.s3);
+                mpz_clear(did_int);
+            }
         }
-        
-        KnowledgeOfRepProof korProof = generateKoRProof(
-            params,
-            aggregateResults[i].h,
-            proveResults[i].k,
-            proveResults[i].r,
-            com_elem,
-            keyOut.mvk.alpha2,
-            keyOut.mvk.beta2,
-            did_int,
-            preparedOutputs[i].o
-        );
-        
-        element_set(proveResults[i].c, korProof.c);
-        element_set(proveResults[i].s1, korProof.s1);
-        element_set(proveResults[i].s2, korProof.s2);
-        element_set(proveResults[i].s3, korProof.s3);
-        proveResults[i].proof_v = korProof.proof_string;
-        
-        element_clear(com_elem);
-        element_clear(korProof.c);
-        element_clear(korProof.s1);
-        element_clear(korProof.s2);
-        element_clear(korProof.s3);
-        mpz_clear(did_int);
-    }
+    );
     
     auto korEnd = Clock::now();
     auto kor_us = std::chrono::duration_cast<std::chrono::microseconds>(korEnd - korStart).count();
     
-    // Pairing Check - sıralı (sequential) çalışır
+    // Pairing Check - süre ölçümü for döngüsü dışında
     auto pairingCheckStart = Clock::now();
-    bool allPairingVerified = true;
+    std::atomic<bool> allPairingVerified(true);
     
-    for(int i = 0; i < voterCount; i++) {
-        bool pairing_ok = pairingCheck(params, proveResults[i]);
-        if (!pairing_ok) {
-            allPairingVerified = false;
+    tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
+        [&](const tbb::blocked_range<int>& r) {
+            for (int i = r.begin(); i != r.end(); ++i) {
+                bool pairing_ok = pairingCheck(params, proveResults[i]);
+                if (!pairing_ok) {
+                    allPairingVerified.store(false);
+                }
+            }
         }
-    }
+    );
     
     auto pairingCheckEnd = Clock::now();
     auto pairingCheck_us = std::chrono::duration_cast<std::chrono::microseconds>(pairingCheckEnd - pairingCheckStart).count();
     
-    // KoR Verify - sıralı (sequential) çalışır
+    // KoR Verify - süre ölçümü for döngüsü dışında
     auto korVerStart = Clock::now();
-    bool allKorVerified = true;
+    std::atomic<bool> allKorVerified(true);
     
-    for(int i = 0; i < voterCount; i++) {
-        bool kor_ok = checkKoRVerify(
-            params,
-            proveResults[i],
-            keyOut.mvk,
-            preparedOutputs[i].com_str, 
-            aggregateResults[i].h
-        );
-        if (!kor_ok) {
-            allKorVerified = false;
+    tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
+        [&](const tbb::blocked_range<int>& r) {
+            for (int i = r.begin(); i != r.end(); ++i) {
+                bool kor_ok = checkKoRVerify(
+                    params,
+                    proveResults[i],
+                    keyOut.mvk,
+                    preparedOutputs[i].com_str, 
+                    aggregateResults[i].h
+                );
+                if (!kor_ok) {
+                    allKorVerified.store(false);
+                }
+            }
         }
-    }
+    );
     
     auto korVerEnd = Clock::now();
     auto korVer_us = std::chrono::duration_cast<std::chrono::microseconds>(korVerEnd - korVerStart).count();
     
     // Toplam doğrulama süresi
     auto totalVerStart = Clock::now();
-    bool allVerified = true;
+    std::atomic<bool> allVerified(true);
     
-    for(int i = 0; i < voterCount; i++) {
-        bool pairing_ok = pairingCheck(params, proveResults[i]);
-        bool kor_ok = checkKoRVerify(
-            params,
-            proveResults[i],
-            keyOut.mvk,
-            preparedOutputs[i].com_str, 
-            aggregateResults[i].h
-        );
-        
-        bool verified = pairing_ok && kor_ok;
-        if (!verified) {
-            allVerified = false;
+    tbb::parallel_for(tbb::blocked_range<int>(0, voterCount),
+        [&](const tbb::blocked_range<int>& r) {
+            for (int i = r.begin(); i != r.end(); ++i) {
+                bool pairing_ok = pairingCheck(params, proveResults[i]);
+                bool kor_ok = checkKoRVerify(
+                    params,
+                    proveResults[i],
+                    keyOut.mvk,
+                    preparedOutputs[i].com_str, 
+                    aggregateResults[i].h
+                );
+                
+                bool verified = pairing_ok && kor_ok;
+                if (!verified) {
+                    allVerified.store(false);
+                }
+            }
         }
-    }
+    );
     
     auto totalVerEnd = Clock::now();
     auto totalVer_us = std::chrono::duration_cast<std::chrono::microseconds>(totalVerEnd - totalVerStart).count();
     
-    if (!allVerified) {
+    if (!allVerified.load()) {
         throw std::runtime_error("Verification failed: pairing check or KoR verification returned false");
     }
     
